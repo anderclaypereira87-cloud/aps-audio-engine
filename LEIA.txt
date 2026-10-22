@@ -18,6 +18,9 @@ CHANGELOG
 - Separador: blocos repetidos removidos ("Escolha o instrumento" e "Bateria por peça" aparecem uma vez só).
 - Mantidos da 1.8.0: checagem do aparelho, tempo estimado, sugestão de mix, masterização -14/-9 LUFS.
 - E-mails de administrador retirados de auth-config.js (o site é público).
+- Drum Sampler: 2 kits prontos (samples do proprietário): "APS Studio (MMSTUDIO)" com 11 peças/18 sons e
+  "APS Acústico (MMSTUDIO)" com bumbo, caixa, tons e surdo (31 sons, camadas Kick In/Hard/Med/Blend como opções).
+  Ficam em kits/ e só baixam quando você escolhe o kit (não entram no cache offline).
 - Cache do app: aps-shell-1.9.0.
 
 1.8.0
