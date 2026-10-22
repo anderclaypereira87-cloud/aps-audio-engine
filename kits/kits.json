@@ -21,11 +21,13 @@
     },
     {
      "file": "kits/aps-studio/caixa-1.wav",
-     "label": "Caixa 1"
+     "label": "Caixa 1",
+     "series": "cx-var"
     },
     {
      "file": "kits/aps-studio/caixa-2.wav",
-     "label": "Caixa 2"
+     "label": "Caixa 2",
+     "series": "cx-var"
     }
    ],
    "tom1": [
@@ -53,11 +55,13 @@
    "hat": [
     {
      "file": "kits/aps-studio/hh-1.wav",
-     "label": "hh 1"
+     "label": "hh 1",
+     "series": "hh-var"
     },
     {
      "file": "kits/aps-studio/hh2.wav",
-     "label": "hh2"
+     "label": "hh2",
+     "series": "hh-var"
     },
     {
      "file": "kits/aps-studio/hh-pe.wav",
@@ -73,11 +77,13 @@
    "crash": [
     {
      "file": "kits/aps-studio/prato-atack-16.wav",
-     "label": "Prato Atack - 16"
+     "label": "Prato Atack - 16",
+     "series": "atk-var"
     },
     {
      "file": "kits/aps-studio/prato-atack-17.wav",
-     "label": "Prato Atack - 17"
+     "label": "Prato Atack - 17",
+     "series": "atk-var"
     },
     {
      "file": "kits/aps-studio/prato-shine-16.wav",
@@ -112,23 +118,33 @@
     },
     {
      "file": "kits/aps-acustico/kick-in-1.wav",
-     "label": "Kick In 1"
+     "label": "Kick In 1",
+     "series": "kickin",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/kick-in-2.wav",
-     "label": "Kick In 2"
+     "label": "Kick In 2",
+     "series": "kickin",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/kick-in-3.wav",
-     "label": "Kick In 3"
+     "label": "Kick In 3",
+     "series": "kickin",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/kick-in-4.wav",
-     "label": "Kick In 4"
+     "label": "Kick In 4",
+     "series": "kickin",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/kick-in-5.wav",
-     "label": "Kick In 5"
+     "label": "Kick In 5",
+     "series": "kickin",
+     "tier": "ladder"
     }
    ],
    "snare": [
@@ -142,59 +158,87 @@
     },
     {
      "file": "kits/aps-acustico/hard-1.wav",
-     "label": "Hard 1"
+     "label": "Hard 1",
+     "series": "cx-dyn",
+     "tier": "Hard"
     },
     {
      "file": "kits/aps-acustico/hard-4.wav",
-     "label": "Hard 4"
+     "label": "Hard 4",
+     "series": "cx-dyn",
+     "tier": "Hard"
     },
     {
      "file": "kits/aps-acustico/hard-6.wav",
-     "label": "Hard 6"
+     "label": "Hard 6",
+     "series": "cx-dyn",
+     "tier": "Hard"
     },
     {
      "file": "kits/aps-acustico/hard-med-1.wav",
-     "label": "Hard_Med 1"
+     "label": "Hard_Med 1",
+     "series": "cx-dyn",
+     "tier": "Hard_Med"
     },
     {
      "file": "kits/aps-acustico/hard-med-3.wav",
-     "label": "Hard_Med 3"
+     "label": "Hard_Med 3",
+     "series": "cx-dyn",
+     "tier": "Hard_Med"
     },
     {
      "file": "kits/aps-acustico/hard-med-5.wav",
-     "label": "Hard_Med 5"
+     "label": "Hard_Med 5",
+     "series": "cx-dyn",
+     "tier": "Hard_Med"
     },
     {
      "file": "kits/aps-acustico/med-1.wav",
-     "label": "Med 1"
+     "label": "Med 1",
+     "series": "cx-dyn",
+     "tier": "Med"
     },
     {
      "file": "kits/aps-acustico/med-2.wav",
-     "label": "Med 2"
+     "label": "Med 2",
+     "series": "cx-dyn",
+     "tier": "Med"
     },
     {
      "file": "kits/aps-acustico/med-4.wav",
-     "label": "Med 4"
+     "label": "Med 4",
+     "series": "cx-dyn",
+     "tier": "Med"
     },
     {
      "file": "kits/aps-acustico/blend-1.wav",
-     "label": "Blend 1"
+     "label": "Blend 1",
+     "series": "blend",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/blend-2.wav",
-     "label": "Blend 2"
+     "label": "Blend 2",
+     "series": "blend",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/blend-3.wav",
-     "label": "Blend 3"
+     "label": "Blend 3",
+     "series": "blend",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/blend-4.wav",
-     "label": "Blend 4"
+     "label": "Blend 4",
+     "series": "blend",
+     "tier": "ladder"
     },
     {
      "file": "kits/aps-acustico/blend-5.wav",
-     "label": "Blend 5"
+     "label": "Blend 5",
+     "series": "blend",
+     "tier": "ladder"
     }
    ],
    "tom1": [

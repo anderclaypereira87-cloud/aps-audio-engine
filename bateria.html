@@ -12,7 +12,7 @@
 <div id="apsReadyStems" class="panel" style="border:1px solid #4a8b80;margin:15px 0;background:#14292a"><h2>🎚 Já tem as peças separadas? Importe tudo aqui</h2><p class="tiny">Selecione WAV/MP3 individuais (bumbo, caixa, chimbal, tons, pratos). O APS identifica a peça pelo nome; você pode corrigir antes de analisar. Cada arquivo original é preservado, e as trocas usam os tempos detectados de cada instrumento. Até 10 minutos por arquivo. Para celular, prefira MP3 ou WAV mono compacto.</p><label class="filebtn">📁 Importar pistas de bateria já separadas<input id="apsReadyStemFiles" type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac" multiple></label><div id="apsReadyStemRows" style="display:grid;gap:6px;margin:12px 0"></div><div class="controls"><button id="apsReadStemAnalyze" class="positive">🥁 Identificar ataques e timbrar todas as peças</button><button id="apsReadStemStop">■ Parar audição</button></div><p id="apsReadyStemStatus" role="status" class="tiny"></p></div>
 <div class="controls" style="margin-top:10px"><label class="field">Quantizar SOMENTE MIDI <select id="apsMidiGrid"><option value="0" selected>Livre · manter tempo original</option><option value="8">1/8</option><option value="16">1/16</option><option value="32">1/32</option></select></label><button id="apsExportMidi">↓ Baixar MIDI (.mid)</button><button id="apsListenOriginal">▶ Ouvir original</button><button id="apsDownloadOriginal">↓ Baixar original intacto</button><button id="apsStopOriginal">■ Parar original</button><button id="apsSwapWav" class="primary">▶ Ouvir bateria recriada</button><button id="apsExportPiece" class="positive">↓ Baixar peça escolhida WAV</button><button id="apsSendPiece" class="primary">＋ Enviar peça à DAW</button><label class="field">Peça <select id="apsPieceChoice"></select></label></div>
 <div id="apsDrumNext" style="border:1px solid #ad915d;background:#25251f;border-radius:12px;padding:14px;margin:14px 0"><strong>🎛 Depois da separação: troque os timbres das peças</strong><p class="tiny">O som original fica intacto. Toque na peça detectada, escolha o novo sample e ouça a recriação. Os 56 sons do Drive são privados: importe seu ZIP uma vez na Biblioteca e toque em Guardar kit.</p><div id="apsDrumQuickPieces" class="controls" style="gap:7px;flex-wrap:wrap"></div><button id="apsGoSamples" type="button" class="positive">↓ Ver todos os sons por peça</button><span id="apsStemLoadStatus" class="tiny" role="status">Aguardando bateria isolada ou arquivo WAV/MP3.</span></div>
-<div class="controls" style="margin-top:12px"><label class="field"><input type="checkbox" id="apsAutoDriveSounds" checked> 🎚 Sugerir timbres do Drive por peça</label><label class="field"><input type="checkbox" id="apsVelocityLayers" checked> Usar intensidade como referência de volume</label></div>
+<div class="controls" style="margin-top:12px"><label class="field"><input type="checkbox" id="apsAutoDriveSounds" checked> 🎚 Sugerir timbres do Drive por peça</label><label class="field"><input type="checkbox" id="apsVelocityLayers" checked> Usar intensidade como referência de volume</label><label class="field">🎚 Camadas de intensidade <select id="apsLayerMode" aria-label="Modo de camadas"><option value="auto" selected>Automático por força</option><option value="manual">Manual (som escolhido fixo)</option></select></label><p id="apsLayerInfo" role="status" style="margin:6px 0 0;padding:8px 10px;border:1px solid #6f5a34;border-radius:10px;background:#151926;color:#eadcbc;font-size:13px">Automático: cada ataque usa a camada do kit que combina com a força da batida, alternando amostras para não soar repetido.</p></div>
 <p class="footnote" style="color:#d9c394">✓ Original protegido · ✓ Tempos dos ataques intactos por padrão · ✓ Notas fracas mantidas quando detectadas · ✎ Revise os eventos em trechos com peças simultâneas</p>
 <div id="apsDynamic" class="tiny" aria-live="polite"></div><p class="tiny">Compatibilidade: WAV e MP3 decodificáveis no Chrome ou Safari; 10 min no máximo. A identificação local é heurística e pode errar quando duas peças tocam juntas. A substituição por samples não conserva perfeitamente o envelope acústico nem o timbre original; para conservação exata, use a faixa original.</p>
 <p id="apsAnalysisStatus" class="footnote">Aguardando arquivo. Para separar uma música completa, primeiro extraia a pista de bateria no Separador de 6 instrumentos.</p>
@@ -91,10 +91,10 @@ async function apsLoadReadyKit(kid){
  for(const id of [...sources.keys()])if(id.startsWith('kit:'))sources.delete(id);
  let n=0;
  for(const [piece,list] of Object.entries(kit.pieces)){
-  list.forEach((s,i)=>{const id='kit:'+kid+'/'+s.file;sources.set(id,{name:kit.name+' · '+s.label+(list.length>1?' (camada '+(i+1)+')':'')+'.wav',piece,data:async()=>{const r=await fetch('./'+s.file);if(!r.ok)throw Error('Falha ao baixar '+s.label);return r.arrayBuffer();}});n++;});
+  list.forEach((s,i)=>{const id='kit:'+kid+'/'+s.file;sources.set(id,{name:kit.name+' · '+s.label+'.wav',piece,kid,series:s.series||null,tier:s.tier||null,data:async()=>{const r=await fetch('./'+s.file);if(!r.ok)throw Error('Falha ao baixar '+s.label);return r.arrayBuffer();}});n++;});
  }
  options();
- for(const [piece,list] of Object.entries(kit.pieces)){const sel=$('sample-'+piece);const id='kit:'+kid+'/'+list[0].file;if(sel&&[...sel.options].some(o=>o.value===id)){sel.value=id;assigns[piece]=id;}}
+ for(const [piece,list] of Object.entries(kit.pieces)){const sel=$('sample-'+piece);const id='kit:'+kid+'/'+(list.find(s=>s.series)||list[0]).file;if(sel&&[...sel.options].some(o=>o.value===id)){sel.value=id;assigns[piece]=id;}}
  $('library').textContent=kit.name+': '+n+' samples prontos ('+Object.keys(kit.pieces).length+' peças mapeadas). Cada peça mostra as camadas no seletor.';
  msg(kit.name+' carregado. Toque em ▶ Ouvir em cada peça.');
 }
@@ -277,16 +277,53 @@ function apsMidiFile(){
 }
 function apsDownload(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),45000);}
 $('apsExportMidi').onclick=()=>{try{apsDownload(apsMidiFile(),'APS-bateria-pecas-'+tempo()+'BPM.mid');apsAnalysisMessage('MIDI padrão exportado: '+apsDrumEvents.length+' eventos, com intensidades estimadas. Original permanece intacto.');}catch(e){apsAnalysisMessage(e.message,true);}};
+// ===== 2.0.0: camadas de intensidade (velocity layers) + round-robin =====
+const apsLoud=new Map();
+async function apsSampleLoudness(id){if(apsLoud.has(id))return apsLoud.get(id);const ctx=getAudio();const e=sources.get(id);let buf=decoded.get(id);if(!buf){buf=await ctx.decodeAudioData((await e.data()).slice(0));decoded.set(id,buf);}const d=buf.getChannelData(0),n=Math.min(d.length,Math.floor(buf.sampleRate*.08));let pk=0,s=0;for(let i=0;i<n;i++){const x=Math.abs(d[i]);if(x>pk)pk=x;s+=x*x;}const v=Math.sqrt(s/Math.max(1,n))*.6+pk*.4;apsLoud.set(id,v);return v;}
+async function apsBufferById(id){if(!decoded.has(id))await apsSampleLoudness(id);return decoded.get(id);}
+// Faixas de camadas da peça, a partir do som escolhido no seletor (mesma série do kit).
+async function apsLayerBands(piece){
+ const e=sources.get(assigns[piece]);if(!e||!e.series)return null;
+ const members=[...sources.entries()].filter(([id,v])=>v.kid===e.kid&&v.piece===piece&&v.series===e.series).map(([id,v])=>({id,tier:v.tier,name:v.name}));
+ if(members.length<2)return null;
+ for(const m of members)m.loud=await apsSampleLoudness(m.id);
+ members.sort((a,b)=>a.loud-b.loud);
+ let bands;
+ if(members.some(m=>m.tier&&m.tier!=='ladder')){const tiers=[...new Set(members.map(m=>m.tier))];const mean=t=>{const x=members.filter(m=>m.tier===t);return x.reduce((s,m)=>s+m.loud,0)/x.length;};tiers.sort((a,b)=>mean(a)-mean(b));bands=tiers.map(t=>members.filter(m=>m.tier===t));}
+ else if(members.some(m=>m.tier==='ladder'))bands=members.map(m=>[m]);
+ else bands=[members]; // variações: uma faixa só, alternando amostras
+ return bands;
+}
+async function apsLayerPlan(events){
+ const plan=new Map(),bandsBy=new Map(),rr=new Map(),norm=new Map();
+ for(const p of [...new Set(events.map(e=>e.piece))]){
+  const amps=events.filter(e=>e.piece===p).map(e=>e.amplitude||e.velocity/127).sort((a,b)=>a-b);
+  norm.set(p,{lo:amps[Math.floor(amps.length*.04)]||0,hi:Math.max(1e-9,amps[Math.min(amps.length-1,Math.floor(amps.length*.96))])});
+  if($('apsLayerMode').value==='auto')bandsBy.set(p,await apsLayerBands(p));
+ }
+ for(const e of events){
+  const n=norm.get(e.piece),a=e.amplitude||e.velocity/127;
+  const db=x=>20*Math.log10(Math.max(1e-6,x)),span=db(n.hi)-db(Math.max(n.lo,n.hi/316));const v=Math.max(0,Math.min(1,span>1?(db(a)-db(Math.max(n.lo,n.hi/316)))/span:1)); // força 0..1 em dB, normalizada por peça
+  const bands=bandsBy.get(e.piece);let id=null,band=-1;
+  if(bands){band=Math.min(bands.length-1,Math.floor(v*bands.length));const k=e.piece+'/'+band,c=rr.get(k)||0;id=bands[band][c%bands[band].length].id;rr.set(k,c+1);}
+  plan.set(e,{id,band,force:v,gain:.35+.65*v});
+ }
+ return plan;
+}
+window.apsLayerPlan=apsLayerPlan;window.apsLayerBands=apsLayerBands;window.apsDrumEventsRef=apsDrumEvents;
 async function apsRecreate(pieceId=null,preview=false){
  if(!apsDrumEvents.length)throw Error('Analise uma pista de bateria antes.');
  const chosen=apsDrumEvents.filter(x=>!pieceId||x.piece===pieceId);
  if(!chosen.length)throw Error('Nenhum ataque classificado para esta peça. Mude os eventos manualmente.');
  const ctx=getAudio(),unique=[...new Set(chosen.map(x=>x.piece))],clips=new Map();
  for(const id of unique)clips.set(id,await bufferFor(id));
- if(preview){await ctx.resume();const start=ctx.currentTime+.06;for(const e of chosen.filter(e=>e.time<=24).slice(0,250)){const buf=clips.get(e.piece);strike(ctx,ctx.destination,buf,start+e.time,volumes[e.piece]/100*($('apsVelocityLayers').checked?e.velocity/127:1),e.piece);}apsAnalysisMessage('Prévia da bateria recriada. Mostrando os primeiros 24 segundos (sem mix original).');return;}
+ const plan=await apsLayerPlan(chosen);for(const [e,p] of plan)if(p.id&&!clips.has(p.id))clips.set(p.id,await apsBufferById(p.id));
+ const ups=[...plan.values()].filter(p=>p.id);$('apsLayerInfo').textContent=$('apsLayerMode').value==='auto'?(ups.length?ups.length+' ataques com camada automática por força ('+new Set(ups.map(p=>p.id)).size+' amostras diferentes, alternando).':'Automático ligado, mas o som escolhido não tem camadas; usando o som fixo.'):'Manual: cada peça usa só o som escolhido.';
+ const clipOf=e=>{const p=plan.get(e);return clips.get(p.id||e.piece);},gainOf=e=>volumes[e.piece]/100*($('apsVelocityLayers').checked?plan.get(e).gain:1);
+ if(preview){await ctx.resume();const start=ctx.currentTime+.06;for(const e of chosen.filter(e=>e.time<=24).slice(0,250)){strike(ctx,ctx.destination,clipOf(e),start+e.time,gainOf(e),e.piece);}apsAnalysisMessage('Prévia da bateria recriada. Mostrando os primeiros 24 segundos (sem mix original).');return;}
  const last=Math.max(...chosen.map(e=>e.time)),end=Math.min(600,last+Math.max(1,...[...clips.values()].map(b=>b.duration))+0.15);if(end>600)throw Error('Máximo 10 minutos.');
  const sr=22050,channels=2;const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;const out=new Offline(channels,Math.ceil(end*sr),sr);
- for(const e of chosen){const buf=clips.get(e.piece);strike(out,out.destination,buf,e.time,volumes[e.piece]/100*($('apsVelocityLayers').checked?e.velocity/127:1),e.piece);}
+ for(const e of chosen){strike(out,out.destination,clipOf(e),e.time,gainOf(e),e.piece);}
  const rendered=await out.startRendering();return wav(rendered);
 }
 

@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 1.9.0)
+APS AUDIO ENGINE — LEIA (versão 2.0.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,17 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.0.0
+- Drum Sampler: camadas de intensidade. Em "Automático por força" (padrão), cada ataque detectado tem a força
+  medida (em dB, comparada só com os ataques da mesma peça) e usa a camada do kit que combina:
+  Acústico: caixa Med < Hard_Med < Hard; bumbo Kick In 1-5 e caixa Blend 1-5 em escada.
+  A ordem das camadas é medida automaticamente pelo volume real de cada sample.
+- Round-robin: na mesma faixa de força, as amostras se alternam (sem efeito "metralhadora").
+- Ganho acompanha a força original de cada batida (opção "Usar intensidade como referência de volume").
+- Kit Studio: Caixa 1/2, chimbal hh 1/hh2 e pratos Atack 16/17 alternam como variações.
+- Modo "Manual (som escolhido fixo)": cada peça usa só o som escolhido no seletor.
+- Cache do app: aps-shell-2.0.0.
+
 1.9.0 (junção da versão 1.7 do Anderclay com a 1.8.0)
 - Separador aceita músicas de até 10 minutos, com escolha da duração e saída compacta opcional (WAV mono 22050 Hz).
 - As 6 pistas saem do motor em blocos compactos, usando menos memória (ainda sem garantia em celular fraco).
