@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.0.0)
+APS AUDIO ENGINE — LEIA (versão 2.1.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,18 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.1.0
+- Separador: escolha entre "⚡ Modo leve" (download ~42 MB) e "🎚 Modo completo" (download ~136 MB).
+  Aparelho com 4 GB ou menos (ou celular que não informa a memória) já abre no Modo leve.
+- Modo leve: mesmo modelo de 6 pistas (HTDemucs 6s, MIT) com pesos compactados em int8 e a STFT calculada
+  dentro do modelo. Fica hospedado no próprio site (models/). Qualidade um pouco menor que o completo.
+- CORREÇÃO IMPORTANTE: o separador estourava a memória (>4 GB) ao preparar o modelo e falhava em qualquer
+  aparelho. A otimização automática do motor foi desligada; agora usa ~1,1 GB e conclui.
+- Modelo baixado fica guardado no aparelho (Cache Storage "aps-models-v1"): da segunda vez não baixa de novo.
+  A tela mostra "✔ já baixado neste aparelho" e o progresso do download em MB.
+- Motor em 1 thread (wasm simples), memória liberada a cada bloco, cancelar encerra o motor na hora.
+- Cache do app: aps-shell-2.1.0 (os modelos ficam fora do cache do app).
+
 2.0.0
 - Drum Sampler: camadas de intensidade. Em "Automático por força" (padrão), cada ataque detectado tem a força
   medida (em dB, comparada só com os ataques da mesma peça) e usa a camada do kit que combina:

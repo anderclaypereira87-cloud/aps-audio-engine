@@ -14,7 +14,10 @@ function phase(msg,percent){$('phase').textContent=msg;if(percent!==undefined){$
 // 1.8.0: verificação do aparelho antes de separar
 function deviceInfo(){const mem=navigator.deviceMemory||null,cpu=navigator.hardwareConcurrency||null,mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
  const weak=(mem!==null&&mem<=4)||(cpu!==null&&cpu<=4)||(mobile&&mem===null);const strong=(mem===null||mem>=8)&&(cpu===null||cpu>=8)&&!mobile;return{mem,cpu,mobile,weak,strong};}
+function apsEngine(){return document.querySelector('input[name="apsEngine"]:checked')?.value||'leve';}
+async function apsShowModelCache(){try{const c=await caches.open('aps-models-v1');const keys=(await c.keys()).map(r=>r.url);$('apsEngLeveCache').textContent=keys.some(u=>u.includes('htdemucs_6s_leve'))?'✔ já baixado neste aparelho':'';$('apsEngCompletoCache').textContent=keys.some(u=>u.includes('fp16weights'))?'✔ já baixado neste aparelho':'';}catch{}}
 function showDeviceCheck(){const el=$('deviceCheck');if(!el)return;const d=deviceInfo();
+ const lowMem=(d.mem!==null&&d.mem<=4)||(d.mobile&&d.mem===null);const r=document.querySelector('input[name="apsEngine"][value="'+(lowMem?'leve':'completo')+'"]');if(r)r.checked=true;apsShowModelCache();
  const desc='Memória: '+(d.mem?('~'+d.mem+' GB'):'não informada')+' · Processadores: '+(d.cpu||'não informado');
  if(d.weak){el.className='aps-devcheck weak';el.textContent='📱 Aparelho com poucos recursos ('+desc+'). Recomendado: 10 segundos. Para músicas longas, use a saída compacta ou importe a bateria já separada.';$('duration').value='10';}
  else if(d.strong){el.className='aps-devcheck';el.textContent='💻 Aparelho potente ('+desc+'). Pode tentar trechos maiores.';}
@@ -54,7 +57,7 @@ function closeWorker(){
 function runWorker(audio){
  return new Promise((resolve,reject)=>{
   let settled=false;
-  const worker=new Worker('./separador-worker.js?v=190',{type:'module'});
+  const worker=new Worker('./separador-worker.js?v=210',{type:'module'});
   activeWorker=worker;
   jobStarted=Date.now();
   const maxMinutes=Number($('duration').value)<=30?8:Math.max(25,Math.ceil(Number($('duration').value)/10)*2);
@@ -87,7 +90,7 @@ function runWorker(audio){
   };
   worker.onerror=(evt)=>finish(Error('O motor de IA falhou ao iniciar: '+(evt.message||'erro de execução.')));
   worker.onmessageerror=()=>finish(Error('Falha ao receber as pistas processadas.'));
-  try{worker.postMessage({type:'separate',mode:'stream',quality:$('outputQuality').value,left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}
+  try{worker.postMessage({type:'separate',mode:'stream',engine:apsEngine(),quality:$('outputQuality').value,left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}
   catch(err){finish(err);}
  });
 }
@@ -98,7 +101,7 @@ async function main(){if(working)return;const file=$('song').files[0];if(!file){
  working=true;cancelled=false;if($('eta'))$('eta').textContent='';$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultAudio=null;resultBlobs=null;
  try{const mix=await decodeInput(file);if(cancelled)throw Error('Cancelado');phase('Carregando motor de IA em segundo plano…',6);resultAudio=await runWorker(mix);if(cancelled)throw Error('Cancelado');phase('Separação finalizada! Ouça e baixe as pistas produzidas pelo motor.',100);showResult();}
  catch(e){const msg=String(e?.message||e);phase((cancelled?'Cancelado. ':'Não foi possível concluir no aparelho. ')+msg+'. O motor local não conseguiu concluir. Tente o modo menor, ou use uma bateria já isolada diretamente no APS.',0);console.error(e);}
- finally{closeWorker();working=false;$('start').disabled=false;$('cancel').disabled=true;}
+ finally{closeWorker();apsShowModelCache();working=false;$('start').disabled=false;$('cancel').disabled=true;}
 }
 
 // Transferência local dos WAVs: IndexedDB mantém os arquivos entre as duas telas.

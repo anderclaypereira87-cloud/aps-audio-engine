@@ -1,0 +1,6 @@
+htdemucs_6s_leve.onnx — derivado de StemSplitio/htdemucs-6s-onnx (htdemucs_6s.onnx, licença MIT),
+que por sua vez é exportação do modelo HTDemucs 6s do projeto Demucs (Meta/Facebook Research, licença MIT).
+Modificações do APS: pesos convertidos para int8 por canal (DequantizeLinear) e matrizes da STFT/iSTFT
+geradas dentro do grafo em vez de armazenadas (scripts nesta pasta). 258 MB -> 42 MB.
+Licença MIT: Copyright (c) Meta Platforms, Inc. and affiliates. O aviso de copyright e de permissão da
+licença MIT deve acompanhar cópias substanciais: https://github.com/facebookresearch/demucs/blob/main/LICENSE
