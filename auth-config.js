@@ -2,9 +2,5 @@
 window.APS_AUTH = {
   supabaseUrl: '',
   publishableKey: '',
-  owners: [
-    'anderclay.pereira87@gmail.com',
-    'clinica.dmoura@gmail.com',
-    'diretoria@clinicadmoura.company'
-  ]
+  owners: [] // e-mails de administrador removidos do site público; configure no Supabase
 };

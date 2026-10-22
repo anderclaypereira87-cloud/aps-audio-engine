@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 1.8.0)
+APS AUDIO ENGINE — LEIA (versão 1.9.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,19 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+1.9.0 (junção da versão 1.7 do Anderclay com a 1.8.0)
+- Separador aceita músicas de até 10 minutos, com escolha da duração e saída compacta opcional (WAV mono 22050 Hz).
+- As 6 pistas saem do motor em blocos compactos, usando menos memória (ainda sem garantia em celular fraco).
+- Novo: "Sua bateria já está separada?" — abre uma bateria já isolada (WAV/MP3 até 10 min) direto no módulo de bateria.
+- Bateria: painel sem criador de ritmos; detecta transientes e troca timbres pelo seu kit pessoal; o original fica intacto.
+- Importação de até 11 peças de bateria já separadas, com mapeamento manual e análise de ataques.
+- Isolamento neural de cada peça da bateria original ainda NÃO existe (precisa de servidor/modelo especializado).
+- A opção de separar em site externo foi retirada (como na versão 1.7); tudo roda dentro do app.
+- Separador: blocos repetidos removidos ("Escolha o instrumento" e "Bateria por peça" aparecem uma vez só).
+- Mantidos da 1.8.0: checagem do aparelho, tempo estimado, sugestão de mix, masterização -14/-9 LUFS.
+- E-mails de administrador retirados de auth-config.js (o site é público).
+- Cache do app: aps-shell-1.9.0.
+
 1.8.0
 - Separador: verifica memória e processadores do aparelho antes de começar. Em aparelho fraco, já deixa 10 s
   selecionado e pede confirmação para trechos maiores. Mostra tempo estimado restante por bloco.

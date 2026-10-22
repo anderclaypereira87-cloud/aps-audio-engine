@@ -44,8 +44,50 @@ async function separate(left,right){
  self.postMessage({type:'result',stems:buffers},buffers.flat());
  try{await session.release();}catch{}
 }
+// Saída segmentada: evita guardar seis músicas completas como Float32Array.
+// Qualidade compacta 22,05kHz/mono ou estéreo 44,1kHz. Sem quantização temporal.
+async function separateStream(left,right,quality){
+ phase('Preparando motor de separação dentro do APS…',5);
+ const ort=await import(ortUrl);
+ ort.env.wasm.wasmPaths=WASM_URL;
+ ort.env.wasm.numThreads=1;
+ ort.env.wasm.proxy=false;
+ phase('Carregando modelo local (136 MB). Mantenha esta tela aberta…',10);
+ const session=await ort.InferenceSession.create(modelUrl,{executionProviders:['wasm'],graphOptimizationLevel:'all'});
+ const total=left.length,nchunks=Math.ceil(total/SEG);
+ const mobile=quality!=='studio',buf=new Float32Array(2*SEG);
+ const targetRate=mobile?22050:44100,channels=mobile?1:2;
+ phase('Separando sem alterar a duração e o andamento…',20);
+ for(let n=0;n<nchunks;n++){
+  const start=n*SEG,length=Math.min(SEG,total-start);
+  buf.fill(0);
+  buf.set(left.subarray(start,start+length),0);
+  buf.set(right.subarray(start,start+length),SEG);
+  const pred=await session.run({mix:new ort.Tensor('float32',buf,[1,2,SEG])});
+  const data=pred.stems?.data;
+  if(!data||data.length!==6*2*SEG)throw Error('Resposta do motor incompatível. Nenhuma pista sintética foi criada.');
+  const count=mobile?Math.ceil(length/2):length;
+  const chunks=[];
+  for(let track=0;track<6;track++){
+   const pcm=new ArrayBuffer(count*channels*2),view=new DataView(pcm);
+   const offset=track*2*SEG;
+   for(let i=0;i<count;i++){
+    const j=mobile?i*2:i;
+    const l=mobile?(data[offset+j]+data[offset+Math.min(length-1,j+1)])*.5:data[offset+j];
+    const r=mobile?(data[offset+SEG+j]+data[offset+SEG+Math.min(length-1,j+1)])*.5:data[offset+SEG+j];
+    const put=(position,x)=>view.setInt16(position,Math.round(Math.max(-1,Math.min(1,x))*32767),true);
+    if(mobile)put(i*2,(l+r)*.5);else{put(i*4,l);put(i*4+2,r);}
+   }
+   chunks.push(pcm);
+  }
+  self.postMessage({type:'chunk',parts:chunks,frames:count,index:n,total:nchunks,rate:targetRate,channels},chunks);
+  phase('Bloco '+(n+1)+' de '+nchunks+' processado · continue no APS',20+Math.round(78*(n+1)/nchunks));
+ }
+ try{await session.release();}catch{}
+ self.postMessage({type:'done',rate:targetRate,channels,frames:mobile?Math.ceil(total/2):total});
+}
 self.onmessage=async event=>{
  if(event.data?.type!=='separate')return;
- try{await separate(event.data.left,event.data.right);}
+ try{if(event.data.mode==='stream')await separateStream(event.data.left,event.data.right,event.data.quality);else await separate(event.data.left,event.data.right);}
  catch(error){self.postMessage({type:'error',message:error?.message||String(error)});}
 };

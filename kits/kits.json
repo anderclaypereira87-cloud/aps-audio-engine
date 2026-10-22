@@ -1,0 +1,240 @@
+{
+ "aps-studio": {
+  "name": "APS Studio (MMSTUDIO)",
+  "pieces": {
+   "kick": [
+    {
+     "file": "kits/aps-studio/bumbo-mmstudio.wav",
+     "label": "BUMBO-MMSTUDIO"
+    }
+   ],
+   "rim": [
+    {
+     "file": "kits/aps-studio/aro-cx-mmstudio.wav",
+     "label": "ARO CX-MMSTUDIO"
+    }
+   ],
+   "snare": [
+    {
+     "file": "kits/aps-studio/caixa-12-mmstudio.wav",
+     "label": "CAIXA 12-MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-studio/caixa-1.wav",
+     "label": "Caixa 1"
+    },
+    {
+     "file": "kits/aps-studio/caixa-2.wav",
+     "label": "Caixa 2"
+    }
+   ],
+   "tom1": [
+    {
+     "file": "kits/aps-studio/tom-8-mmstudio.wav",
+     "label": "TOM 8-MMSTUDIO"
+    }
+   ],
+   "tom2": [
+    {
+     "file": "kits/aps-studio/tom-10-mmstudio.wav",
+     "label": "TOM 10-MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-studio/tom-12-mmstudio.wav",
+     "label": "TOM 12-MMSTUDIO"
+    }
+   ],
+   "floor": [
+    {
+     "file": "kits/aps-studio/surdo-14-mmstudio.wav",
+     "label": "SURDO 14-MMSTUDIO"
+    }
+   ],
+   "hat": [
+    {
+     "file": "kits/aps-studio/hh-1.wav",
+     "label": "hh 1"
+    },
+    {
+     "file": "kits/aps-studio/hh2.wav",
+     "label": "hh2"
+    },
+    {
+     "file": "kits/aps-studio/hh-pe.wav",
+     "label": "hh pé"
+    }
+   ],
+   "open": [
+    {
+     "file": "kits/aps-studio/hh-aberto.wav",
+     "label": "hh aberto"
+    }
+   ],
+   "crash": [
+    {
+     "file": "kits/aps-studio/prato-atack-16.wav",
+     "label": "Prato Atack - 16"
+    },
+    {
+     "file": "kits/aps-studio/prato-atack-17.wav",
+     "label": "Prato Atack - 17"
+    },
+    {
+     "file": "kits/aps-studio/prato-shine-16.wav",
+     "label": "Prato Shine - 16"
+    }
+   ],
+   "ride": [
+    {
+     "file": "kits/aps-studio/prato-cupula.wav",
+     "label": "Prato Cúpula"
+    }
+   ],
+   "splash": [
+    {
+     "file": "kits/aps-studio/prato-splash-10.wav",
+     "label": "Prato Splash - 10"
+    }
+   ]
+  }
+ },
+ "aps-acustico": {
+  "name": "APS Acústico (MMSTUDIO)",
+  "pieces": {
+   "kick": [
+    {
+     "file": "kits/aps-acustico/bumbo1-ac-mmstudio.wav",
+     "label": "BUMBO1 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/bumbo2-ac-mmstudio.wav",
+     "label": "BUMBO2 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/kick-in-1.wav",
+     "label": "Kick In 1"
+    },
+    {
+     "file": "kits/aps-acustico/kick-in-2.wav",
+     "label": "Kick In 2"
+    },
+    {
+     "file": "kits/aps-acustico/kick-in-3.wav",
+     "label": "Kick In 3"
+    },
+    {
+     "file": "kits/aps-acustico/kick-in-4.wav",
+     "label": "Kick In 4"
+    },
+    {
+     "file": "kits/aps-acustico/kick-in-5.wav",
+     "label": "Kick In 5"
+    }
+   ],
+   "snare": [
+    {
+     "file": "kits/aps-acustico/cx-hard-med-ac-mmstudio.wav",
+     "label": "CX HARD MED AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/cx-med-ac-mmstudio.wav",
+     "label": "CX MED AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/hard-1.wav",
+     "label": "Hard 1"
+    },
+    {
+     "file": "kits/aps-acustico/hard-4.wav",
+     "label": "Hard 4"
+    },
+    {
+     "file": "kits/aps-acustico/hard-6.wav",
+     "label": "Hard 6"
+    },
+    {
+     "file": "kits/aps-acustico/hard-med-1.wav",
+     "label": "Hard_Med 1"
+    },
+    {
+     "file": "kits/aps-acustico/hard-med-3.wav",
+     "label": "Hard_Med 3"
+    },
+    {
+     "file": "kits/aps-acustico/hard-med-5.wav",
+     "label": "Hard_Med 5"
+    },
+    {
+     "file": "kits/aps-acustico/med-1.wav",
+     "label": "Med 1"
+    },
+    {
+     "file": "kits/aps-acustico/med-2.wav",
+     "label": "Med 2"
+    },
+    {
+     "file": "kits/aps-acustico/med-4.wav",
+     "label": "Med 4"
+    },
+    {
+     "file": "kits/aps-acustico/blend-1.wav",
+     "label": "Blend 1"
+    },
+    {
+     "file": "kits/aps-acustico/blend-2.wav",
+     "label": "Blend 2"
+    },
+    {
+     "file": "kits/aps-acustico/blend-3.wav",
+     "label": "Blend 3"
+    },
+    {
+     "file": "kits/aps-acustico/blend-4.wav",
+     "label": "Blend 4"
+    },
+    {
+     "file": "kits/aps-acustico/blend-5.wav",
+     "label": "Blend 5"
+    }
+   ],
+   "tom1": [
+    {
+     "file": "kits/aps-acustico/tom1-ac-mmstudio.wav",
+     "label": "TOM1 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/t1-24.wav",
+     "label": "T1_24"
+    }
+   ],
+   "tom2": [
+    {
+     "file": "kits/aps-acustico/tom2-ac-mmstudio.wav",
+     "label": "TOM2 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/t2-33.wav",
+     "label": "T2_33"
+    }
+   ],
+   "floor": [
+    {
+     "file": "kits/aps-acustico/floor-1-ac-mmstudio.wav",
+     "label": "FLOOR 1 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/floor-2-ac-mmstudio.wav",
+     "label": "FLOOR 2 AC- MMSTUDIO"
+    },
+    {
+     "file": "kits/aps-acustico/floor-1-42.wav",
+     "label": "FLOOR 1_42"
+    },
+    {
+     "file": "kits/aps-acustico/floor-2-53.wav",
+     "label": "FLOOR 2_53"
+    }
+   ]
+  }
+ }
+}
