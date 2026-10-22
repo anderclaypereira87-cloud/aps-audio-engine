@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>Separador por instrumentos | APS Audio Engine</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1019;color:#f2f2f4;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:920px;margin:auto;padding:18px 15px 70px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{color:#e7c07b;font-weight:850;letter-spacing:.05em}.back{color:#e4ca92;text-decoration:none;border:1px solid #515766;border-radius:10px;padding:9px 13px}.hero{background:linear-gradient(125deg,#242336,#141f2a);border:1px solid #8c6f40;padding:20px;border-radius:20px;margin:17px 0}.hero h1{font-size:clamp(24px,5vw,35px);margin:0;color:#f4d99f}.hero p{color:#c6cdd8;margin:10px 0 0;font-size:14px}.stems{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.tag{border:1px solid #444955;background:#242a38;padding:10px;text-align:center;border-radius:10px;font-size:13px}.panel{background:#171e29;border:1px solid #3c4656;border-radius:18px;padding:18px;margin:16px 0}.panel h2{font-size:19px;margin:0 0 12px;color:#f0d49a}.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#c5cedd;margin:12px 0}input[type=file]{width:100%;padding:16px;border:1px dashed #b99755;border-radius:12px;background:#111724;color:#eee;font-size:13px}input[type=number],select{width:100%;padding:12px;border:1px solid #536073;border-radius:10px;background:#0e1521;color:#f6f5f1;font:inherit}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button,.button{display:inline-flex;align-items:center;justify-content:center;min-height:49px;border-radius:11px;background:#dcba78;color:#16181d;font-size:15px;font-weight:760;border:0;padding:12px 15px;cursor:pointer;text-decoration:none}button:disabled{opacity:.45;cursor:wait}button.alt,.button.alt{background:#272f3f;color:#f6ddad;border:1px solid #746445}button.ghost{background:transparent;color:#d4dbe5;border:1px solid #697284}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.notice{font-size:12px;color:#aeb6c5;line-height:1.5}.warn{color:#efce97}.progress{height:13px;border-radius:99px;background:#39414d;overflow:hidden;margin:13px 0 8px}.bar{height:100%;width:0;background:linear-gradient(90deg,#9c7537,#e9c587);transition:width .2s}#phase{min-height:42px;font-size:13px;color:#dbcaab}#result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.resultcard{background:#222a36;border:1px solid #505d6e;border-radius:12px;padding:14px;display:grid;gap:8px}.resultcard h3{margin:0;font-size:15px;color:#ffe1a3}.resultcard .buttons{display:flex;gap:7px;flex-wrap:wrap}.resultcard button{min-height:40px;font-size:13px;flex:1}.cardnote{font-size:11px;color:#bac4d0}.external{padding:16px;background:#141d26;border:1px solid #4e5464;border-radius:15px}.external .button{width:100%}#status{min-height:16px}.sr{position:absolute!important;height:1px;width:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.stems{grid-template-columns:repeat(2,1fr)}.formgrid,.actions,#result{grid-template-columns:1fr}.panel,.hero{padding:15px}.resultcard{padding:13px}}
+</style>
+<style>.aps-inst-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.aps-inst-tabs button{background:#272b39;color:#e8d9b5;border:1px solid #74694c;border-radius:10px;padding:11px;min-height:44px;cursor:pointer}.aps-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.aps-options button{padding:12px 8px;min-height:50px;border-radius:10px;border:1px solid #455269;background:#242b39;color:white;cursor:pointer}.aps-options button.active{border:2px solid #e2ba70;background:#3a3329}.aps-options button:disabled{cursor:not-allowed;opacity:.6}.small{font-size:13px;color:#b9c5d5}@media(max-width:520px){.aps-options{grid-template-columns:repeat(2,1fr)}}</style><style>.aps-inst-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.aps-inst-tabs button{background:#272b39;color:#e8d9b5;border:1px solid #74694c;border-radius:10px;padding:11px;min-height:44px;cursor:pointer}.aps-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.aps-options button{padding:12px 8px;min-height:50px;border-radius:10px;border:1px solid #455269;background:#242b39;color:white;cursor:pointer}.aps-options button.active{border:2px solid #e2ba70;background:#3a3329}.aps-options button:disabled{cursor:not-allowed;opacity:.6}.small{font-size:13px;color:#b9c5d5}@media(max-width:520px){.aps-options{grid-template-columns:repeat(2,1fr)}}</style><style>.aps-inst-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.aps-inst-tabs button{background:#272b39;color:#e8d9b5;border:1px solid #74694c;border-radius:10px;padding:11px;min-height:44px;cursor:pointer}.aps-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.aps-options button{padding:12px 8px;min-height:50px;border-radius:10px;border:1px solid #455269;background:#242b39;color:white;cursor:pointer}.aps-options button.active{border:2px solid #e2ba70;background:#3a3329}.aps-options button:disabled{cursor:not-allowed;opacity:.6}.small{font-size:13px;color:#b9c5d5}@media(max-width:520px){.aps-options{grid-template-columns:repeat(2,1fr)}}</style><style>.aps-inst-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.aps-inst-tabs button{background:#272b39;color:#e8d9b5;border:1px solid #74694c;border-radius:10px;padding:11px;min-height:44px;cursor:pointer}.aps-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.aps-options button{padding:12px 8px;min-height:50px;border-radius:10px;border:1px solid #455269;background:#242b39;color:white;cursor:pointer}.aps-options button.active{border:2px solid #e2ba70;background:#3a3329}.aps-options button:disabled{cursor:not-allowed;opacity:.6}.small{font-size:13px;color:#b9c5d5}@media(max-width:520px){.aps-options{grid-template-columns:repeat(2,1fr)}}</style><style>.aps-inst-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.aps-inst-tabs button{background:#272b39;color:#e8d9b5;border:1px solid #74694c;border-radius:10px;padding:11px;min-height:44px;cursor:pointer}.aps-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.aps-options button{padding:12px 8px;min-height:50px;border-radius:10px;border:1px solid #455269;background:#242b39;color:white;cursor:pointer}.aps-options button.active{border:2px solid #e2ba70;background:#3a3329}.aps-options button:disabled{cursor:not-allowed;opacity:.6}.small{font-size:13px;color:#b9c5d5}@media(max-width:520px){.aps-options{grid-template-columns:repeat(2,1fr)}}</style><style>.aps-devcheck{margin:12px 0;padding:12px;border-radius:12px;border:1px solid #6f5a34;background:#151926;color:#eadcbc;font-size:14px}.aps-devcheck.weak{border-color:#c5706c;background:#2a1719}.aps-external-warning{margin:12px 0;padding:14px;border-radius:12px;border:2px solid #e0a040;background:#3a2a10;color:#ffe2a8;font-size:15px}</style></head><body><main><section class="panel aps-start-separate" style="border:2px solid #d1a359;background:linear-gradient(120deg,#26241c,#151c2b);margin-bottom:17px;padding:19px;border-radius:16px"><h2 style="margin:0 0 8px">1 · Escolha o arquivo da música</h2><p style="color:#cdd3db">Toque no botão abaixo, escolha WAV, MP3 ou outro áudio compatível e depois pressione Separar. Não é necessário baixar o arquivo para nosso servidor; selecione um que já esteja no celular ou no computador.</p><button id="apsChooseSong" type="button" style="width:100%;min-height:58px;background:#d9b36c;color:#1a1b1e;font-size:17px;font-weight:800">📁 Escolher arquivo para separar</button><div id="apsChosenSong" role="status" style="color:#f4d89a;padding-top:10px">Nenhum áudio selecionado</div><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:10px"><a href="./bateria.html#aps-drum-analyzer" class="button alt">🥁 Já tenho bateria isolada · Trocar sons</a><a href="./daw.html?modulo=mixagem" class="button alt">🎚 Mixer da banda</a></div></section>
+<div class="top"><div class="brand">APS AUDIO ENGINE <small style="font-weight:400;font-size:10px;color:#b5bccc">/ Separação por IA</small></div><a class="back" href="./painel.html">← Voltar ao estúdio</a></div>
+<section class="hero"><h1>Separar sua música em 6 pistas</h1><p>Voz, baixo, bateria, guitarra, teclado/piano e outros instrumentos. Processamento por inteligência artificial, sem alterar a execução.</p><div class="stems"><div class="tag">🎤 Voz</div><div class="tag">🎸 Baixo</div><div class="tag">🥁 Bateria</div><div class="tag">🎸 Guitarra</div><div class="tag">🎹 Teclado / Piano</div><div class="tag">🎼 Outros</div></div></section>
+<section class="external" id="cloud"><h2 style="font-size:18px;color:#f4d89d;margin:0">Opção em nuvem — recomendada para celular</h2><div class="aps-external-warning" role="alert"><strong>⚠️ Atenção: nesta opção sua música SAI do seu aparelho.</strong> O arquivo é enviado para um site de outra empresa (stemplayer.app), que não é do APS. Só use com músicas suas ou autorizadas.</div><p class="notice">Se esta separação local demora ou trava, uma ferramenta externa pode processar as mesmas seis categorias em servidor, sem usar a memória do seu celular. A oferta informada pelo serviço é de 2 músicas gratuitas por dia durante a fase beta. Seu arquivo será enviado para o outro site, sujeito às políticas dele. Depois exporte as pistas e importe no APS.</p><a class="button alt" id="externalLink" href="https://stemplayer.app/stem-separator/" target="_blank" rel="noopener noreferrer">Abrir separação de 6 pistas na nuvem ↗</a></section>
+<section class="panel" id="apsInstruments"><h2>Escolha o instrumento que deseja separar</h2><p class="small">Selecione a família. O modelo local isola seis grupos; instrumentos individuais de metais, cordas e peças de bateria requerem modelos específicos ainda não instalados.</p><div class="aps-inst-tabs" role="group" aria-label="Famílias de instrumentos"><button type="button" data-aps-family="basicos">🎤 Voz / Baixo / Guitarra / Teclado</button><button type="button" data-aps-family="bateria">🥁 Bateria e percussão</button><button type="button" data-aps-family="metais">🎺 Metais e sopros</button><button type="button" data-aps-family="cordas">🎻 Cordas</button></div><div id="apsInstrList" class="aps-options"></div><p id="apsInstrStatus" class="small" role="status"></p></section>
+<section class="panel" id="apsInstruments"><h2>Escolha o instrumento que deseja separar</h2><p class="small">Selecione a família. O modelo local isola seis grupos; instrumentos individuais de metais, cordas e peças de bateria requerem modelos específicos ainda não instalados.</p><div class="aps-inst-tabs" role="group" aria-label="Famílias de instrumentos"><button type="button" data-aps-family="basicos">🎤 Voz / Baixo / Guitarra / Teclado</button><button type="button" data-aps-family="bateria">🥁 Bateria e percussão</button><button type="button" data-aps-family="metais">🎺 Metais e sopros</button><button type="button" data-aps-family="cordas">🎻 Cordas</button></div><div id="apsInstrList" class="aps-options"></div><p id="apsInstrStatus" class="small" role="status"></p></section>
+<section class="panel" id="apsInstruments"><h2>Escolha o instrumento que deseja separar</h2><p class="small">Selecione a família. O modelo local isola seis grupos; instrumentos individuais de metais, cordas e peças de bateria requerem modelos específicos ainda não instalados.</p><div class="aps-inst-tabs" role="group" aria-label="Famílias de instrumentos"><button type="button" data-aps-family="basicos">🎤 Voz / Baixo / Guitarra / Teclado</button><button type="button" data-aps-family="bateria">🥁 Bateria e percussão</button><button type="button" data-aps-family="metais">🎺 Metais e sopros</button><button type="button" data-aps-family="cordas">🎻 Cordas</button></div><div id="apsInstrList" class="aps-options"></div><p id="apsInstrStatus" class="small" role="status"></p></section>
+<section class="panel" id="apsInstruments"><h2>Escolha o instrumento que deseja separar</h2><p class="small">Selecione a família. O modelo local isola seis grupos; instrumentos individuais de metais, cordas e peças de bateria requerem modelos específicos ainda não instalados.</p><div class="aps-inst-tabs" role="group" aria-label="Famílias de instrumentos"><button type="button" data-aps-family="basicos">🎤 Voz / Baixo / Guitarra / Teclado</button><button type="button" data-aps-family="bateria">🥁 Bateria e percussão</button><button type="button" data-aps-family="metais">🎺 Metais e sopros</button><button type="button" data-aps-family="cordas">🎻 Cordas</button></div><div id="apsInstrList" class="aps-options"></div><p id="apsInstrStatus" class="small" role="status"></p></section>
+<section class="panel" id="apsInstruments"><h2>Escolha o instrumento que deseja separar</h2><p class="small">Selecione a família. O modelo local isola seis grupos; instrumentos individuais de metais, cordas e peças de bateria requerem modelos específicos ainda não instalados.</p><div class="aps-inst-tabs" role="group" aria-label="Famílias de instrumentos"><button type="button" data-aps-family="basicos">🎤 Voz / Baixo / Guitarra / Teclado</button><button type="button" data-aps-family="bateria">🥁 Bateria e percussão</button><button type="button" data-aps-family="metais">🎺 Metais</button><button type="button" data-aps-family="cordas">🎻 Cordas</button></div><div id="apsInstrList" class="aps-options"></div><p id="apsInstrStatus" class="small" role="status"></p></section>
+<section class="panel"><h2>1. Escolha a gravação</h2><label class="field" for="song"><span>MP3, WAV, M4A e outros áudios aceitos pelo seu navegador</span><input id="song" type="file" accept="audio/*,.wav,.mp3,.flac,.m4a,.ogg,.aac" /></label><div class="formgrid"><label class="field">Começar em (segundos)<input id="from" min="0" step="1" type="number" value="0" /></label><label class="field">Duração para teste<select id="duration"><option value="10" selected>10 segundos (teste rápido)</option><option value="30">30 segundos</option><option value="60">1 minuto</option><option value="120">2 minutos</option><option value="180">3 minutos (aparelho potente)</option></select></label></div><p class="notice">Ao processar no aparelho, a música <strong>não é enviada ao APS</strong>. O modelo de IA pode precisar baixar mais de 100 MB e consumir mais de 1 GB de memória, principalmente no celular. Teste com 10 segundos primeiro. Use apenas gravações próprias ou autorizadas.</p><div id="deviceCheck" class="aps-devcheck" role="status"></div><div class="actions"><button id="start" type="button">♫ Separar 6 pistas agora</button><button id="cancel" class="ghost" type="button" disabled>Cancelar processamento</button></div><div class="progress" role="progressbar" aria-label="Etapa da separação" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="bar"></div></div><div id="phase" role="status" aria-live="polite">Escolha uma música e teste 10 segundos. Se este celular não suportar o modelo, use a opção em nuvem abaixo.</div><p class="notice" id="elapsed" role="status" aria-live="off">Tempo de processamento: ainda não iniciado</p></section>
+<section class="panel" id="resultsPanel" hidden><h2>2. Ouça e baixe os stems</h2><div id="result"></div><p class="notice">Os WAVs têm o mesmo início e duração, para alinhar ao importar no mixer.</p><button id="apsOpenDrumSwap" type="button" style="width:100%;margin:10px 0 4px;background:#248f7f;color:#fff;min-height:52px;font-weight:800">🥁 Bateria separada → Trocar sons de bumbo, caixa e pratos</button><button id="sendMixer" type="button" style="width:100%;margin:14px 0 8px" >➜ Enviar as 6 pistas diretamente ao mixer</button><p class="notice" id="transferStatus" aria-live="polite">O envio utiliza o armazenamento local deste navegador; não envia gravações para o servidor APS. Para sessões muito longas, baixe os arquivos WAV individualmente.</p><a class="button alt" style="width:100%" href="./daw.html?modulo=mixagem">← Voltar ao mixer e importar WAVs manualmente</a></section>
+
+<p class="notice" style="margin-top:18px">Versão experimental: qualidade e tempo de processamento variam. Para análise de ataques, troca de sons e exportação MIDI por peça, abra o <a href="./bateria.html#aps-drum-analyzer">Drum Sampler</a>. Isso recria pistas; não isola as peças gravadas com fidelidade de microfone. A versão comercial exigirá revisão de desempenho e licenças dos modelos.</p>
+</main><script type="module" src="./separador.js?v=180"></script><script id="apsFamilySelector">
+(()=>{
+ const groups={
+ basicos:[['Voz','voz',true],['Baixo','baixo',true],['Guitarra','guitarra',true],['Teclado / Piano','piano',true],['Bateria completa','bateria',true],['Outros','outros',true]],
+ bateria:[['Bateria completa','bateria',true],['Bumbo','kick',false],['Caixa','snare',false],['Chimbal','hihat',false],['Tom 1 / Tom 2 / Surdo','tom',false],['Ride','ride',false],['Crash','crash',false],['Congas','conga',false],['Bongô','bongo',false],['Pandeiro','pandeiro',false],['Timbales','timbales',false]],
+ metais:[['Trompete','trumpet',false],['Trombone','trombone',false],['Tuba','tuba',false],['Trompa','horn',false],['Flugelhorn','flugelhorn',false],['Saxofone','sax',false],['Clarinete','clarinet',false],['Flauta','flute',false]],
+ cordas:[['Violino','violin',false],['Viola','viola',false],['Violoncelo','cello',false],['Contrabaixo acústico','upright',false],['Violão','acoustic_guitar',false],['Guitarra elétrica','guitarra',true],['Harpa','harp',false],['Cavaquinho','cavaquinho',false],['Bandolim','mandolin',false],['Ukulele','ukulele',false]]
+ };
+ const list=document.getElementById('apsInstrList'),note=document.getElementById('apsInstrStatus');
+ const stemName={voz:'Voz',baixo:'Baixo',guitarra:'Guitarra',piano:'Teclado/Piano',bateria:'Bateria',outros:'Outros'};
+ function selectFamily(name){
+  list.innerHTML='';
+  document.querySelectorAll('[data-aps-family]').forEach(x=>x.classList.toggle('active',x.dataset.apsFamily===name));
+  (groups[name]||[]).forEach(([title,id,supported])=>{
+   const b=document.createElement('button');b.type='button';b.textContent=title+(supported?'':' · futuro');b.title=supported?'Disponível como um dos seis grupos do modelo experimental':'Exige modelo especializado; ainda não separa esta peça isoladamente';
+   if(!supported)b.disabled=true;
+   b.addEventListener('click',()=>{
+    list.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    note.textContent=stemName[id]+' selecionado(a). O modo atual produz seis grupos simultaneamente; depois você baixa apenas a pista escolhida.';
+   });list.appendChild(b);
+  });
+  note.textContent='Os itens marcados “futuro” estão listados para o próximo modelo e ainda não são separáveis individualmente.';
+ }
+ document.querySelectorAll('[data-aps-family]').forEach(b=>b.addEventListener('click',()=>selectFamily(b.dataset.apsFamily)));
+ selectFamily('basicos');
+})();
+</script>
+<script id="apsFamilySelector">
+(()=>{
+ const groups={
+ basicos:[['Voz','voz',true],['Baixo','baixo',true],['Guitarra','guitarra',true],['Teclado / Piano','piano',true],['Bateria completa','bateria',true],['Outros','outros',true]],
+ bateria:[['Bateria completa','bateria',true],['Bumbo','kick',false],['Caixa','snare',false],['Chimbal','hihat',false],['Tom 1 / Tom 2 / Surdo','tom',false],['Ride','ride',false],['Crash','crash',false],['Congas','conga',false],['Bongô','bongo',false],['Pandeiro','pandeiro',false],['Timbales','timbales',false]],
+ metais:[['Trompete','trumpet',false],['Trombone','trombone',false],['Tuba','tuba',false],['Trompa','horn',false],['Flugelhorn','flugelhorn',false],['Saxofone','sax',false],['Clarinete','clarinet',false],['Flauta','flute',false]],
+ cordas:[['Violino','violin',false],['Viola','viola',false],['Violoncelo','cello',false],['Contrabaixo acústico','upright',false],['Violão','acoustic_guitar',false],['Guitarra elétrica','guitarra',true],['Harpa','harp',false],['Cavaquinho','cavaquinho',false],['Bandolim','mandolin',false],['Ukulele','ukulele',false]]
+ };
+ const list=document.getElementById('apsInstrList'),note=document.getElementById('apsInstrStatus');
+ const stemName={voz:'Voz',baixo:'Baixo',guitarra:'Guitarra',piano:'Teclado/Piano',bateria:'Bateria',outros:'Outros'};
+ function selectFamily(name){
+  list.innerHTML='';
+  document.querySelectorAll('[data-aps-family]').forEach(x=>x.classList.toggle('active',x.dataset.apsFamily===name));
+  (groups[name]||[]).forEach(([title,id,supported])=>{
+   const b=document.createElement('button');b.type='button';b.textContent=title+(supported?'':' · futuro');b.title=supported?'Disponível como um dos seis grupos do modelo experimental':'Exige modelo especializado; ainda não separa esta peça isoladamente';
+   if(!supported)b.disabled=true;
+   b.addEventListener('click',()=>{
+    list.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    note.textContent=stemName[id]+' selecionado(a). O modo atual produz seis grupos simultaneamente; depois você baixa apenas a pista escolhida.';
+   });list.appendChild(b);
+  });
+  note.textContent='Os itens marcados “futuro” estão listados para o próximo modelo e ainda não são separáveis individualmente.';
+ }
+ document.querySelectorAll('[data-aps-family]').forEach(b=>b.addEventListener('click',()=>selectFamily(b.dataset.apsFamily)));
+ selectFamily('basicos');
+})();
+</script>
+<script id="apsFamilySelector">
+(()=>{
+ const groups={
+ basicos:[['Voz','voz',true],['Baixo','baixo',true],['Guitarra','guitarra',true],['Teclado / Piano','piano',true],['Bateria completa','bateria',true],['Outros','outros',true]],
+ bateria:[['Bateria completa','bateria',true],['Bumbo','kick',false],['Caixa','snare',false],['Chimbal','hihat',false],['Tom 1 / Tom 2 / Surdo','tom',false],['Ride','ride',false],['Crash','crash',false],['Congas','conga',false],['Bongô','bongo',false],['Pandeiro','pandeiro',false],['Timbales','timbales',false]],
+ metais:[['Trompete','trumpet',false],['Trombone','trombone',false],['Tuba','tuba',false],['Trompa','horn',false],['Flugelhorn','flugelhorn',false],['Saxofone','sax',false],['Clarinete','clarinet',false],['Flauta','flute',false]],
+ cordas:[['Violino','violin',false],['Viola','viola',false],['Violoncelo','cello',false],['Contrabaixo acústico','upright',false],['Violão','acoustic_guitar',false],['Guitarra elétrica','guitarra',true],['Harpa','harp',false],['Cavaquinho','cavaquinho',false],['Bandolim','mandolin',false],['Ukulele','ukulele',false]]
+ };
+ const list=document.getElementById('apsInstrList'),note=document.getElementById('apsInstrStatus');
+ const stemName={voz:'Voz',baixo:'Baixo',guitarra:'Guitarra',piano:'Teclado/Piano',bateria:'Bateria',outros:'Outros'};
+ function selectFamily(name){
+  list.innerHTML='';
+  document.querySelectorAll('[data-aps-family]').forEach(x=>x.classList.toggle('active',x.dataset.apsFamily===name));
+  (groups[name]||[]).forEach(([title,id,supported])=>{
+   const b=document.createElement('button');b.type='button';b.textContent=title+(supported?'':' · futuro');b.title=supported?'Disponível como um dos seis grupos do modelo experimental':'Exige modelo especializado; ainda não separa esta peça isoladamente';
+   if(!supported)b.disabled=true;
+   b.addEventListener('click',()=>{
+    list.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    note.textContent=stemName[id]+' selecionado(a). O modo atual produz seis grupos simultaneamente; depois você baixa apenas a pista escolhida.';
+   });list.appendChild(b);
+  });
+  note.textContent='Os itens marcados “futuro” estão listados para o próximo modelo e ainda não são separáveis individualmente.';
+ }
+ document.querySelectorAll('[data-aps-family]').forEach(b=>b.addEventListener('click',()=>selectFamily(b.dataset.apsFamily)));
+ selectFamily('basicos');
+})();
+</script>
+<script id="apsFamilySelector">
+(()=>{
+ const groups={
+ basicos:[['Voz','voz',true],['Baixo','baixo',true],['Guitarra','guitarra',true],['Teclado / Piano','piano',true],['Bateria completa','bateria',true],['Outros','outros',true]],
+ bateria:[['Bateria completa','bateria',true],['Bumbo','kick',false],['Caixa','snare',false],['Chimbal','hihat',false],['Tom 1 / Tom 2 / Surdo','tom',false],['Ride','ride',false],['Crash','crash',false],['Congas','conga',false],['Bongô','bongo',false],['Pandeiro','pandeiro',false],['Timbales','timbales',false]],
+ metais:[['Trompete','trumpet',false],['Trombone','trombone',false],['Tuba','tuba',false],['Trompa','horn',false],['Flugelhorn','flugelhorn',false],['Saxofone','sax',false],['Clarinete','clarinet',false],['Flauta','flute',false]],
+ cordas:[['Violino','violin',false],['Viola','viola',false],['Violoncelo','cello',false],['Contrabaixo acústico','upright',false],['Violão','acoustic_guitar',false],['Guitarra elétrica','guitarra',true],['Harpa','harp',false],['Cavaquinho','cavaquinho',false],['Bandolim','mandolin',false],['Ukulele','ukulele',false]]
+ };
+ const list=document.getElementById('apsInstrList'),note=document.getElementById('apsInstrStatus');
+ const stemName={voz:'Voz',baixo:'Baixo',guitarra:'Guitarra',piano:'Teclado/Piano',bateria:'Bateria',outros:'Outros'};
+ function selectFamily(name){
+  list.innerHTML='';
+  document.querySelectorAll('[data-aps-family]').forEach(x=>x.classList.toggle('active',x.dataset.apsFamily===name));
+  (groups[name]||[]).forEach(([title,id,supported])=>{
+   const b=document.createElement('button');b.type='button';b.textContent=title+(supported?'':' · futuro');b.title=supported?'Disponível como um dos seis grupos do modelo experimental':'Exige modelo especializado; ainda não separa esta peça isoladamente';
+   if(!supported)b.disabled=true;
+   b.addEventListener('click',()=>{
+    list.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    note.textContent=stemName[id]+' selecionado(a). O modo atual produz seis grupos simultaneamente; depois você baixa apenas a pista escolhida.';
+   });list.appendChild(b);
+  });
+  note.textContent='Os itens marcados “futuro” estão listados para o próximo modelo e ainda não são separáveis individualmente.';
+ }
+ document.querySelectorAll('[data-aps-family]').forEach(b=>b.addEventListener('click',()=>selectFamily(b.dataset.apsFamily)));
+ selectFamily('basicos');
+})();
+</script>
+<script id="apsFamilySelector">
+(()=>{
+ const groups={
+ basicos:[['Voz','voz',true],['Baixo','baixo',true],['Guitarra','guitarra',true],['Teclado / Piano','piano',true],['Bateria completa','bateria',true],['Outros','outros',true]],
+ bateria:[['Bateria completa','bateria',true],['Bumbo','kick',false],['Caixa','snare',false],['Chimbal','hihat',false],['Tom 1 / Tom 2 / Surdo','tom',false],['Ride','ride',false],['Crash','crash',false],['Congas','conga',false],['Bongô','bongo',false],['Pandeiro','pandeiro',false],['Timbales','timbales',false]],
+ metais:[['Trompete','trumpet',false],['Trombone','trombone',false],['Tuba','tuba',false],['Trompa','horn',false],['Flugelhorn','flugelhorn',false],['Saxofone','sax',false],['Clarinete','clarinet',false],['Flauta','flute',false]],
+ cordas:[['Violino','violin',false],['Viola','viola',false],['Violoncelo','cello',false],['Contrabaixo acústico','upright',false],['Violão','acoustic_guitar',false],['Guitarra elétrica','guitarra',true],['Harpa','harp',false],['Cavaquinho','cavaquinho',false],['Bandolim','mandolin',false],['Ukulele','ukulele',false]]
+ };
+ const list=document.getElementById('apsInstrList'),note=document.getElementById('apsInstrStatus');
+ const stemName={voz:'Voz',baixo:'Baixo',guitarra:'Guitarra',piano:'Teclado/Piano',bateria:'Bateria',outros:'Outros'};
+ function selectFamily(name){
+  list.innerHTML='';
+  document.querySelectorAll('[data-aps-family]').forEach(x=>x.classList.toggle('active',x.dataset.apsFamily===name));
+  (groups[name]||[]).forEach(([title,id,supported])=>{
+   const b=document.createElement('button');b.type='button';b.textContent=title+(supported?'':' · futuro');b.title=supported?'Disponível como um dos seis grupos do modelo experimental':'Exige modelo especializado; ainda não separa esta peça isoladamente';
+   if(!supported)b.disabled=true;
+   b.addEventListener('click',()=>{
+    list.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    note.textContent=stemName[id]+' selecionado(a). O modo atual produz seis grupos simultaneamente; depois você baixa apenas a pista escolhida.';
+   });list.appendChild(b);
+  });
+  note.textContent='Os itens marcados “futuro” estão listados para o próximo modelo e ainda não são separáveis individualmente.';
+ }
+ document.querySelectorAll('[data-aps-family]').forEach(b=>b.addEventListener('click',()=>selectFamily(b.dataset.apsFamily)));
+ selectFamily('basicos');
+})();
+</script>
+<aside style="border:1px solid #ab8550;border-radius:14px;margin:20px auto;padding:16px;max-width:960px;background:#1c222e;color:#fff;font:14px system-ui"><strong>🥁 Bateria por peça · Detectar e trocar timbres</strong><p>Depois de separar a pista de bateria da música, abra o analisador para estimar bumbo, caixa, tons e pratos, substituir sons com o seu kit pessoal e exportar MIDI. A identificação local é aproximada, não isolamento neural de 11 peças.</p><a style="color:#e7bc75;font-weight:700" href="./bateria.html#aps-drum-analyzer">Abrir bateria por peça e MIDI →</a></aside><aside style="border:1px solid #ab8550;border-radius:14px;margin:20px auto;padding:16px;max-width:960px;background:#1c222e;color:#fff;font:14px system-ui"><strong>🥁 Bateria por peça · Detectar e trocar timbres</strong><p>Depois de separar a pista de bateria da música, abra o analisador para estimar bumbo, caixa, tons e pratos, substituir sons com o seu kit pessoal e exportar MIDI. A identificação local é aproximada, não isolamento neural de 11 peças.</p><a style="color:#e7bc75;font-weight:700" href="./bateria.html#aps-drum-analyzer">Abrir bateria por peça e MIDI →</a></aside><script>
+(()=>{
+ const picker=document.getElementById('song'),choose=document.getElementById('apsChooseSong'),status=document.getElementById('apsChosenSong');
+ choose?.addEventListener('click',()=>picker?.click());
+ picker?.addEventListener('change',()=>{
+  const f=picker.files?.[0];status.textContent=f?'Selecionado: '+f.name+' · '+(f.size/1048576).toFixed(1)+' MB. Agora toque em Separar 6 pistas.':'Nenhum áudio selecionado';
+  status.scrollIntoView({block:'nearest'});
+ });
+})();
+</script></body></html>

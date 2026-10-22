@@ -1,0 +1,37 @@
+
+/* APS 1.6 – mesa e assistente de mixagem */
+#apsBandMixer{background:#121923;border:1px solid #3c4954;padding:18px;margin:0 0 16px;border-radius:16px}
+.aps-mix-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.aps-mix-head h2{margin:0;font-size:23px;color:#f1d099}.aps-mix-muted{font-size:12px;color:#bbc9d5;line-height:1.55}
+.aps-mix-actions{display:flex;flex-wrap:wrap;gap:9px;margin:13px 0}
+.aps-mix-actions a,.aps-mix-actions button{padding:10px 12px;border-radius:10px;background:#222d3b;border:1px solid #64656b;color:#f9e8c5;text-decoration:none;font-weight:650}
+.aps-band-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.aps-band-group{background:#1b2330;border:1px solid #38475a;border-radius:12px;padding:14px}
+.aps-band-group h3{font-size:16px;color:#e5bf80;margin:0 0 8px}
+.aps-band-items{display:flex;flex-wrap:wrap;gap:7px}
+.aps-band-item{border:1px solid #506276;background:#243043;border-radius:9px;padding:8px;font-size:12px;min-height:36px;color:#dbe9f0}
+.aps-band-item[data-status=live]{border-color:#53a993;color:#bff7df;background:#1a3737}
+.aps-band-item[data-status=empty]{opacity:.74}
+.aps-assist{background:linear-gradient(120deg,#1e2c36,#202027);border:1px solid #827248;border-radius:13px;padding:15px;margin-top:15px}
+.aps-assist h3{font-size:19px;margin:0 0 7px;color:#f2d79d}
+.aps-assist textarea{display:block;width:100%;min-height:100px;resize:vertical;background:#0d1421;border:1px solid #60717a;border-radius:10px;color:white;padding:12px;font:inherit}
+.aps-assist-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.aps-assist-controls label{font-size:13px;color:#c5d3dd}.aps-assist-controls select{min-height:38px;padding:8px;border-radius:9px;background:#121b28;color:white;border:1px solid #5c6370}
+.aps-assist-controls button{border-radius:9px;border:1px solid #b5a071;padding:11px 13px;background:#bb9859;color:#191c20;font-weight:800}
+.aps-assist-output{white-space:pre-wrap;background:#0c1420;border:1px solid #385565;border-radius:10px;padding:13px;min-height:62px;font-size:13px;color:#dce4ef}
+.aps-levels{font-size:12px;color:#d3dfdf;margin:10px 0}
+@media(max-width:720px){.aps-band-groups{grid-template-columns:1fr}.aps-mix-head h2{font-size:20px}}
+
+.aps-instrument-prompt{margin-top:10px;border:1px solid #495b6b;border-radius:9px;padding:10px;background:#151f2c}
+.aps-instrument-prompt summary{cursor:pointer;font-weight:650;color:#e8d7ad}
+.aps-instrument-prompt textarea{width:100%;margin:10px 0 7px;resize:vertical;background:#0c1321;border:1px solid #64748a;color:white;border-radius:8px;padding:10px;font:inherit;font-size:13px}
+.aps-instrument-prompt button{border:1px solid #947744;background:#b79c63;color:#101924;padding:9px;border-radius:9px;font-weight:700}
+
+/* 1.8.0 masterização + sugestão automática */
+.aps-master-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:10px 0}
+.aps-master-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#aab2c2}
+.aps-master-grid label.aps-master-check{flex-direction:row;align-items:center}
+.aps-master-meters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+.aps-master-meters div{background:#10131d;border:1px solid #6f5a34;border-radius:12px;padding:10px;text-align:center}
+.aps-master-meters span{display:block;font-size:12px;color:#aab2c2}.aps-master-meters b{display:block;font-size:26px;color:#e5bd72}.aps-master-meters small{color:#aab2c2}
+#apsMasterStatus[data-kind=error]{border-color:#c5706c}#apsMasterStatus[data-kind=ok]{border-color:#5fbd8f}

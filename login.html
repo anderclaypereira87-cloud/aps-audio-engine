@@ -1,0 +1,30 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#11131d"><title>APS Audio Engine · Entrar</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#292437,#0b0d16 60%);color:#f2f1f0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:440px;margin:35px auto;padding:26px 19px;background:#171b28;border:1px solid #51462d;border-radius:21px}h1{color:#e7be77;margin:5px 0 8px}p{color:#b5bfce}button,.btn{display:flex;align-items:center;justify-content:center;width:100%;margin:11px 0;padding:15px;border-radius:12px;border:1px solid #626b7c;background:#242c3b;color:#fff;font:inherit;font-weight:750;cursor:pointer;text-decoration:none}.gold{background:#d9b470;border-color:#d9b470;color:#1b1f29}.brand{font-weight:900;letter-spacing:2px;color:#e7bd73;font-size:20px}#message{padding:12px;border:1px solid #474e60;border-radius:10px;min-height:48px}small{color:#b5b5bb}.back{color:#e7be77;text-decoration:none}
+.tagline{color:#e5bf80!important;font-weight:700;letter-spacing:.1em;font-size:12px;text-transform:uppercase}.notice{background:#1b2932;padding:12px;border-radius:9px;border:1px solid #395560;font-size:12px}.brand{font-size:24px;letter-spacing:4px}main{box-shadow:0 20px 60px #0007}footer{font-size:11px;color:#c2c4c8;line-height:1.7;margin:25px 0 0}footer a{color:#dfbd7d} .gold{box-shadow:0 10px 32px #a67f3940}button:hover,.btn:hover{filter:brightness(1.1)}
+</style></head><body><main><a class="back" href="./painel.html">← Início</a><div class="brand" style="margin-top:23px">APS AUDIO ENGINE</div><h1>Seu estúdio começa aqui.</h1><p class="tagline">Grave · Edite · Misture · Crie</p><p>Entre com sua conta para uma sessão privada, ou acesse a demonstração enquanto a autenticação é configurada.</p><button data-provider="google">Entrar com Google</button><button data-provider="apple">Entrar com Apple ID</button><button data-provider="azure">Entrar com Microsoft</button><p id="message" role="status" aria-live="polite">O login social ainda precisa ser vinculado a um projeto de autenticação e seus provedores.</p><a href="./painel.html" class="btn gold">Entrar no estúdio (modo de demonstração)</a><p class="notice">A entrada em modo de demonstração não autentica sua identidade nem envia avisos de acesso. O login real e as notificações dependem do serviço de autenticação.</p><small>Os e-mails administrativos informados só terão acesso privilegiado depois de autenticação real e validação de permissão no servidor. Não aceitamos um e-mail digitado como prova de identidade.</small><footer>APS Audio Engine · CNPJ 60.412.110/0001-92 · <a href="mailto:diretoria@clinicadmoura.company">Suporte</a></footer></main><script src="./auth-config.js"></script><script type="module">
+const m=document.getElementById('message');const cfg=window.APS_AUTH||{};
+async function main(){
+ if(!cfg.supabaseUrl||!cfg.publishableKey)return;
+ const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+ const sb=createClient(cfg.supabaseUrl,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ const {data:{session},error}=await sb.auth.getSession();
+ if(error){m.textContent='Sessão indisponível: '+error.message;return;}
+ if(session?.user?.email){
+  const {email}=session.user;
+  const allowed=cfg.owners||[];
+  if(!allowed.map(s=>s.toLowerCase()).includes(email.toLowerCase())){await sb.auth.signOut();m.textContent='Este e-mail não está autorizado no teste privado.';return;}
+  m.textContent='Identidade verificada: '+email;
+  const a=document.createElement('a');a.href='./painel.html';a.className='btn gold';a.textContent='Abrir minha DAW';m.appendChild(a);
+ }
+ document.querySelectorAll('[data-provider]').forEach(b=>b.addEventListener('click',async()=>{
+   const provider=b.dataset.provider;
+   try{
+    const result=await sb.auth.signInWithOAuth({provider,options:{redirectTo:new URL('./login.html',location.href).href}});
+    if(result.error)throw result.error;
+   }catch(e){m.textContent='Não foi possível autenticar: '+e.message;}
+ }));
+}
+document.querySelectorAll('[data-provider]').forEach(b=>b.addEventListener('click',()=>{
+ if(!cfg.supabaseUrl||!cfg.publishableKey)m.textContent='Para ativar '+b.textContent+', configure Google/Apple/Microsoft no servidor de autenticação APS. Enquanto isso, use o modo de teste.';
+}));
+main().catch(e=>m.textContent='Login indisponível: '+e.message);
+</script></body></html>

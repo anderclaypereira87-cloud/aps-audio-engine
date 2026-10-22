@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0c0e18"><title>APS Audio Engine — Drum Sampler</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0e18;--surface:#181d29;--edge:#373e50;--gold:#e5bd72;--text:#f7f2e9;--muted:#aab6c8;--teal:#7de0c4}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse 120% 50% at 65% -30%,#343041,#0c0e18 75%);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}button,select,input{font:inherit}button,select,input[type=number]{color:inherit;background:#252b3a;border:1px solid #485062;border-radius:10px;padding:10px}button{cursor:pointer;font-weight:700;min-height:40px}button:hover{border-color:var(--gold)}button:disabled{opacity:.5;cursor:default}button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offset:3px}a{color:var(--gold)}.wrap{max-width:1230px;padding:20px 15px 80px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.logo{display:flex;gap:14px;align-items:center}.mark{padding:11px 14px;background:linear-gradient(130deg,#f0ce88,#b48640);color:#15141a;border-radius:13px;font-weight:950;font-size:20px}.top small,.muted{color:var(--muted)}h1{font-size:clamp(24px,4vw,36px);margin:0;color:var(--gold);line-height:1.14}.intro{margin:23px 0;padding:19px;border-radius:18px;background:linear-gradient(125deg,#292535,#151c27);border:1px solid #675538}.intro p{margin:7px 0;color:#c6cbd5}.layout{display:grid;grid-template-columns:1fr;gap:15px}.panel{background:var(--surface);border:1px solid var(--edge);border-radius:16px;padding:17px}.panel h2{font-size:17px;color:#ecd19b;margin:0 0 14px}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.field{display:flex;align-items:center;gap:8px}.field input{width:76px}.primary{background:var(--gold);border-color:var(--gold);color:#161719}.positive{background:#204137;border-color:#447b68;color:#b6f3d9}.danger{background:#44252b;border-color:#8a4d50;color:#ffcccc}.filebtn{position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#302a26;border:1px solid #826d4b;color:#f6d99d;padding:9px 13px;cursor:pointer;font-weight:700;min-height:41px}.filebtn input{position:absolute;inset:0;opacity:0;max-width:100%;cursor:pointer}.tiny{font-size:12px;color:var(--muted)}#status{min-height:36px;padding:11px;margin:12px 0 0;border-radius:10px;background:#182b2b;border:1px solid #385b55;color:#afe7d7}.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.drums{display:grid;gap:8px;max-width:100%;margin-top:15px}.piece{display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr);gap:9px;align-items:center;padding:11px;border:1px solid #394052;background:#1d2330;border-radius:12px}.piece-head{display:flex;align-items:center;gap:9px}.ico{width:36px;height:36px;border-radius:9px;background:#373027;display:grid;place-items:center;font-size:21px;flex:none}.names{flex:1;min-width:0}.names strong{display:block;font-size:14px}.names small{font-size:11px;color:var(--muted)}.soundrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center}.soundrow select{max-width:190px;flex:1;min-width:100px;font-size:12px;padding:7px}.soundrow button{font-size:12px;min-height:31px;padding:5px 8px}.soundrow input[type=range]{width:65px;accent-color:var(--gold)}.steps{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:4px}.step{min-width:0;width:100%;aspect-ratio:1/1.25;min-height:31px;padding:0;border-radius:6px;font-weight:700;font-size:10px;color:#a7b4c5;background:#272f3b}.step.downbeat{border-left:2px solid #967242}.step.on{background:#c9a25e;border-color:#f8dea2;color:#17151c}.step.cursor{outline:2px solid var(--teal);outline-offset:1px}.footnote{color:#abb8ca;font-size:12px;margin-top:10px}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{flex:1;min-width:155px}#library{color:var(--teal);font-size:12px;margin:9px 0}.badgetext{font-size:11px;color:#decd9d;background:#302a25;border:1px solid #72603e;padding:5px 8px;border-radius:9px}.hidden{display:none!important}@media(max-width:830px){.piece{grid-template-columns:1fr;gap:12px}.steps{gap:5px}.step{min-height:40px;aspect-ratio:auto;height:42px}}@media(max-width:480px){.panel{padding:13px}.wrap{padding:12px 9px 60px}.step{height:37px;min-height:37px;gap:3px}.steps{gap:3px}.piece{padding:10px}.soundrow select{max-width:none}.top small{font-size:10px}}
+</style></head><body><div class="wrap"><header class="top"><div class="logo"><span class="mark">APS</span><span><strong>AUDIO ENGINE</strong><br><small>DRUM SAMPLER · BATERIA</small></span></div><nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a></nav></header>
+<div class="intro"><h1>🥁 Drum Sampler</h1><p>Troque o som de <strong>cada peça da bateria</strong>, sem mudar o ritmo. Ouça os samples, programe as batidas no grid de 16 passos e envie a bateria pronta para a mixagem na DAW.</p><span class="badgetext">11 peças independentes · Até 10 minutos · Grátis para testar</span></div>
+<div class="layout"><section class="panel"><h2>1. Biblioteca de sons</h2><div class="controls"><label class="filebtn">📁 Carregar ZIP pessoal<input id="zip" type="file" accept=".zip,application/zip"></label><label class="filebtn">♫ Importar vários WAV<input id="wavs" type="file" accept=".wav,.mp3,.ogg,.flac,audio/*" multiple></label><button id="saveKit" class="positive">💾 Guardar kit no aparelho</button><button id="resetSamples">↩ Sons iniciais</button></div><p id="library">Sons de demonstração próprios disponíveis; importe seus WAVs para usar os timbres acústicos do seu pacote.</p><p class="tiny">Os sons importados ficam somente nesta sessão do navegador e não são enviados ao servidor. Para o kit do Drive, importe o ZIP pessoal compactado que foi entregue nesta conversa; não publicamos seus samples no site.</p><div id="status" role="status" aria-live="polite">Pronto para editar os sons.</div></section>
+<section class="panel"><div class="toolbar"><h2 style="margin:0">2. Bateria por peça · sequenciador</h2><div class="controls"><label class="field">BPM <input id="bpm" type="number" min="40" max="240" value="110"></label><label class="field">Compassos <input id="bars" type="number" min="1" max="64" value="4"></label><label class="field">Swing <input id="swing" type="range" min="0" max="60" value="0" style="width:90px" aria-label="Swing em porcentagem"><span id="swingOut" class="tiny">0%</span></label></div></div><div class="drums" id="drums"></div><p class="footnote">Cada grupo de 4 passos corresponde a uma semínima em 4/4. Toque nos quadrados para ligar ou desligar batidas; a troca de sample preserva os passos.</p><div class="actions" style="margin-top:15px"><button id="play" class="primary">▶ Tocar bateria</button><button id="stop">■ Parar</button><button id="clear">Apagar batidas</button><button id="base">↺ Ritmo inicial</button></div></section>
+<section class="panel"><h2>3. Finalizar e usar na gravação</h2><div class="actions"><button id="download" class="positive">↓ Exportar bateria em WAV</button><button id="send" class="primary">＋ Enviar bateria à DAW</button></div><p class="footnote">O áudio exportado reúne as peças com os timbres escolhidos. Para editar uma peça separadamente no mixer, use “Enviar peça selecionada à DAW” abaixo; os WAVs individuais são recriações com os samples escolhidos.</p></section></div><section class="panel" id="aps-drum-analyzer" style="border:1px solid #9c784e"><h2>4. 🥁 Bateria gravada · detectar cada peça · manter a dinâmica</h2>
+<p class="muted">Abra uma <strong>bateria já gravada em WAV ou MP3</strong> (até 10 minutos). O áudio original é mantido sem alterações. Detectamos a posição e a intensidade relativa dos ataques e propomos bumbo, caixa, aro, chimbal, tons e pratos. Edite eventuais erros antes de trocar os sons do kit do Drive. <strong>Não é isolamento neural dos microfones originais:</strong> as pistas WAV individuais são recriadas com samples. Não será aplicada quantização, compressão ou normalização à execução sem sua escolha.</p>
+<div class="controls"><label class="filebtn">🎵 Abrir pista de bateria<input id="apsAnalyzeFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg"></label><label class="field">Sensibilidade <input id="apsSensitivity" type="range" min="20" max="90" value="62" style="width:112px"></label><button class="positive" id="apsAnalyze">⌁ Detectar peças e ataques</button></div>
+<div class="controls" style="margin-top:10px"><label class="field">Quantizar SOMENTE MIDI <select id="apsMidiGrid"><option value="0" selected>Livre · manter tempo original</option><option value="8">1/8</option><option value="16">1/16</option><option value="32">1/32</option></select></label><button id="apsExportMidi">↓ Baixar MIDI (.mid)</button><button id="apsListenOriginal">▶ Ouvir original</button><button id="apsDownloadOriginal">↓ Baixar original intacto</button><button id="apsStopOriginal">■ Parar original</button><button id="apsSwapWav" class="primary">▶ Ouvir bateria recriada</button><button id="apsExportPiece" class="positive">↓ Baixar peça escolhida WAV</button><button id="apsSendPiece" class="primary">＋ Enviar peça à DAW</button><label class="field">Peça <select id="apsPieceChoice"></select></label></div>
+<div id="apsDrumNext" style="border:1px solid #ad915d;background:#25251f;border-radius:12px;padding:14px;margin:14px 0"><strong>🎛 Depois da separação: troque os timbres das peças</strong><p class="tiny">O som original fica intacto. Toque na peça detectada, escolha o novo sample e ouça a recriação. Os 56 sons do Drive são privados: importe seu ZIP uma vez na Biblioteca e toque em Guardar kit.</p><div id="apsDrumQuickPieces" class="controls" style="gap:7px;flex-wrap:wrap"></div><button id="apsGoSamples" type="button" class="positive">↓ Ver todos os sons por peça</button><span id="apsStemLoadStatus" class="tiny" role="status">Aguardando bateria isolada ou arquivo WAV/MP3.</span></div>
+<div class="controls" style="margin-top:12px"><label class="field"><input type="checkbox" id="apsAutoDriveSounds" checked> 🎚 Sugerir timbres do Drive por peça</label><label class="field"><input type="checkbox" id="apsVelocityLayers" checked> Usar intensidade como referência de volume</label></div>
+<p class="footnote" style="color:#d9c394">✓ Original protegido · ✓ Tempos dos ataques intactos por padrão · ✓ Notas fracas mantidas quando detectadas · ✎ Revise os eventos em trechos com peças simultâneas</p>
+<div id="apsDynamic" class="tiny" aria-live="polite"></div><p class="tiny">Compatibilidade: WAV e MP3 decodificáveis no Chrome ou Safari; 10 min no máximo. A inteligência local é heurística e pode errar quando duas peças tocam juntas. A substituição por samples não conserva perfeitamente o envelope acústico nem o timbre original; para conservação exata, use a faixa original.</p>
+<p id="apsAnalysisStatus" class="footnote">Aguardando arquivo. Para separar uma música completa, primeiro extraia a pista de bateria no Separador de 6 instrumentos.</p>
+<div class="controls" style="margin-top:14px"><label class="field">Tempo (s) <input type="number" id="apsAddTime" value="0" min="0" max="600" step="0.001" style="width:100px" aria-label="Tempo do ataque manual"></label><label class="field">Intensidade <input id="apsAddVelocity" type="number" value="60" min="1" max="127" style="width:75px" aria-label="Intensidade do ataque manual"></label><button id="apsAddEvent">＋ Incluir ataque manual / nota fantasma</button><button id="apsEventsPrev">◀ Anterior</button><button id="apsEventsNext">Próximos ▶</button><small id="apsEventsPager" style="color:#b5cfca"></small></div><div id="apsEvents" class="muted" style="max-height:230px;overflow:auto;display:grid;gap:5px;margin-top:10px" aria-live="polite"></div>
+</section></div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id), S=44100;
+const PIECES=[
+{id:'kick',name:'Bumbo',icon:'🥁',kind:'kick',base:[0,8],rx:/bumbo|kick|^bd[\s._-]/i},
+{id:'snare',name:'Caixa',icon:'🥁',kind:'snare',base:[4,12],rx:/caixa|\bcx\b|snare|hard|^med\b|blend/i},
+{id:'rim',name:'Aro / Rimshot',icon:'🪘',kind:'rim',base:[],rx:/^aro\b|rimshot|side\s*stick/i},
+{id:'hat',name:'Chimbal fechado',icon:'🎩',kind:'hat',base:[0,2,4,6,8,10,12,14],rx:/hh\s*[12]|hh\d|hh\s*p[eé]|^hh$|chimbal\s*fechado|hat\s*closed/i},
+{id:'open',name:'Chimbal aberto',icon:'🌟',kind:'open',base:[],rx:/hh\s*aberto|cimbal\s*aberto|hat\s*open/i},
+{id:'tom1',name:'Tom 1 (agudo)',icon:'🪘',kind:'tom1',base:[],rx:/tom\s*8|ton\s*8|t1_|tom1/i},
+{id:'tom2',name:'Tom 2 (médio)',icon:'🪘',kind:'tom2',base:[],rx:/tom\s*10|ton\s*10|tom\s*12|ton\s*12|t2_|tom2/i},
+{id:'floor',name:'Surdo / Floor tom',icon:'🥁',kind:'floor',base:[],rx:/surdo|floor/i},
+{id:'ride',name:'Prato Ride / Cúpula',icon:'🔔',kind:'ride',base:[],rx:/ride|c[uú]pula/i},
+{id:'crash',name:'Prato Crash / Attack',icon:'✨',kind:'crash',base:[0],rx:/crash|prato\s*atack|prato\s*shine/i},
+{id:'splash',name:'Prato Splash',icon:'💫',kind:'splash',base:[],rx:/splash/i}
+];
+const pattern=Object.fromEntries(PIECES.map(p=>[p.id,new Set(p.base)]));
+const assigns=Object.fromEntries(PIECES.map(p=>[p.id,'demo-natural']));
+const volumes=Object.fromEntries(PIECES.map(p=>[p.id,95]));
+const muted=new Set(); const sources=new Map();const decoded=new Map();
+let audio=null,playing=false,nextStep=0,nextTime=0,timer=null,cursor=-1,activeSources=[],loading=false,selectedZip=null;
+function msg(s,err=false){$('status').textContent=s;$('status').style.color=err?'#ffaaaa':'#afe7d7';}
+function getAudio(){if(!audio){audio=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});}return audio;}
+function clamp(n,min,max,def){n=Number(n);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):def;}
+function tempo(){return clamp($('bpm').value,40,240,110);}
+function barCount(){return clamp($('bars').value,1,64,4);}
+function swing(){return clamp($('swing').value,0,60,0)/100;}
+function fill(){const box=$('drums');box.replaceChildren();for(const p of PIECES){const row=document.createElement('div');row.className='piece';row.dataset.piece=p.id;
+ const left=document.createElement('div');const head=document.createElement('div');head.className='piece-head';head.innerHTML='<span class="ico">'+p.icon+'</span><span class="names"><strong>'+p.name+'</strong><small>'+p.id+'</small></span>';left.append(head);
+ const sounds=document.createElement('div');sounds.className='soundrow';const sel=document.createElement('select');sel.id='sample-'+p.id;sel.setAttribute('aria-label','Som de '+p.name);const listen=document.createElement('button');listen.textContent='▶ Ouvir';listen.type='button';listen.onclick=()=>audition(p.id).catch(e=>msg(e.message,true));const mute=document.createElement('button');mute.textContent='M';mute.title='Silenciar '+p.name;mute.type='button';mute.dataset.mute=p.id;mute.onclick=()=>{muted.has(p.id)?muted.delete(p.id):muted.add(p.id);mute.style.background=muted.has(p.id)?'#8b4243':'';};const vol=document.createElement('input');vol.type='range';vol.min=0;vol.max=120;vol.value=volumes[p.id];vol.setAttribute('aria-label','Volume '+p.name);vol.oninput=()=>{volumes[p.id]=Number(vol.value);};sounds.append(sel,listen,mute,vol);left.append(sounds);row.append(left);
+ const steps=document.createElement('div');steps.className='steps';steps.setAttribute('aria-label','Passos '+p.name);for(let i=0;i<16;i++){const b=document.createElement('button');b.type='button';b.dataset.step=String(i);b.dataset.piece=p.id;b.className='step'+(i%4===0?' downbeat':'')+(pattern[p.id].has(i)?' on':'');b.textContent=String(i+1);b.setAttribute('aria-pressed',String(pattern[p.id].has(i)));b.setAttribute('aria-label',p.name+' passo '+(i+1));b.onclick=()=>{const a=pattern[p.id];a.has(i)?a.delete(i):a.add(i);b.classList.toggle('on',a.has(i));b.setAttribute('aria-pressed',String(a.has(i)));};steps.append(b);}row.append(steps);box.append(row);}
+ options();}
+function options(){for(const p of PIECES){const sel=$('sample-'+p.id),prior=sel.value||assigns[p.id];sel.replaceChildren();for(const [id,label] of [['demo-natural','Inicial · acústico sintético'],['demo-tight','Inicial · seco sintético'],['demo-big','Inicial · encorpado sintético']]){const o=document.createElement('option');o.value=id;o.textContent=label;sel.append(o);}
+ const available=[...sources.keys()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const recommended=available.filter(x=>p.rx.test(sources.get(x).name));
+ for(const [title,ids] of [['RECOMENDADOS · kit do Drive',recommended],['OUTROS SONS',available.filter(x=>!p.rx.test(sources.get(x).name))]]){
+  if(!ids.length)continue;const group=document.createElement('optgroup');group.label=title;
+  for(const id of ids){const entry=sources.get(id);const option=document.createElement('option');option.value=id;option.textContent=entry.name;group.append(option);}sel.append(group);
+ }
+ const preferred=recommended[0];if(prior.startsWith('demo-')&&preferred&&assigns[p.id].startsWith('demo-'))sel.value=preferred;else if([...sel.options].some(x=>x.value===prior))sel.value=prior;else sel.value=sel.options[0].value;
+ assigns[p.id]=sel.value;sel.onchange=()=>{assigns[p.id]=sel.value;msg('Som de '+p.name+' alterado para '+sel.selectedOptions[0].textContent+'. Ritmo mantido.');};
+ }}
+// Demo-only sample synthesis. Imported recordings bypass this entirely.
+function demo(preset,kind){const key=preset+'/'+kind;if(decoded.has(key))return decoded.get(key);const ctx=getAudio(),sr=ctx.sampleRate,len=Math.floor((['kick','tom1','tom2','floor'].includes(kind)?.8:['crash','ride','open'].includes(kind)?1.4:.45)*sr),buffer=ctx.createBuffer(1,len,sr),out=buffer.getChannelData(0);let seed=13751;const rnd=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/2147483648-1;};const style=preset==='demo-tight'?.62:preset==='demo-big'?1.3:1;let y=0;for(let i=0;i<len;i++){const t=i/sr,n=rnd(),g=Math.exp(-t*([ 'crash','ride','open'].includes(kind)?3.8:['kick','floor'].includes(kind)?8:18)/style);let v=0;if(kind==='kick'){const phase=2*Math.PI*(58*t+22*(1-Math.exp(-t*35))/35);v=.9*g*Math.sin(phase)+.08*Math.exp(-t*95)*n;}else if(kind==='snare'||kind==='rim'){v=(kind==='rim'?.45:.76)*g*n+(kind==='rim'?.18:.3)*g*Math.sin(2*Math.PI*(kind==='rim'?410:185)*t);}else if(['hat','open','ride','crash','splash'].includes(kind)){const high=n-y;y+=.08*(n-y);v=(kind==='hat'?.4:.5)*g*high;}else{const freq={tom1:190,tom2:138,floor:92}[kind]||120;v=.84*g*Math.sin(2*Math.PI*(freq*t+24*(1-Math.exp(-30*t))/30))+.07*g*n;}out[i]=Math.tanh(v*style);}decoded.set(key,buffer);return buffer;}
+async function bufferFor(id){const src=assigns[id];if(src.startsWith('demo-'))return demo(src,id);if(decoded.has(src))return decoded.get(src);const file=sources.get(src);if(!file)throw Error('Sample não localizado. Importe a biblioteca novamente.');const ctx=getAudio();const raw=await file.data();const buf=await ctx.decodeAudioData(raw.slice(0));if(buf.duration>18)throw Error('Amostra muito longa ('+buf.duration.toFixed(1)+'s); use sons curtos de bateria.');decoded.set(src,buf);return buf;}
+async function prepare(){const result=new Map();for(const p of PIECES)if(pattern[p.id].size&&!muted.has(p.id))result.set(p.id,await bufferFor(p.id));return result;}
+function strike(ctx,to,buf,when,vol,id){const src=ctx.createBufferSource();src.buffer=buf;const gain=ctx.createGain();gain.gain.value=vol;src.connect(gain);gain.connect(to);src.start(when);if(ctx===audio){activeSources.push(src);src.onended=()=>{const i=activeSources.indexOf(src);if(i>=0)activeSources.splice(i,1);try{src.disconnect();gain.disconnect();}catch{}};}return src;}
+async function audition(id){const ctx=getAudio();await ctx.resume();const buf=await bufferFor(id);strike(ctx,ctx.destination,buf,ctx.currentTime+.01,volumes[id]/100,id);}
+function stop(){playing=false;clearInterval(timer);timer=null;for(const s of activeSources.splice(0))try{s.stop();}catch{};$('play').textContent='▶ Tocar bateria';cursor=-1;document.querySelectorAll('.step.cursor').forEach(x=>x.classList.remove('cursor'));}
+function uiStep(i){cursor=i;document.querySelectorAll('.step.cursor').forEach(x=>x.classList.remove('cursor'));document.querySelectorAll('.step[data-step="'+i+'"] ').forEach(x=>x.classList.add('cursor'));}
+async function start(){stop();const ctx=getAudio();await ctx.resume();const prepared=await prepare();if(!prepared.size)throw Error('Ative algum passo da bateria.');playing=true;nextStep=0;nextTime=ctx.currentTime+.07;const duration=60/tempo()/4,sw=swing();const tick=()=>{if(!playing)return;while(nextTime<ctx.currentTime+.1){const step=nextStep%16;for(const p of PIECES){if(pattern[p.id].has(step)&&!muted.has(p.id)){const buf=prepared.get(p.id);if(buf)strike(ctx,ctx.destination,buf,nextTime,volumes[p.id]/100,p.id);}}uiStep(step);nextStep++;nextTime+=duration*(step%2===0?1+sw:1-sw);if(nextStep>=barCount()*16){stop();break;}}};timer=setInterval(tick,25);tick();$('play').textContent='Ⅱ Reiniciar';msg('Sequenciador tocando '+tempo()+' BPM.');}
+function wav(buffer){const channels=2,sr=buffer.sampleRate,frames=buffer.length,array=new ArrayBuffer(44+frames*4),dv=new DataView(array);let at=0;const str=s=>{for(const c of s)dv.setUint8(at++,c.charCodeAt(0));};str('RIFF');dv.setUint32(at,36+frames*4,true);at+=4;str('WAVEfmt ');dv.setUint32(at,16,true);at+=4;dv.setUint16(at,1,true);at+=2;dv.setUint16(at,channels,true);at+=2;dv.setUint32(at,sr,true);at+=4;dv.setUint32(at,sr*4,true);at+=4;dv.setUint16(at,4,true);at+=2;dv.setUint16(at,16,true);at+=2;str('data');dv.setUint32(at,frames*4,true);at+=4;const a=buffer.getChannelData(0),b=buffer.getChannelData(1);for(let i=0;i<frames;i++){for(const sample of [a[i],b[i]]){const n=Math.max(-1,Math.min(1,sample));dv.setInt16(at,n<0?n*32768:n*32767,true);at+=2;}}return new Blob([array],{type:'audio/wav'});}
+async function render(){if(loading)throw Error('Aguarde a operação atual.');loading=true;try{stop();msg('Renderizando bateria com os sons escolhidos…');const ctx=getAudio();const prepared=await prepare(),len=barCount()*16*60/tempo()/4+2;if(len>600)throw Error('Máximo de 10 minutos de áudio.');const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!Offline)throw Error('Exportação indisponível neste navegador.');const offline=new Offline(2,Math.ceil(len*S),S);const master=offline.createDynamicsCompressor();master.threshold.value=-4;master.ratio.value=10;master.connect(offline.destination);const d=60/tempo()/4,sw=swing();let time=0;for(let i=0;i<barCount()*16;i++){const step=i%16;for(const p of PIECES){if(pattern[p.id].has(step)&&!muted.has(p.id)&&prepared.has(p.id))strike(offline,master,prepared.get(p.id),time,Math.min(1.2,volumes[p.id]/100),p.id);}time+=d*(step%2===0?1+sw:1-sw);}const buf=await offline.startRendering();const output=wav(buf);msg('Mix de bateria pronto: '+barCount()+' compassos · '+tempo()+' BPM.');return output;}finally{loading=false;}}
+async function save(){const blob=await render(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='APS-Bateria-'+tempo()+'BPM.wav';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+async function send(){const blob=await render();if(!window.indexedDB)throw Error('IndexedDB indisponível. Use Exportar WAV e importe manualmente na DAW.');const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('aps-drum-transfer-v1',1);req.onupgradeneeded=()=>req.result.createObjectStore('sessions');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});try{await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put({name:'APS Bateria '+tempo()+' BPM.wav',blob},'latest');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}location.href='./daw.html?modulo=gravacao&importDrum=1';}
+function guess(name){return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+async function kitDB(){return await new Promise((resolve,reject)=>{const r=indexedDB.open('aps-drum-kits-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('library');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+async function savePersonalKit(){if(!selectedZip)throw Error('Primeiro importe seu ZIP pessoal. Depois toque em Guardar kit.');const db=await kitDB();try{await new Promise((resolve,reject)=>{const tx=db.transaction('library','readwrite');tx.objectStore('library').put(selectedZip,'personal');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}msg('Kit instalado neste navegador. Ele será restaurado automaticamente quando você abrir o APS neste aparelho.');}
+async function restoreKit(){if(!window.indexedDB)return;let db=null;try{db=await kitDB();const zip=await new Promise((resolve,reject)=>{const tx=db.transaction('library','readonly');const r=tx.objectStore('library').get('personal');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});if(zip){await parseZip(zip);selectedZip=zip;options();apsSetDriveAuto();$('library').textContent=sources.size+' samples pessoais instalados neste aparelho (armazenamento local).';msg('Kit de bateria pessoal restaurado automaticamente.');}}catch(e){msg('O kit salvo não pôde ser carregado: '+e.message,true);}finally{db?.close();}}
+function addWav(name,data){if(sources.size>=200)throw Error('Máximo de 200 samples por sessão.');if(!/\.(wav|mp3|ogg|flac)$/i.test(name))return false;const short=name.split('/').pop();const id=name;if(sources.has(id))return false;sources.set(id,{name:short,data});return true;}
+async function parseZip(f){if(f.size>100*1048576)throw Error('ZIP acima de 100 MB.');const all=new Uint8Array(await f.arrayBuffer()),dv=new DataView(all.buffer);let e=-1;for(let i=all.length-22;i>=Math.max(0,all.length-65557);i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break;}if(e<0)throw Error('Arquivo ZIP inválido. Converta o RAR para ZIP antes.');const num=dv.getUint16(e+10,true),central=dv.getUint32(e+16,true),decoder=new TextDecoder();if(num>500||central>=all.length)throw Error('ZIP acima do limite suportado.');let p=central,added=0;for(let k=0;k<num;k++){if(p+46>all.length||dv.getUint32(p,true)!==0x02014b50)throw Error('Índice ZIP incompleto.');const method=dv.getUint16(p+10,true),compressed=dv.getUint32(p+20,true),uncompressed=dv.getUint32(p+24,true),nl=dv.getUint16(p+28,true),ex=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),offset=dv.getUint32(p+42,true),name=decoder.decode(all.subarray(p+46,p+46+nl));p+=46+nl+ex+cl;if(!/\.(wav|mp3|ogg|flac)$/i.test(name)||uncompressed>8*1048576||compressed>8*1048576)continue;if(offset+30>all.length||dv.getUint32(offset,true)!==0x04034b50)continue;const start=offset+30+dv.getUint16(offset+26,true)+dv.getUint16(offset+28,true);if(start+compressed>all.length)continue;const compressedData=all.slice(start,start+compressed);const fn=async()=>{if(method===0)return compressedData.buffer.slice(0);if(method!==8||!window.DecompressionStream)throw Error('ZIP comprimido incompatível. Use o ZIP pessoal fornecido ou importe WAV.');let stream;try{stream=new Blob([compressedData]).stream().pipeThrough(new DecompressionStream('deflate-raw'));}catch{throw Error('Seu navegador não abre este ZIP comprimido. Use ZIP sem compressão.');}return await new Response(stream).arrayBuffer();};if(addWav(name,fn))added++;}if(!added)throw Error('Nenhum WAV encontrado.');return added;}
+$('zip').onchange=async ev=>{const f=ev.target.files?.[0];if(!f)return;try{msg('Lendo ZIP no aparelho…');const n=await parseZip(f);selectedZip=f;options();apsSetDriveAuto();$('library').textContent=sources.size+' samples carregados do seu pacote ZIP. Você pode escolher qualquer som em qualquer peça.';msg(n+' sons importados. Escolha as peças e toque em Ouvir.');}catch(e){msg('Erro ao importar: '+e.message,true);}finally{ev.target.value='';}};
+$('wavs').onchange=async ev=>{const files=[...ev.target.files||[]];try{let n=0;for(const f of files){if(f.size>8*1048576)continue;if(addWav(f.name,()=>f.arrayBuffer()))n++;}options();$('library').textContent=sources.size+' samples pessoais carregados nesta sessão.';msg(n+' WAVs adicionados à biblioteca.');}catch(e){msg(e.message,true);}finally{ev.target.value='';}};
+$('resetSamples').onclick=async()=>{stop();sources.clear();decoded.clear();selectedZip=null;try{const db=await kitDB();await new Promise((resolve,reject)=>{const tx=db.transaction('library','readwrite');tx.objectStore('library').delete('personal');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}catch{}for(const p of PIECES)assigns[p.id]='demo-natural';options();$('library').textContent='Sons sintéticos iniciais disponíveis; importe WAV ou ZIP para usar gravações acústicas.';msg('Biblioteca pessoal descarregada.');};
+$('saveKit').onclick=()=>savePersonalKit().catch(e=>msg(e.message,true));$('play').onclick=()=>start().catch(e=>{stop();msg(e.message,true)});$('stop').onclick=stop;$('clear').onclick=()=>{stop();for(const a of Object.values(pattern))a.clear();fill();msg('Batidas apagadas. Os timbres foram preservados.');};$('base').onclick=()=>{stop();for(const p of PIECES)pattern[p.id]=new Set(p.base);fill();msg('Ritmo inicial restaurado. Timbres preservados.');};$('download').onclick=()=>save().catch(e=>msg(e.message,true));$('send').onclick=()=>send().catch(e=>msg(e.message,true));$('swing').oninput=()=>$('swingOut').textContent=$('swing').value+'%';$('bpm').onchange=()=>{$('bpm').value=tempo();};$('bars').onchange=()=>{$('bars').value=barCount();};
+// Local drum-onset estimation. Heuristic and editable; it is NOT source-separation AI.
+const apsDrumEvents=[];let apsEventPage=0;let apsDrumBuf=null,apsDrumName='',apsOriginalFile=null,apsOriginalObjectUrl=null,apsOriginalAudio=null;
+const apsMidiMap={kick:36,snare:38,rim:37,hat:42,open:46,tom1:50,tom2:47,floor:43,ride:51,crash:49,splash:55};
+for(const piece of PIECES){const o=document.createElement('option');o.value=piece.id;o.textContent=piece.icon+' '+piece.name;$('apsPieceChoice').append(o);}
+function apsAnalysisMessage(s,error=false){$('apsAnalysisStatus').textContent=s;$('apsAnalysisStatus').style.color=error?'#ffb7b7':'#bdebdc';}
+$('apsAnalyzeFile').onchange=async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ if(f.size>120*1048576){apsAnalysisMessage('Arquivo acima de 120 MB: compacte ou recorte a bateria antes.',true);return;}
+ try{
+  apsAnalysisMessage('Decodificando '+f.name+'…');const ctx=getAudio();const buf=await ctx.decodeAudioData(await f.arrayBuffer());
+  if(buf.duration>600.1)throw Error('Máximo 10 minutos por arquivo.');
+  apsDrumBuf=buf;apsDrumName=f.name;apsOriginalFile=f;apsDrumEvents.length=0;
+  apsAnalysisMessage('Bateria carregada: '+f.name+' ('+buf.duration.toFixed(1)+' s). Toque em Detectar.');
+ }catch(err){apsDrumBuf=null;apsOriginalFile=null;apsAnalysisMessage(err.message||'Formato incompatível. Converta para WAV ou MP3.',true);}
+};
+function apsStopReference(){if(apsOriginalAudio){apsOriginalAudio.pause();apsOriginalAudio.currentTime=0;}}
+$('apsListenOriginal').onclick=async()=>{if(!apsOriginalFile)return apsAnalysisMessage('Carregue um WAV ou MP3 primeiro.',true);apsStopReference();if(apsOriginalObjectUrl)URL.revokeObjectURL(apsOriginalObjectUrl);apsOriginalObjectUrl=URL.createObjectURL(apsOriginalFile);apsOriginalAudio=new Audio(apsOriginalObjectUrl);try{await apsOriginalAudio.play();apsAnalysisMessage('Ouvindo o arquivo ORIGINAL, sem equalização, quantização ou troca de sample.');}catch(e){apsAnalysisMessage('O navegador não reproduziu o original: '+e.message,true);}};
+$('apsStopOriginal').onclick=()=>{apsStopReference();apsAnalysisMessage('Referência original parada.');};
+$('apsDownloadOriginal').onclick=()=>{if(!apsOriginalFile)return apsAnalysisMessage('Carregue sua bateria primeiro.',true);apsDownload(apsOriginalFile,apsOriginalFile.name);apsAnalysisMessage('Arquivo original baixado sem qualquer conversão ou modificação.');};
+function apsSetDriveAuto(){
+ if(!$('apsAutoDriveSounds').checked||!sources.size)return;
+ let found=0;
+ for(const p of PIECES){const matching=[...sources.entries()].filter(([id,v])=>p.rx.test(v.name));
+  if(!matching.length)continue;
+  matching.sort((a,b)=>{
+   const f=x=>/^Mixagem\//i.test(x[0])?0:/^(Acustica|Acústica)\//i.test(x[0])?1:2;
+   return f(a)-f(b);
+  });
+  // Choose only if the piece still has a default synthetic sound; never override a musician's manual pick.
+  if(!assigns[p.id].startsWith('demo-'))continue;
+  assigns[p.id]=matching[0][0];const el=$('sample-'+p.id);if(el)el.value=assigns[p.id];found++;
+ }
+ if(found)msg(found+' peças ligadas automaticamente aos samples do Drive. Você pode alterar cada uma sem modificar os ataques.');
+}
+$('apsAutoDriveSounds').onchange=apsSetDriveAuto;
+function apsDrumAnalyze(){
+ if(!apsDrumBuf)throw Error('Selecione primeiro um áudio contendo só a bateria.');
+ const buf=apsDrumBuf,sr=buf.sampleRate,hop=Math.max(256,Math.round(sr*.009)),size=Math.min(2048,hop*3),num=Math.floor(buf.length/hop),env=new Float32Array(num),flux=new Float32Array(num),data=buf.getChannelData(0);
+ let mean=0,maximum=0;const step=4;
+ for(let n=1;n<num-1;n++){
+  const base=n*hop;let energy=0;
+  for(let j=base;j<Math.min(base+size,data.length);j+=step){const x=data[j];energy+=x*x;}
+  const value=Math.sqrt(energy/(Math.max(1,Math.ceil(size/step))));env[n]=value;flux[n]=Math.max(0,value-(env[n-1]||0));mean+=flux[n];maximum=Math.max(maximum,value);
+ }
+ mean/=num;if(maximum<.002)throw Error('Áudio silencioso.');
+ const threshold=Math.max(.0003,mean*(6.1-Number($('apsSensitivity').value)/20),maximum*.0035),minGap=Math.ceil(.036*sr/hop);
+ const found=[];
+ for(let n=2;n<num-2;n++){
+  if(flux[n]<threshold||flux[n]<flux[n-1]||flux[n]<flux[n+1])continue;
+  if(found.length&&n-found[found.length-1].n<minGap){if(flux[n]>flux[found[found.length-1].n])found[found.length-1]={n,hit:flux[n]};continue;}
+  found.push({n,hit:flux[n]});if(found.length>=6000)break;
+ }
+ if(!found.length)throw Error('Não encontrei ataques. Aumente a sensibilidade ou use bateria isolada.');
+ apsDrumEvents.length=0;
+ const grid=Number($('apsMidiGrid').value),sub=grid?60/tempo()*4/grid:0;
+ const strengths=found.map(h=>Math.max(1e-7,env[h.n],env[Math.min(num-1,h.n+2)]));
+ const sorted=[...strengths].sort((a,b)=>a-b),refStrength=Math.max(.000001,sorted[Math.min(sorted.length-1,Math.floor(sorted.length*.96))]);
+ for(const hit of found){
+  const t=hit.n*hop/sr,from=Math.min(data.length-1,Math.round(t*sr)),length=Math.min(Math.floor(.045*sr),data.length-from);let low=0,high=0,mid=0,z=0,prev=0;
+  const alpha=Math.min(1,2*Math.PI*180/sr);let lp=0;
+  for(let j=0;j<length;j+=4){const x=data[from+j];lp+=(x-lp)*alpha*4;low+=lp*lp;high+=(x-prev)*(x-prev);mid+=x*x;prev=x;z++;}
+  const bassRatio=low/Math.max(1e-10,mid),bright=high/Math.max(1e-10,mid),after=env[Math.min(num-1,hit.n+Math.round(.06*sr/hop))]/Math.max(.0001,env[hit.n]);
+  let piece;
+  if(bassRatio>.24&&bright<1.35)piece=after>.86?'floor':'kick';
+  else if(bright>1.35)piece=after>.45?'crash':'hat';
+  else piece=bright>.63?'snare':'tom2';
+  // Original attack remains at 't'; optional MIDI grid is applied only during MIDI export.
+  const at=t; // Never shift the recorded performance in analysis; optional MIDI-only quantization below.
+  const amp=Math.max(env[hit.n],env[Math.min(num-1,hit.n+2)]);
+  // Unnormalized original stays untouched; MIDI velocity reflects relative detected amplitudes (not a lab-calibrated measure).
+  const velocity=Math.max(1,Math.min(127,Math.round(127*Math.pow(Math.min(1,amp/refStrength),.9))));
+  apsDrumEvents.push({time:at,original:t,piece,velocity,amplitude:amp});
+ }
+ apsEventPage=0;apsRenderEvents();$('apsDynamic').textContent='Dinâmica detectada: MIDI '+Math.min(...apsDrumEvents.map(e=>e.velocity))+' a '+Math.max(...apsDrumEvents.map(e=>e.velocity))+' (valores relativos à gravação; sem compressão).';
+ apsAnalysisMessage(apsDrumEvents.length+' ataques estimados em '+buf.duration.toFixed(1)+'s. Revise a classificação de cada peça; exporte MIDI ou renderize com seus samples. A áudio original não foi isolado.');
+}
+function apsRenderEvents(){
+ const root=$('apsEvents');root.replaceChildren();
+ const pageSize=100,pages=Math.max(1,Math.ceil(apsDrumEvents.length/pageSize));
+ apsEventPage=Math.max(0,Math.min(pages-1,apsEventPage));
+ $('apsEventsPager').textContent='Página '+(apsEventPage+1)+' de '+pages+' · '+apsDrumEvents.length+' ataques';
+ $('apsEventsPrev').disabled=apsEventPage===0;
+ $('apsEventsNext').disabled=apsEventPage>=pages-1;
+ const from=apsEventPage*pageSize,to=Math.min(apsDrumEvents.length,from+pageSize);
+ for(let i=from;i<to;i++){
+  const ev=apsDrumEvents[i];const row=document.createElement('div');row.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #343949;padding:6px 0;';
+  const when=document.createElement('span');when.textContent=ev.original.toFixed(3)+' s';when.style.minWidth='72px';
+  const select=document.createElement('select');select.setAttribute('aria-label','Peça do evento '+(i+1));
+  for(const p of PIECES){const o=document.createElement('option');o.value=p.id;o.textContent=p.icon+' '+p.name;select.append(o);}select.value=ev.piece;
+  select.onchange=()=>{ev.piece=select.value;apsAnalysisMessage('Peça corrigida, sem alterar a posição nem a força do ataque.');};
+  const dynamics=document.createElement('span');dynamics.textContent='Intensidade: '+ev.velocity+'/127';dynamics.style.cssText='color:#cdb989;font-size:11px';
+  const tweak=document.createElement('input');tweak.type='range';tweak.min='1';tweak.max='127';tweak.value=ev.velocity;tweak.style.width='82px';tweak.setAttribute('aria-label','Velocidade MIDI do ataque '+(i+1));tweak.oninput=()=>{ev.velocity=Number(tweak.value);dynamics.textContent='Intensidade: '+ev.velocity+'/127';};
+  const del=document.createElement('button');del.type='button';del.textContent='×';del.setAttribute('aria-label','Descartar falso ataque '+(i+1));del.title='Descartar este falso positivo (o áudio original continua intacto)';del.onclick=()=>{apsDrumEvents.splice(i,1);apsRenderEvents();};
+  row.append(when,select,dynamics,tweak,del);root.append(row);
+ }
+}
+$('apsEventsPrev').onclick=()=>{apsEventPage--;apsRenderEvents();};
+$('apsEventsNext').onclick=()=>{apsEventPage++;apsRenderEvents();};
+$('apsAddEvent').onclick=()=>{
+ if(!apsDrumBuf)return apsAnalysisMessage('Carregue uma bateria antes.',true);
+ const time=Number($('apsAddTime').value),velocity=Number($('apsAddVelocity').value);
+ if(!Number.isFinite(time)||time<0||time>apsDrumBuf.duration||!Number.isFinite(velocity)||velocity<1||velocity>127)return apsAnalysisMessage('Informe um tempo e intensidade válidos.',true);
+ apsDrumEvents.push({time,original:time,piece:$('apsPieceChoice').value||'kick',velocity:Math.round(velocity),amplitude:0});
+ apsDrumEvents.sort((a,b)=>a.original-b.original);apsEventPage=Math.floor(apsDrumEvents.findIndex(e=>e.original===time)/100);apsRenderEvents();
+ apsAnalysisMessage('Ataque incluído manualmente. O áudio original continua intacto.');
+};
+$('apsAnalyze').onclick=()=>{try{apsDrumAnalyze();}catch(e){apsAnalysisMessage(e.message,true);}};
+$('apsMidiGrid').onchange=()=>{if(apsDrumEvents.length){apsRenderEvents();apsAnalysisMessage('Grade alterada somente para o MIDI/recriação. O áudio original e as classificações manuais foram preservados.');}};
+// Standard MIDI file, format 0, tempo, percussion channel 10 (zero-based 9).
+function apsVarLen(n){n=Math.max(0,Math.floor(n));const list=[n&127];while(n>>=7)list.unshift((n&127)|128);return list;}
+function apsMidiFile(){
+ if(!apsDrumEvents.length)throw Error('Analise uma pista de bateria antes de exportar MIDI.');
+ const PPQ=480,micro=Math.round(60000000/tempo()),events=[];
+ const grid=Number($('apsMidiGrid').value),sub=grid?60/tempo()*4/grid:0;
+ for(const e of apsDrumEvents){const at=sub?Math.max(0,Math.round(e.original/sub)*sub):e.original;const tick=Math.round(at*tempo()/60*PPQ),note=apsMidiMap[e.piece]||36;
+  events.push({tick,data:[0x99,note,e.velocity]});events.push({tick:tick+Math.round(PPQ*.10),data:[0x89,note,0]});}
+ events.sort((a,b)=>a.tick-b.tick||a.data[0]-b.data[0]);
+ const track=[0,0xff,0x51,3,(micro>>16)&255,(micro>>8)&255,micro&255],bytes=[...track];let last=0;
+ // First event in track after delta 0 meta; all other deltas relative to previous event.
+ for(const e of events){bytes.push(...apsVarLen(e.tick-last),...e.data);last=e.tick;}bytes.push(0,255,47,0);
+ const u32=v=>[(v>>>24)&255,(v>>>16)&255,(v>>>8)&255,v&255];
+ return new Blob([Uint8Array.from([77,84,104,100,...u32(6),0,0,0,1,1,224,77,84,114,107,...u32(bytes.length),...bytes])],{type:'audio/midi'});
+}
+function apsDownload(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),45000);}
+$('apsExportMidi').onclick=()=>{try{apsDownload(apsMidiFile(),'APS-bateria-pecas-'+tempo()+'BPM.mid');apsAnalysisMessage('MIDI padrão exportado: '+apsDrumEvents.length+' eventos, com intensidades estimadas. Original permanece intacto.');}catch(e){apsAnalysisMessage(e.message,true);}};
+async function apsRecreate(pieceId=null,preview=false){
+ if(!apsDrumEvents.length)throw Error('Analise uma pista de bateria antes.');
+ const chosen=apsDrumEvents.filter(x=>!pieceId||x.piece===pieceId);
+ if(!chosen.length)throw Error('Nenhum ataque classificado para esta peça. Mude os eventos manualmente.');
+ const ctx=getAudio(),unique=[...new Set(chosen.map(x=>x.piece))],clips=new Map();
+ for(const id of unique)clips.set(id,await bufferFor(id));
+ if(preview){await ctx.resume();const start=ctx.currentTime+.06;for(const e of chosen.filter(e=>e.time<=24).slice(0,250)){const buf=clips.get(e.piece);strike(ctx,ctx.destination,buf,start+e.time,volumes[e.piece]/100*($('apsVelocityLayers').checked?e.velocity/127:1),e.piece);}apsAnalysisMessage('Prévia da bateria recriada. Mostrando os primeiros 24 segundos (sem mix original).');return;}
+ const last=Math.max(...chosen.map(e=>e.time)),end=Math.min(600,last+Math.max(1,...[...clips.values()].map(b=>b.duration))+0.15);if(end>600)throw Error('Máximo 10 minutos.');
+ const sr=22050,channels=2;const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;const out=new Offline(channels,Math.ceil(end*sr),sr);
+ for(const e of chosen){const buf=clips.get(e.piece);strike(out,out.destination,buf,e.time,volumes[e.piece]/100*($('apsVelocityLayers').checked?e.velocity/127:1),e.piece);}
+ const rendered=await out.startRendering();return wav(rendered);
+}
+
+$('apsSendPiece').onclick=async()=>{
+ try{
+  const id=$('apsPieceChoice').value;apsAnalysisMessage('Criando a pista de '+id+' para o mixer…');
+  const blob=await apsRecreate(id,false);if(!window.indexedDB)throw Error('Transferência indisponível; exporte o WAV e importe na DAW.');
+  const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('aps-drum-transfer-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('sessions');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put({name:'APS-'+id+'-recriado.wav',blob},'latest');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  location.href='./daw.html?modulo=gravacao&importDrum=1';
+ }catch(e){apsAnalysisMessage(e.message,true);}
+};
+$('apsSwapWav').onclick=async()=>{try{await apsRecreate(null,true);}catch(e){apsAnalysisMessage(e.message,true);}};
+$('apsExportPiece').onclick=async()=>{try{apsAnalysisMessage('Renderizando a peça escolhida com os sons atuais…');const id=$('apsPieceChoice').value;const blob=await apsRecreate(id,false);apsDownload(blob,'APS-'+id+'-recriado.wav');apsAnalysisMessage('WAV recriado de '+PIECES.find(p=>p.id===id).name+' exportado. Não é a gravação original isolada.');}catch(e){apsAnalysisMessage(e.message,true);}};
+
+
+// Atalho por instrumento: mostra controles reais do sampler existente.
+const quick=document.getElementById('apsDrumQuickPieces');
+PIECES.forEach(p=>{const b=document.createElement('button');b.type='button';b.textContent=p.icon+' '+p.name;b.className='mini';b.addEventListener('click',()=>{
+ const row=document.querySelector('[data-piece="'+p.id+'"]');
+ if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.style.outline='2px solid #e5bd72';setTimeout(()=>row.style.outline='',1800);row.querySelector('select')?.focus();}
+ $('apsPieceChoice').value=p.id;
+});quick.appendChild(b);});
+$('apsGoSamples').addEventListener('click',()=>document.getElementById('drums').scrollIntoView({behavior:'smooth',block:'start'}));
+// Arquivo proveniente do separador: in-memory file -> evento onchange -> análise.
+async function apsReceiveSeparated(){
+ if(new URLSearchParams(location.search).get('importar')!=='separador'||!window.indexedDB)return;
+ let db=null;
+ const label=$('apsStemLoadStatus');
+ try{
+  label.textContent='Recebendo WAV de bateria do separador…';
+  db=await new Promise((ok,fail)=>{const q=indexedDB.open('aps-drum-separated-v1',1);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('pending'))q.result.createObjectStore('pending');};q.onsuccess=()=>ok(q.result);q.onerror=()=>fail(q.error);});
+  const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite');const store=tx.objectStore('pending');const q=store.get('latest');q.onsuccess=()=>{if(q.result)store.delete('latest');ok(q.result);};q.onerror=()=>fail(q.error);});
+  if(!item?.blob)throw Error('Nenhum stem foi encontrado. Use Abrir pista de bateria.');
+  const file=new File([item.blob],item.name||'APS-Bateria.wav',{type:'audio/wav'});
+  let target={files:[file]};
+  if(typeof DataTransfer==='function'){try{const dt=new DataTransfer();dt.items.add(file);$('apsAnalyzeFile').files=dt.files;target=$('apsAnalyzeFile');}catch{/* iOS fallback: analyze File directly */}}
+  await $('apsAnalyzeFile').onchange({target});
+  if(!apsDrumBuf)throw Error('Não foi possível abrir a pista separada.');
+  apsDrumAnalyze();
+  label.textContent='Bateria recebida e ataques detectados. Escolha uma peça abaixo e troque o sample. Verifique peças simultâneas e notas fantasmas.';
+  document.getElementById('aps-drum-analyzer').scrollIntoView({block:'start'});
+ }catch(e){label.textContent='Importação: '+e.message;}finally{db?.close();}
+}
+window.addEventListener('load',apsReceiveSeparated,{once:true});
+fill();restoreKit();window.APSDrums={getState:()=>({samples:sources.size,sounds:{...assigns},steps:Object.fromEntries(PIECES.map(p=>[p.id,[...pattern[p.id]]])),playing}),render,stop};
+})();
+</script></body></html>

@@ -1,0 +1,136 @@
+APS AUDIO ENGINE — LEIA (versão 1.8.0)
+=========================================
+
+COMO ABRIR
+- Publique a pasta inteira num site com HTTPS (GitHub Pages, Netlify, Vercel...). Abrir direto do arquivo no celular não funciona.
+- Página inicial: index.html (tela de entrada). Login (em teste): login.html.
+- Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
+
+CHANGELOG
+1.8.0
+- Separador: verifica memória e processadores do aparelho antes de começar. Em aparelho fraco, já deixa 10 s
+  selecionado e pede confirmação para trechos maiores. Mostra tempo estimado restante por bloco.
+  A memória de cada bloco é liberada antes do próximo (o processamento já era em blocos de ~7,8 s).
+- Separador: aviso destacado (e confirmação) antes de abrir o site externo stemplayer.app, porque a música sai do aparelho.
+- Mixagem: botão "🎯 Sugerir mix por instrumento". Mede RMS, pico e equilíbrio grave/médio/agudo de cada pista
+  e sugere volume, pan, corte de graves e EQ conforme o tipo (voz, baixo, bateria, guitarra, piano, outros...).
+  Nada é aplicado sem tocar em "Aplicar ao áudio"; "Desfazer" volta ao anterior.
+  Ao chegar com as 6 pistas do separador, a sugestão aparece sozinha.
+- Masterização (aba Mixagem): alvo -14 LUFS (Spotify/YouTube) ou -9 LUFS (alto), EQ suave, compressor,
+  limitador de pico real com teto -1 dBTP, medidor de loudness (BS.1770 simplificado) antes/depois,
+  ouvir e baixar WAV 16-bit. Funciona com a mixagem do estúdio ou com um arquivo escolhido.
+- Cache do app: aps-shell-1.8.0.
+
+1.7.0
+- index.html virou a tela de entrada (antes era cópia do login). abrir.html removido.
+- Tela de entrada com atalhos para estúdio, separador, painel, bateria, mídia, partituras e login.
+- DAW: seção "Processamento avançado" fica escondida quando não há servidor do motor.
+  Para verificar o motor manualmente, abra daw.html?motor=1.
+- DAW: catálogo de 2.043 IRs de baixo agora só carrega quando o módulo Baixo é aberto (página mais leve).
+- Visual escuro + dourado padronizado no estúdio.
+- Manifest e service worker com caminhos relativos (funciona em subpasta); cache aps-shell-1.7.0.
+- LEIA_*.txt unificados neste arquivo.
+
+HISTÓRICO DAS VERSÕES ANTERIORES (textos originais)
+
+--- LEIA_ANTES.txt ---
+APS AUDIO ENGINE v1.1 — CENTRAL DE MÍDIA E ARQUIVOS DE ATÉ 10 MINUTOS
+
+Central de Mídia: midia.html
+DAW de gravação e mixagem: daw.html
+Biblioteca de IR de baixo: 144 arquivos WAV integrados + catálogo de 2043 IRs
+Separador experimental: separador.html
+
+Esta atualização aumenta o limite da sessão, importação e gravação para 600 segundos (10 min).
+O navegador pode não oferecer memória suficiente para várias pistas longas ou renderizações WAV/MP4 de 10 min.
+Há limites adicionais de até 768 MB por arquivo de mídia e limite adaptativo de memória de áudio para evitar travamentos; arquivos grandes podem requerer compressão ou desktop.
+Arquivos não suportados por codecs de Chrome/Safari não podem ser reproduzidos diretamente: MP4/H264/AAC ou WAV são mais compatíveis.
+A Central de Mídia permite selecionar, pré-visualizar, baixar o arquivo original e enviar à DAW via armazenamento temporário do próprio navegador. A transferência de arquivos grandes depende da quota de armazenamento do aparelho.
+O áudio embutido em vídeos pode exigir extração externa; vídeos de mais de 96 MB não são extraídos automaticamente.
+Sem pagamento, sem upload automático de arquivos pessoais.
+Os botões de login social ainda não são autenticação ativa; o separador de IA pode falhar em celulares com pouca RAM.
+
+Testes efetuados em navegador Chromium por conteúdo embutido: arquivos MP3 600s aceitos, MP3 601s rejeitados e vídeo MP4 600s aceito; código JS sem erro de execução nos testes. A navegação entre páginas sob um domínio real e a transferência de IndexedDB ainda precisam de teste no Android real.
+
+--- LEIA_DRUM_SAMPLER.txt ---
+APS AUDIO ENGINE v1.2 — DRUM SAMPLER
+
+Nova página: /bateria.html
+- 11 peças editáveis independentemente; cada uma tem lista de timbres, pré-escuta, volume, mute e 16 passos.
+- Seletor de BPM, compassos, swing, toca, exporta WAV, transfere a DAW por IndexedDB.
+- Carrega WAV individuais ou ZIP de WAV. O ZIP pessoal de 56 sons extraídos do RAR enviado é entregue ao usuário separadamente nesta conversa.
+- Samples de terceiros NÃO estão hospedados no site Wix sem confirmação de direitos de distribuição.
+- Sons originais sintéticos de teste estão disponíveis.
+- Instalação pessoal da biblioteca ZIP no armazenamento do navegador via botão Guardar kit no aparelho; para uso em aparelho novo, importar de novo.
+- Separação automática da bateria em stems distintos permanece não implementada.
+
+Entre no APS e escolha Drum Sampler. Importe seu ZIP pessoal. Escolha o som de cada peça. Toque ▶ e exporte ou envie à DAW.
+
+--- LEIA_IR_INSTANTANEO.txt ---
+APS Audio Engine v1.3 — IRs de baixo com audição em um toque.
+No módulo baixo, há 13 presets rápidos por marca de gabinete e mais 144 IRs originais instalados no Wix.
+Ao clicar num preset: desbloqueia áudio no gesto, faz download apenas do WAV daquele IR, decodifica, cria uma demonstração de baixo se não houver pista de baixo, associa o IR por convolução Web Audio e inicia/reinicia a reprodução.
+Se houver um baixo gravado, aplica o IR à pista existente sem mudar notas nem execução. IR aplicado entra na reprodução e exportação WAV da DAW.
+A coleção de 2043 nomes continua no catálogo: 1899 entradas não incluídas no site permanecem acessíveis por importação opcional de ZIP pessoal (licenciamento de terceiros não verificado). Não divulgar como todos pré-instalados.
+O áudio do exemplo é sintetizado apenas para demonstração. Os 144 IRs publicados são arquivos reais de resposta de impulso, não emulação completa do circuito dos amplificadores.
+Sem pagamento ou upload de gravações. Validar no aparelho Android real do usuário.
+
+--- LEIA_V14.txt ---
+APS Audio Engine 1.4 — recursos novos:
+- Metrônomo 0-100% e acentuação pelo compasso
+- Velocidade da reprodução 0,5x a 2,0x (com alteração de pitch); exportação WAV mantém a velocidade original e gravação força 1,0x
+- Quantização adaptativa de ataques, com divisão rítmica e intensidade e botão desfazer. Algoritmo DSP local (não rede neural)
+- Análise de uma pista isolada de bateria por transientes: classifica aproximadamente bumbo/caixa/pratos/tons, permite reclassificação manual, exporta MIDI padronizado e WAV por peça refeito com samples
+- Envia uma peça recriada diretamente à DAW. Não constitui separação neural de gravações/microfones
+- Importa 56 sons pessoais como WAV ou pacote ZIP MP3 comprimido (1.8 MB), armazena localmente; conteúdo protegido não publicado no site
+- Módulo IR do baixo e 144 WAVs preservados
+
+--- LEIA_V15.txt ---
+APS AUDIO ENGINE — STUDIO PRO 1.5 | TESTE PUBLICADO
+
+Visual: painel de gravação escuro com linha do tempo, armamento de pista e menus separados.
+
+Módulo BATERIA GRAVADA (WAV/MP3): decodifica até 10 min conforme navegador; detecta ataques e classifica peças por estimativa; MIDI sem quantização por padrão; edição manual da peça e do valor de intensidade, inclusão de notas fantasmas e remoção de falsos ataques; exporta MIDI e WAV por peça RECRIADA com os samples selecionados; gravação ORIGINAL permanece intacta e pode ser baixada em seus bytes originais. NÃO são stems isolados da bateria original. Para isolamento exato de microfones será necessário serviço de IA especializado e revisão.
+
+BIBLIOTECA DE BATERIA: a coleção pessoal de 56 arquivos compactados MP3 é fornecida separadamente. Não está publicada no servidor Wix; importa-se em bateria.html e pode ser guardada no aparelho. Todas as peças listam recomendações por nome, e o músico seleciona a amostra manualmente. Use apenas materiais com licença.
+
+PARTITURAS: editor por instrumento, compasso, clave, figuras, acordes, MusicXML, MIDI e impressão em múltiplas páginas. São notas digitadas/editadas, NÃO transcrição automática polifônica precisa.
+
+PLACA USB: permissão e diagnóstico de entrada de áudio em navegador HTTPS; drivers ASIO e baixa latência são recursos de aplicações nativas, não garantidos na web.
+
+LOGIN: ainda é formulário visual e demonstração; Google/Apple/Microsoft exigem backend OAuth. Contas administrativas e notificações por e-mail NÃO estão ativas. Não use esta versão para armazenar informação privada ou dados de clientes.
+
+AFINAÇÃO VOCAL: preserve voz original; correção de tom de qualidade Melodyne com formantes ainda não implementada.
+
+CNPJ: 60.412.110/0001-92; suporte: diretoria@clinicadmoura.company.
+
+--- LEIA_V16.txt ---
+APS Audio Engine 1.6 — Acessos e limites
+
+FLUXO SEPARAR
+1. separador.html: clique em ESCOLHER ARQUIVO para abrir seletor do aparelho
+2. Separar 6 pistas usa modelo experimental ONNX no navegador (pode falhar por memoria/CORS).
+3. Se concluir: Bateria -> Trocar sons transfere o STEM Bateria via IndexedDB.
+4. Drum Sampler analisa ataques e sugere peças; é RECRIAÇÃO com samples, nao separacao neural de microfones.
+
+MIXAGEM DA BANDA
+- daw.html?modulo=mixagem mostra canais existentes e a estrutura da bateria em 11 peças.
+- Canais cinza nao possuem WAV; precisam importar uma pista.
+- Assistente em texto interpreta localmente pedidos de EQ/volume/pan, calcula pico e RMS e pede confirmacao.
+- O botao Desfazer restaura EQ/volume/pan originais.
+- Campos de texto individuais por pista ativa.
+- Nao e ChatGPT ou Gemini integrado: modelo conversacional real e analise musical semantica requer backend separado com chave protegida e autorizacao.
+- Nao altera o tempo, notas ou ataques gravados ao aplicar EQ e volume.
+
+KIT DE BATERIA
+- Os 56 samples do Google Drive NAO foram publicados na hospedagem: sao para uso pessoal, importa ZIP local.
+- O fluxo de troca mostra os 11 instrumentos disponiveis.
+- Bateria de estereo nao garante reconhecimento completo de todos os golpes sobrepostos.
+
+PLATAFORMA
+- Site Wix Premium existente, ID 895531c3-325d-4f24-bc17-0e13d8f270b5.
+- CNPJ 60.412.110/0001-92, suporte diretoria@clinicadmoura.company.
+- Login social, email de aviso e IA conversacional segura pendentes.
+
+--- LEIA_CORRECAO_AFINADOR_161.txt ---
+APS Audio Engine 1.6.1 - Afinador sem interromper playback. Modo padrao: pista selecionada, sem abertura do microfone. Modo ao vivo: entrada USB/microfone explicitamente selecionada; alguns dispositivos Android mudam a saida de audio quando mic esta ativo. Trocando modo, afinador e encerrado sem mexer em playback. Atualizacao do cache PWA.

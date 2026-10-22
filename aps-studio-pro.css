@@ -1,0 +1,58 @@
+
+/* APS AUDIO ENGINE / STUDIO PRO v1.5 — utilitarian music workstation */
+:root{--bg:#080c11!important;--p:#121921!important;--p2:#1b252f!important;--line:#2f3b49!important;--a:#e5bb70!important;--teal:#65d6bf!important;--txt:#eaf2f6!important;--mut:#9aabb9!important}
+html{scroll-behavior:smooth}body{background:#0b1016!important;color:var(--txt);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:none!important;padding:10px 18px 58px!important}
+.wrap>div[role=status],.wrap>.hero,#apsSixStem{display:none!important}
+.bar{position:sticky;top:0;z-index:70;margin:-10px -18px 10px;padding:8px 20px!important;min-height:58px;background:#10161dee;border-bottom:1px solid #3d4652;backdrop-filter:blur(14px)}
+.bar .brand .mark{width:42px;height:38px;border-radius:6px;background:linear-gradient(145deg,#f4d68b,#ae7d3d);font-size:14px}.bar .brand strong{font-size:15px}.bar .brand small{font-size:9px}
+body.aps-workspace .aps-workspace-tabs{display:flex;position:fixed;left:0;top:59px;bottom:0;width:204px;padding:16px 11px 70px;flex-direction:column;align-items:stretch;gap:5px;overflow-x:hidden;overflow-y:auto;margin:0;border-right:1px solid #2a3541;background:#101721;z-index:65;scrollbar-width:thin}
+body.aps-workspace .aps-workspace-tabs::before{content:'ESPAÇOS DE TRABALHO';font-size:10px;color:#7e95aa;font-weight:750;letter-spacing:.12em;padding:4px 10px 10px}
+body.aps-workspace .aps-tab{border:1px solid transparent;border-radius:7px;text-align:left;justify-content:flex-start;padding:11px 12px;min-height:42px;background:transparent;color:#b5c4d2;font-size:12px;line-height:1.15}
+body.aps-workspace .aps-tab[aria-current=page]{background:#283541;color:#f8d799;border-color:#655a43;box-shadow:inset 3px 0 #ddb46b}
+body.aps-workspace .aps-tab:hover{background:#25303b;color:#fff}
+body.aps-workspace .wrap{padding-left:222px!important}
+.aps-screen-title{margin:10px 0 12px;padding:13px 17px!important;background:linear-gradient(115deg,#19232d,#121922)!important;border:1px solid #303b47!important;border-radius:9px!important}
+.aps-screen-title h1{color:#eef3f6!important;font-weight:740;font-size:21px!important}.aps-screen-title p{color:#94a6b4!important}
+.aps-screen-title .aps-status{color:#d7bd89;border-color:#6c5a3b;border-radius:6px}
+.panel{border-radius:9px!important;border-color:#303b47!important;background:#121a23!important;box-shadow:0 6px 20px #02070c33}
+.ph{padding:12px 16px!important;background:#19232d;border-bottom:1px solid #34414f!important}.ph h1,.ph h2{font-size:14px!important;font-weight:730;color:#eff3f5}
+button{border-radius:7px!important;background:#263442;border-color:#475361;transition:background .12s,filter .12s,box-shadow .12s}button:hover:not(:disabled){filter:brightness(1.12)}
+button.primary{background:#ddb36a!important;border-color:#e9c181!important;color:#111820!important}button.accent{background:#163d40!important;color:#b1f0e4!important;border-color:#398879!important}
+button.record{background:#48272f;border-color:#934a57;color:#ffe0e2}
+select,input[type=number],input.text{border-radius:6px!important;background:#1d2934!important;border:1px solid #465463!important}
+.timeline{background:#121a22!important;padding:0 10px 14px!important;min-height:315px;overflow-x:auto;border-top:1px solid #415063}
+.ticks{padding-top:10px!important;padding-bottom:9px!important;color:#b6cad9!important;background:repeating-linear-gradient(90deg,transparent,transparent calc(12.5% - 1px),#45505a55 calc(12.5% - 1px),#45505a55 12.5%);font-weight:700}
+.tracks{gap:2px!important}
+.track{grid-template-columns:196px minmax(260px,1fr)!important;min-height:92px!important;border-radius:3px!important;border:1px solid #334451!important;background:#1c2932!important}
+.track.active{outline:2px solid #e5bd72!important;z-index:2}
+.trackctrl{background:linear-gradient(135deg,#25323f,#202b36);border-right:1px solid #3c4954!important;padding:10px!important}
+.trackhead{padding-bottom:3px}.trackname{font-size:12px!important;max-width:165px!important;color:#edf5fa;text-overflow:ellipsis}
+.tracksub{font-size:10px!important;color:#9caab6}.trackbtns button{min-width:32px;padding:6px 8px!important;background:#303e4b}
+.trackbtns .arm{color:#ff9eab!important;border-color:#78434c!important}.trackbtns .arm.armed{background:#a83e50!important;color:#fff!important}
+.trackbtns .remove{margin-left:auto;background:transparent;border-color:transparent;color:#9aa8b4}
+.wave{background-color:#17222d!important;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(12.5% - 1px),#3b5163 calc(12.5% - 1px),#3b5163 12.5%),repeating-linear-gradient(0deg,transparent 0,transparent 22px,#2e415455 22px,#2e415455 23px)!important}
+.wave .clip{background:#2777954d!important;border-top:2px solid #76d0ef!important;border-bottom:2px solid #348bb3!important}
+.playhead{background:#ffe189!important;width:2px!important;box-shadow:0 0 7px #f7d481ab}
+.transport{position:sticky;top:58px;z-index:35;background:#17222d!important;padding:12px 16px!important;border-bottom:1px solid #405465;box-shadow:0 5px 16px #03060c8a;gap:8px!important}
+.transport .clock{background:#0e161e;border:1px solid #35495c;border-radius:6px;padding:7px 10px;font-size:16px;min-width:140px;color:#e5c37d!important}
+.transport .row.grow{font-size:11px;gap:9px}.transport .progress{accent-color:#e5c17d}
+#apsQuantBox{background:#1c2833!important;border-top:1px solid #354455!important}
+#apsBpmStatus{background:#16212b!important;color:#b5c8d6!important}
+.bottom{background:#19232d!important}.footer{color:#889cae!important}
+.aps-pro-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:8px 12px;background:#121b25;border:1px solid #354353;border-radius:7px;margin:0 0 10px}
+.aps-pro-toolbar strong{font-size:12px;color:#f5cb84}.aps-pro-toolbar .aps-pro-tools{display:flex;gap:7px;flex-wrap:wrap}.aps-pro-tools a{font-size:12px;text-decoration:none;color:#bfe5e3;border:1px solid #38575a;border-radius:6px;padding:6px 10px}
+.aps-pro-head{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#111a23;padding:10px 14px;border:1px solid #354454;border-radius:6px;margin:6px 0 12px}
+.aps-pro-head span{font-size:11px;color:#9bafc0}.aps-pro-head strong{font-size:12px;color:#e9c17e}
+.aps-pro-company{font-size:11px;color:#99aabc;padding:15px 6px 8px;border-top:1px solid #344354;margin-top:14px}
+.aps-pro-company a{color:#eac985}
+.aps-device-status{font-size:12px;color:#b7ccda;line-height:1.6;background:#111e28;border:1px solid #334a5c;padding:10px;border-radius:7px;margin-top:10px}
+@media(max-width:1050px){body.aps-workspace .aps-workspace-tabs{width:172px}body.aps-workspace .wrap{padding-left:188px!important}.track{grid-template-columns:156px minmax(235px,1fr)!important}.trackname{max-width:116px!important}.ticks{padding-left:160px!important}}
+@media(max-width:760px){body.aps-workspace .wrap{padding:8px 8px 45px!important}body.aps-workspace .aps-workspace-tabs{position:sticky;width:auto;top:57px;bottom:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:7px 8px;border-bottom:1px solid #374555;border-right:0;min-height:54px;margin:0 -8px 10px}body.aps-workspace .aps-workspace-tabs::before{display:none}body.aps-workspace .aps-tab{flex:0 0 auto;min-height:36px;padding:9px 10px;white-space:nowrap}body.aps-workspace .aps-screen-title{margin-top:8px}.bar{margin:-8px -8px 6px;padding:6px 12px!important}.transport{top:109px;position:relative}.track{grid-template-columns:128px minmax(190px,1fr)!important}.ticks{padding-left:136px!important}.trackctrl{padding:7px!important}.trackname{max-width:100px!important}.trackbtns{gap:2px!important}.trackbtns button{padding:5px!important;min-width:23px}.clock{font-size:14px!important}.aps-pro-head{flex-wrap:wrap}}
+
+/* APS 1.7.0 — padronização visual escuro + dourado */
+:root{--bg:#0c0e18!important;--p:#141826!important;--p2:#1b2030!important;--line:#343a4c!important;--a:#e5bd72!important;--txt:#f3efe6!important;--mut:#aab2c2!important}
+body{background:#0c0e18!important}
+.panel{border-color:#343a4c!important;border-radius:14px!important;box-shadow:none!important}
+.panel h2,.ph h2{color:#e5bd72!important;letter-spacing:.3px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #e5bd72!important;outline-offset:2px}
