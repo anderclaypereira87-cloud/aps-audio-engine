@@ -12,7 +12,7 @@ window.APS_PLANS={
   'voz.afinacao':'free','voz.limpeza':'free',
   'gravacao.punch':'free','gravacao.metronomo':'free','gravacao.afinador':'free',
   'compartilhar':'free','exportar.mp3':'free',
-  'master.nota':'free','cifra.auto':'free','loops.biblioteca':'free','loops.premium':'free','tutorial':'free'
+  'master.nota':'free','cifra.auto':'free','loops.biblioteca':'free','loops.premium':'free','tutorial':'free','daw.pro':'free','instrumento.trocar':'free','instrumento.polifonico':'free','reconhecimento':'free','biblioteca.contribuir':'free'
  }
 };
 window.APSPlan={

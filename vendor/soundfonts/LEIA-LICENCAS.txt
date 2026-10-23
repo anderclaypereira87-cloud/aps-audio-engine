@@ -1,0 +1,6 @@
+Timbres de "Trocar Instrumento" (APS 3.3.0)
+- vendor/soundfonts/FluidR3_GM/*.json: notas selecionadas (a cada 3 semitons, Dó1–Dó7) do FluidR3_GM,
+  convertidas por gleitz/midi-js-soundfonts. Licença: Creative Commons Atribuição 3.0 (CC BY 3.0).
+  Créditos: Frank Wen (FluidR3_GM.sf2) e Benjamin Gleitzman (midi-js-soundfonts). https://github.com/gleitz/midi-js-soundfonts
+- vendor/basic-pitch/: Spotify Basic Pitch (modelo + código) — Apache License 2.0; TensorFlow.js — Apache License 2.0.
+- Instrumentos "sintéticos" e a bateria usam síntese própria do APS ou os kits do próprio usuário (MMSTUDIO).

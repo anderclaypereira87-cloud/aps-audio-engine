@@ -1,0 +1,7 @@
+SW ['aps-shell-3.2.0', 'aps-models-v1']
+10) renderização (dB por trecho) — esperado: 0-0.45 silêncio (aparado), 2.5-4.7 silêncio (vão): {'dur': 10.4, '0-0.5': -120, '1-2.3': -11.3, '2.5-4.7': -120, '6-8': -10.9}
+    WAV exportado: dur 10.4 s · 0-0.45 -120.0 · 1-2.3 -11.7 · 2.5-4.7 (vão) -120.0 · 6-8 -11.3
+13) reaberto igual: True ['song:0.50[0.50-2.40 fi0.40]', 'Pista 2:4.80[2.40-4.10 fi0.01],6.50[4.10-8.00 fi0.01],1.00[0.00-2.42 fi0.00]']
+ERROS nenhum
+T3) arrastar com dedo (2 regiões): [0, 0] → [2.4, 2.4]
+ERROS nenhum

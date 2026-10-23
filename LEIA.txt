@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 3.2.0)
+APS AUDIO ENGINE — LEIA (versão 3.3.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,24 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+3.3.0 — 🎻 Trocar instrumento (mantém a sua execução)
+- Estúdio Pro > aba "🎻 Trocar instrumento" (no modo clássico: aba Partituras). Selecione uma região e toque
+  em "Ler notas": o app transcreve NO APARELHO mantendo início exato de cada nota, duração, força (pelo
+  envelope de amplitude) e dinâmica.
+  • Melodia (uma nota por vez): curva de afinação exata (vibrato, glissando, bends) pelo detector YIN.
+  • Acordes / polifônico: IA Spotify Basic Pitch (TF.js, carregada só quando usar, ~1,9 MB).
+  • Bateria: detecta ataques e classifica bumbo/caixa/chimbal e toca com o kit APS Studio (MMSTUDIO).
+- Piano roll para corrigir: tocar seleciona, arrastar move (tempo/altura), borda direita alonga, ▲▼, 🗑,
+  força, toque duplo cria nota, zoom.
+- Instrumentos: piano, piano elétrico, cordas, violino, sax alto, flauta, metais, órgão, violão nylon,
+  guitarra limpa, synth lead, sanfona (amostras FluidR3_GM) + 3 sintéticos sem download.
+  Transpor, seguir curva de afinação e dinâmica; prévia; "Criar nova pista" coloca o resultado na MESMA
+  posição numa pista nova, e "Original ↔ Novo" mistura os dois.
+- Teste: ataques preservados com erro médio de 3–6 ms (máx. 20 ms; cordas têm ataque naturalmente mais lento).
+- LICENÇAS: vendor/soundfonts/LEIA-LICENCAS.txt — FluidR3_GM (CC BY 3.0, Frank Wen; conversão
+  gleitz/midi-js-soundfonts), Spotify Basic Pitch e TensorFlow.js (Apache 2.0).
+- Cache do app: aps-shell-3.3.0.
+
 3.2.0 — Estúdio Pro: DAW em tela cheia (estilo Logic/Cubase)
 - O estúdio abre em tela cheia (só a DAW). Botão ⛶ para tela cheia de verdade (no celular tenta girar para
   horizontal). "☰ > Modo clássico" volta à tela antiga com todas as ferramentas; "🎛 Estúdio Pro" retorna.
