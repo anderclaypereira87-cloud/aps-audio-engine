@@ -1,4 +1,4 @@
-/* APS 3.5.0 — Tour de início: mostra ONDE fica cada coisa (tela inicial e estúdio Pro). Pular a qualquer momento; rever pelo botão "?". Criado por Anderclay Pereira Silva. */
+/* APS 3.6.0 — Tour de início: mostra ONDE fica cada coisa (tela inicial e estúdio Pro). Pular a qualquer momento; rever pelo botão "?". Criado por Anderclay Pereira Silva. */
 (function(root){'use strict';
 const PAGE=/daw\.html/.test(location.pathname)?'daw':'index',KEY='aps-tour-'+PAGE+'-v2';
 const CRED='Criado por Anderclay Pereira Silva';
@@ -7,6 +7,7 @@ const STEPS={
   {sel:'a[href*="daw.html"]',t:'Estúdio (gravar e importar)',d:'Aqui você abre o estúdio em tela cheia: grava, importa tracks, mixa com IA, faz master, cifra, loops e troca instrumentos.'},
   {sel:'a[href*="separador.html"]',t:'Separação de instrumentos',d:'Separe voz, bateria, baixo, guitarra e piano de uma música pronta.'},
   {sel:'a[href*="bateria.html"]',t:'Drum Sampler',d:'Troque o timbre da bateria pelos seus kits e samples.'},
+  {sel:'a[href*="afinador.html"]',t:'Afinador e Metrônomo',d:'Afinador cromático (violão, baixo, cavaquinho) e metrônomo com tap tempo, numa tela rápida.'},
   {sel:'a[href*="projetos.html"]',t:'Meus Projetos',d:'Suas músicas ficam salvas aqui no aparelho — e podem ir para o seu Google Drive.'},
   {sel:'#apsTourBtn',t:'Ajuda / tutorial',d:'Quando quiser ver este guia de novo, toque no "?". No estúdio tem um tour só dele.'}],
  daw:[{sel:null,t:'Este é o estúdio Pro 🎛',d:'Vou te mostrar onde fica cada ferramenta. Use Próximo e Voltar, ou Pular quando quiser.',c:CRED},
@@ -14,11 +15,13 @@ const STEPS={
   {sel:'#proRec',t:'Gravar',d:'O botão vermelho grava com contagem e metrônomo. Tocar, parar e repetir ficam ao lado.'},
   {sel:'#proCanvas',t:'Linha do tempo (editar)',d:'Arraste as regiões para mover, puxe as bordas para cortar, ✂ divide, ↩ desfaz. Pinça para zoom.'},
   {sel:'.pro-tabs [data-tab="ia"]',tab:'ia',t:'Mixagem com IA',d:'A IA analisa as pistas e sugere volume, EQ, compressão e efeitos. Dá para comparar A/B e desfazer.'},
+  {sel:'#apsEstilos',tab:'ia',t:'Estilos brasileiros',d:'Forró, piseiro, sertanejo, gospel, pagode, MPB, axé e arrocha: mixagem do estilo com um toque, e dá para desfazer.'},
   {sel:'.pro-tabs [data-tab="master"]',tab:'master',t:'Master + nota',d:'Masterize a música e veja a nota da mixagem e do master.'},
   {sel:'.pro-tabs [data-tab="gravar"]',tab:'gravar',t:'Cifra / acordes',d:'Na aba Gravar ficam a cifra automática (acordes), afinador, punch-in e partitura.'},
   {sel:'.pro-tabs [data-tab="loops"]',tab:'loops',t:'Loops brasileiros',d:'Ritmos brasileiros livres de royalties. Toque em "+ Adicionar" para pôr na música.'},
   {sel:'.pro-tabs [data-tab="trocar"]',tab:'trocar',t:'Trocar instrumento',d:'Muda o som do instrumento sem mexer na sua interpretação: as notas e o tempo continuam seus.'},
   {sel:'.pro-tabs [data-tab="projeto"]',tab:'projeto',t:'Salvar e exportar',d:'Na aba Exportar: 💾 Salvar em Meus Projetos (e Drive), baixar MP3 e compartilhar.'},
+  {sel:'#apsToolsLink',t:'Afinador e Metrônomo',d:'O 🎯 abre o afinador e o metrônomo rápidos.'},
   {sel:'.pro-logo',t:'Separação e Drum Sampler',d:'Toque em "APS" para voltar à tela inicial: lá ficam a Separação de instrumentos, o Drum Sampler e Meus Projetos.'},
   {sel:'#apsTourBtn',t:'Ajuda / tutorial',d:'Toque no "?" para rever este tour quando quiser. Bom som! 🎶'}]};
 function vis(el){if(!el)return false;const r=el.getBoundingClientRect();return r.width>0&&r.height>0;}

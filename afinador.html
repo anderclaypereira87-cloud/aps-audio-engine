@@ -1,0 +1,62 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><title>Afinador e Metrônomo · APS</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png">
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee9df;font:16px/1.4 system-ui,-apple-system,Roboto,sans-serif}main{max-width:540px;margin:0 auto;padding:14px 14px 60px}header{display:flex;align-items:center;gap:10px}header a{color:#e5be74;text-decoration:none;font-weight:800;border:1px solid #9e7c42;border-radius:10px;padding:6px 10px}h1{font-size:19px;margin:0;color:#e5be74}.tabs{display:flex;gap:6px;margin:14px 0}.tabs button{flex:1;padding:12px;border-radius:12px;border:1px solid #5d4c2c;background:#1b2130;color:#f5d79e;font-weight:800;font-size:15px}.tabs button.on{background:#dbb66f;color:#151922}.card{background:#181d2b;border:1px solid #444b58;border-radius:18px;padding:16px;margin:10px 0}.note{font-size:72px;font-weight:850;text-align:center;line-height:1;color:#fff}.note sub{font-size:24px;color:#aab}.hz{text-align:center;color:#aab;font-size:14px;min-height:20px}svg{display:block;width:100%;max-width:360px;margin:0 auto}.big{display:block;width:100%;padding:16px;border-radius:13px;border:0;background:#dbb66f;color:#151922;font-weight:850;font-size:17px;margin-top:10px}.big.stop{background:#5a2b2b;color:#fff}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}select,input[type=number]{background:#10131b;color:#eee;border:1px solid #555;border-radius:9px;padding:8px;font-size:15px}.strings{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px}.strings span{border:1px solid #444b58;border-radius:9px;padding:5px 9px;font-weight:700;color:#ccd}.strings span.hit{background:#2b4a33;border-color:#6bd08a;color:#d9ffe3}.status{text-align:center;font-weight:800;min-height:22px}.bpm{font-size:64px;font-weight:850;text-align:center;color:#fff}.bpm small{font-size:18px;color:#aab}input[type=range]{width:100%;accent-color:#dbb66f}.beats{display:flex;justify-content:center;gap:10px;margin:14px 0}.beats i{width:26px;height:26px;border-radius:50%;background:#2a3142;border:2px solid #555}.beats i.acc{border-color:#dbb66f}.beats i.on{background:#dbb66f}.beats i.on.acc{background:#ffdf8f;box-shadow:0 0 14px #dbb66f}.mini{background:#282f3d;color:#f5d79e;border:1px solid #997d4b;border-radius:10px;padding:10px 12px;font-weight:800;font-size:15px}label{color:#c8cad0;font-size:14px}.foot{text-align:center;color:#889;font-size:12px;margin-top:20px}</style></head><body><main>
+<header><a href="./index.html">← APS</a><h1>Afinador · Metrônomo</h1></header>
+<div class="tabs"><button id="tA" class="on" type="button">🎯 Afinador</button><button id="tM" type="button">🥁 Metrônomo</button></div>
+<section id="pA"><div class="card">
+<div class="note" id="nt">—</div><div class="hz" id="hz">Toque uma corda por vez</div>
+<svg viewBox="0 0 300 160" aria-hidden="true"><path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="#2a3142" stroke-width="14"/><path d="M134 32 A120 120 0 0 1 166 32" fill="none" stroke="#3fae62" stroke-width="14"/><g id="tk"></g><line id="nd" x1="150" y1="150" x2="150" y2="40" stroke="#dbb66f" stroke-width="4" stroke-linecap="round" style="transition:transform .12s;transform-origin:150px 150px"/><circle cx="150" cy="150" r="8" fill="#dbb66f"/><text x="22" y="158" fill="#889" font-size="12">-50</text><text x="262" y="158" fill="#889" font-size="12">+50</text></svg>
+<div class="status" id="ss"></div>
+<div class="row"><label>Instrumento <select id="inst"><option value="crom">Cromático</option><option value="violao">Violão / guitarra</option><option value="baixo">Baixo 4 cordas</option><option value="baixo5">Baixo 5 cordas</option><option value="cavaco">Cavaquinho (DGBD)</option><option value="ukulele">Ukulele</option></select></label><label>Lá (A4) <input id="a4" type="number" min="415" max="466" value="440" style="width:76px"> Hz</label></div>
+<div class="strings" id="strs"></div>
+<button class="big" id="go" type="button">🎤 Ligar afinador</button>
+<p class="hz" style="margin-top:8px">Usa o microfone do aparelho. Nada é gravado nem enviado.</p></div></section>
+<section id="pM" hidden><div class="card">
+<div class="bpm"><span id="bv">100</span> <small>BPM</small></div>
+<input id="br" type="range" min="30" max="260" value="100" aria-label="Andamento">
+<div class="row" style="justify-content:center"><button class="mini" id="m5" type="button">−5</button><button class="mini" id="m1" type="button">−1</button><button class="mini" id="tap" type="button" style="min-width:110px">👆 Tap</button><button class="mini" id="p1" type="button">+1</button><button class="mini" id="p5" type="button">+5</button></div>
+<div class="row" style="justify-content:center"><label>Compasso <select id="cmp"><option value="2/4">2/4</option><option value="3/4">3/4</option><option value="4/4" selected>4/4</option><option value="6/8">6/8</option></select></label><label><input type="checkbox" id="acc" checked> Acentuar o 1º tempo</label></div>
+<div class="beats" id="bts"></div>
+<button class="big" id="mgo" type="button">▶ Iniciar metrônomo</button></div></section>
+<p class="foot">APS Audio Engine · <b>Criado por Anderclay Pereira Silva</b></p>
+</main><script>
+const $=id=>document.getElementById(id),N=['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+let AC=null;const ac=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
+$('tA').onclick=()=>{$('tA').classList.add('on');$('tM').classList.remove('on');$('pA').hidden=false;$('pM').hidden=true;};
+$('tM').onclick=()=>{$('tM').classList.add('on');$('tA').classList.remove('on');$('pM').hidden=false;$('pA').hidden=true;};
+if(location.hash==='#metronomo')$('tM').click();
+// ticks
+{let s='';for(let c=-50;c<=50;c+=10){const a=(c/50)*60*Math.PI/180;const x1=150+Math.sin(a)*112,y1=150-Math.cos(a)*112,x2=150+Math.sin(a)*(c%50?102:96),y2=150-Math.cos(a)*(c%50?102:96);s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#667" stroke-width="2"/>`;}$('tk').innerHTML=s;}
+const PRE={crom:[],violao:[40,45,50,55,59,64],baixo:[28,33,38,43],baixo5:[23,28,33,38,43],cavaco:[62,67,71,74],ukulele:[67,60,64,69]};
+const nm=m=>N[m%12]+(Math.floor(m/12)-1);
+function strs(){$('strs').innerHTML=PRE[$('inst').value].map(m=>`<span data-m="${m}">${nm(m)}</span>`).join('');}
+$('inst').onchange=strs;strs();
+let stream=null,an=null,buf=null,raf=0,sm=null;
+function yin(x,sr){const W=Math.floor(x.length/2),d=new Float32Array(W);let rms=0;for(let i=0;i<x.length;i++)rms+=x[i]*x[i];if(Math.sqrt(rms/x.length)<0.01)return -1;
+ const minT=Math.floor(sr/1100),maxT=Math.min(W-1,Math.floor(sr/28));
+ for(let t=1;t<=maxT;t++){let s=0;for(let i=0;i<W;i++){const v=x[i]-x[i+t];s+=v*v;}d[t]=s;}
+ let run=0;d[0]=1;for(let t=1;t<=maxT;t++){run+=d[t];d[t]=d[t]*t/(run||1);}
+ let T=-1;for(let t=minT;t<maxT;t++){if(d[t]<0.12){while(t+1<maxT&&d[t+1]<d[t])t++;T=t;break;}}
+ if(T<0)return -1;const a=d[T-1],b=d[T],c=d[T+1]||b,den=a+c-2*b;const p=den?T+(a-c)/(2*den):T;return sr/p;}
+function loop(){an.getFloatTimeDomainData(buf);const f=yin(buf,ac().sampleRate);
+ if(f>0){const A4=+$('a4').value||440;let m=69+12*Math.log2(f/A4);const pr=PRE[$('inst').value];let tgt=Math.round(m);
+  if(pr.length){tgt=pr.reduce((b,x)=>Math.abs(x-m)<Math.abs(b-m)?x:b,pr[0]);}
+  const c=Math.max(-50,Math.min(50,(m-tgt)*100));sm=sm==null?c:sm*.7+c*.3;
+  $('nt').innerHTML=N[tgt%12]+'<sub>'+(Math.floor(tgt/12)-1)+'</sub>';$('hz').textContent=f.toFixed(1)+' Hz · '+(sm>0?'+':'')+sm.toFixed(0)+' cents';
+  $('nd').style.transform=`rotate(${sm*1.2}deg)`;const ok=Math.abs(sm)<5;$('ss').textContent=ok?'✓ Afinado':(sm<0?'↑ Aperte (está baixo)':'↓ Afrouxe (está alto)');$('ss').style.color=ok?'#6bd08a':'#e5be74';$('nd').setAttribute('stroke',ok?'#6bd08a':'#dbb66f');
+  document.querySelectorAll('#strs span').forEach(s=>s.classList.toggle('hit',+s.dataset.m===tgt&&ok));}
+ raf=setTimeout(loop,90);}
+$('go').onclick=async()=>{if(stream){clearTimeout(raf);stream.getTracks().forEach(t=>t.stop());stream=null;$('go').textContent='🎤 Ligar afinador';$('go').classList.remove('stop');return;}
+ try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});const c=ac();await c.resume();an=c.createAnalyser();an.fftSize=4096;buf=new Float32Array(an.fftSize);c.createMediaStreamSource(stream).connect(an);$('go').textContent='⏹ Desligar afinador';$('go').classList.add('stop');loop();}
+ catch(e){$('hz').textContent='Não foi possível usar o microfone: permita o acesso no navegador.';stream=null;}};
+// metrônomo
+let bpm=100,run=false,next=0,beat=0,tm=0,taps=[];
+function setB(v){bpm=Math.max(30,Math.min(260,Math.round(v)));$('bv').textContent=bpm;$('br').value=bpm;}
+$('br').oninput=e=>setB(+e.target.value);[['m5',-5],['m1',-1],['p1',1],['p5',5]].forEach(([i,d])=>$(i).onclick=()=>setB(bpm+d));
+$('tap').onclick=()=>{const t=performance.now();taps=taps.filter(x=>t-x<2500);taps.push(t);if(taps.length>1){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);setB(60000/iv);}};
+const meter=()=>{const [n,d]=$('cmp').value.split('/').map(Number);return {n,d};};
+function dots(){const {n}=meter();$('bts').innerHTML=Array.from({length:n},(_,i)=>`<i class="${i===0&&$('acc').checked?'acc':''}"></i>`).join('');}
+$('cmp').onchange=()=>{beat=0;dots();};$('acc').onchange=dots;dots();
+function click(t,strong){const c=ac(),o=c.createOscillator(),g=c.createGain();o.frequency.value=strong?1600:1000;g.gain.setValueAtTime(strong?.9:.55,t);g.gain.exponentialRampToValueAtTime(.001,t+.05);o.connect(g).connect(c.destination);o.start(t);o.stop(t+.06);}
+function sched(){const c=ac(),{n,d}=meter(),spb=60/bpm*(d===8?0.5:1);while(next<c.currentTime+.12){const b=beat%n,strong=$('acc').checked&&(b===0);click(next,strong);const when=(next-c.currentTime)*1000;setTimeout(()=>{document.querySelectorAll('#bts i').forEach((el,i)=>el.classList.toggle('on',i===b));},Math.max(0,when));next+=spb;beat++;}}
+$('mgo').onclick=async()=>{if(run){run=false;clearInterval(tm);$('mgo').textContent='▶ Iniciar metrônomo';$('mgo').classList.remove('stop');return;}const c=ac();await c.resume();run=true;beat=0;next=c.currentTime+.05;tm=setInterval(sched,25);sched();$('mgo').textContent='⏹ Parar';$('mgo').classList.add('stop');};
+</script></body></html>
