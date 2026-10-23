@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.8.0)
+APS AUDIO ENGINE — LEIA (versão 2.9.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,16 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.9.0 — Cifra automática
+- Estúdio > Partituras: painel "🎼 Cifra automática". Analise a pista selecionada, a mixagem ou qualquer música
+  do aparelho: o app estima tom, BPM e acordes (maiores e menores) por cromagrama.
+- Cifra sincronizada: acorde anterior / atual (grande) / próximo enquanto toca, e uma linha do tempo de acordes;
+  toque num acorde para pular para aquele trecho.
+- Transpor (±11 semitons), capotraste (mostra as formas para tocar), sustenidos ou bemóis.
+- Baixar cifra em .txt (compassos com tempo) ou copiar.
+- Limites: acordes com 7ª/9ª aparecem como a tríade; músicas com muita bateria/distorção erram mais; confira de ouvido.
+- Cache do app: aps-shell-2.9.0.
+
 2.8.0 — Nota do master (0–100)
 - Estúdio > Mixagem > Masterização: painel "📊 Nota do master". Escolha a plataforma (Spotify −14, YouTube −14,
   Apple Music −16 LUFS) e o gênero (pop, funk, piseiro, forró, sertanejo, gospel, trap, acústico) e avalie a
