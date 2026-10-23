@@ -53,3 +53,4 @@ body.aps-pro-on .aps-pro-back{display:none!important}
 @media (max-height:420px){.pro-dock{height:44vh}.pro-tabs{padding:2px 4px}}
 .pro-logo{white-space:nowrap;flex:none}.pro-lcd small{display:flex;gap:3px;align-items:center}
 @media (max-height:500px){.pro-top{padding:3px 6px;gap:4px}.pro-logo{padding:4px 6px;font-size:11px}.pro-sel{font-size:0}.pro-sel select{font-size:12px}.pro-chk{display:none}.pro-lcd{padding:1px 8px}.pro-lcd span{font-size:12px}.pro-dock{height:40vh}.pro-strip{width:74px}.pro-fadwrap,.pro-fader,.pro-meter{height:70px}#apsPro .pro-tabs button{padding:2px 8px;font-size:11px;min-height:24px}}
+#apsPro{grid-template-columns:minmax(0,1fr)}#apsPro>*{min-width:0}
