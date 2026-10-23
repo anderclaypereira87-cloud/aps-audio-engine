@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 3.0.0)
+APS AUDIO ENGINE — LEIA (versão 3.1.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,12 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+3.1.0 — Tour guiado na primeira visita
+- Na primeira vez que abre o início e o estúdio, um guia curto (6–7 passos) destaca as partes principais.
+- "Pular" fecha a qualquer momento; o botão dourado "?" (canto inferior direito) reabre o tour quando quiser.
+- Funciona no celular e no PC; lembra que você já viu (no próprio aparelho).
+- Cache do app: aps-shell-3.1.0.
+
 3.0.0 — Biblioteca de loops brasileiros (originais, livres de royalties)
 - Estúdio > Gravação: painel "🇧🇷 Loops brasileiros" com 18 loops: forró (zabumba+triângulo, baixo de baião,
   sanfona), piseiro (batida, baixo synth, teclado), funk (tamborzão, 808, synth), gospel (bateria, piano, baixo),

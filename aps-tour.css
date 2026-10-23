@@ -1,0 +1,6 @@
+.aps-tour{position:fixed;inset:0;z-index:9999;background:transparent}.aps-tour-hole{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px #05070cd0;border:2px solid #d9af5b;pointer-events:none;transition:all .2s}
+.aps-tour-box{position:fixed;left:50%;margin-left:min(-160px,-45vw);width:min(320px,90vw);background:#141723;color:#f6f4ed;border:1px solid #d9af5b;border-radius:16px;padding:14px 16px;box-shadow:0 20px 60px #000a;font:14px/1.45 system-ui,sans-serif}
+.aps-tour-box h3{margin:2px 0 6px;color:#f1d099;font-size:17px}.aps-tour-box p{margin:0 0 12px;color:#d7d2c4}.aps-tour-box small{color:#9aa}.aps-tour-box div{display:flex;gap:8px;justify-content:flex-end}
+.aps-tour-box button{border:1px solid #303342;background:#242d39;color:#f6f4ed;border-radius:10px;padding:8px 12px;cursor:pointer}.aps-tour-box button.accent{background:#d9af5b;color:#111;border-color:#d9af5b;font-weight:600}.aps-tour-box button:disabled{opacity:.4}
+.aps-tour-btn{position:fixed;right:14px;bottom:14px;z-index:9000;width:42px;height:42px;border-radius:50%;border:1px solid #d9af5b;background:#141723;color:#f1d099;font:700 18px system-ui;box-shadow:0 6px 20px #0008;cursor:pointer}
+@media(prefers-reduced-motion:reduce){.aps-tour-hole{transition:none}}
