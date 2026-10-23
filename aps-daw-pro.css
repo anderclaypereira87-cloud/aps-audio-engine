@@ -1,6 +1,6 @@
 /* APS 3.2.0 — Estúdio Pro (tema escuro + dourado) */
 body.aps-pro-on{overflow:hidden;height:100vh;height:100dvh}
-body.aps-pro-on>*:not(#apsPro):not(dialog):not(script):not(style):not(link):not(.aps-tour):not(#apsTourBtn){display:none!important}
+body.aps-pro-on>*:not(#apsPro):not(dialog):not(script):not(style):not(link):not(.aps-tour):not(#apsTourBtn):not(#apsDrumNotice){display:none!important}
 #apsPro{display:none}
 body.aps-pro-on #apsPro{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(80px,1fr) auto;background:#0b0c13;color:#f1ead8;font:13px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;z-index:50;user-select:none;-webkit-user-select:none}
 #apsPro button{font:inherit;color:#f1ead8;background:#1c2130;border:1px solid #2e3446;border-radius:8px;padding:5px 9px;cursor:pointer;min-height:30px;touch-action:manipulation}
@@ -65,3 +65,6 @@ body.aps-pro-on .aps-pro-back{display:none!important}
 #apsPro .au-cv{width:100%;height:140px;display:block;border:1px solid #2b3246;border-radius:8px;touch-action:none}
 #apsPro .pro-plus:not([hidden]){display:flex;flex-direction:column}
 @media(max-width:760px){#apsPro .pro-plus .pr-grid{order:-1;max-height:30vh;margin-bottom:6px}#apsPro .pr-bar{gap:4px}#apsPro .pr-bar button,#apsPro .pr-bar select{padding:4px 7px;font-size:12px}#apsPro .pr-bar #prInst{max-width:62vw}#apsPro .pro-plus .sub{font-size:11px}}
+
+.lib-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:4px}.lib-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#151821;border:1px solid #2a2f3d;border-radius:8px}.lib-row span{flex:1;font-size:13px;color:#e9e1cc}.lib-row small{color:#9a8f76;margin-left:6px}.lib-row button{min-width:38px;min-height:34px}
+body.aps-pro-on>#apsDrumNotice{position:fixed;left:8px;right:8px;bottom:8px;z-index:60;box-shadow:0 6px 24px #000a}body.aps-pro-on>#apsDrumNotice[hidden]{display:none!important}

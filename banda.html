@@ -7,11 +7,11 @@
 <div class="row"><div><label for="bpm">Andamento (BPM)</label><input id="bpm" type="number" min="50" max="200" value="110"></div><div><label for="offset">Início do 1º tempo (s)</label><input id="offset" type="number" step="0.01" min="0" value="0"></div><div><label for="bars">Compassos</label><input id="bars" type="number" min="1" max="64" value="8"></div></div>
 <label for="chords">Acordes por compasso (pode corrigir — separe com |)</label><textarea id="chords">C | G | Am | F</textarea></section>
 <section class="card"><h2>3 · Estilo</h2><div class="grid" id="styles"></div><p class="sub" id="sdesc"></p></section>
-<section class="card mix"><h2>4 · Mixagem</h2><div id="mix"></div><label class="check" style="display:flex;gap:8px;justify-content:flex-start"><input type="checkbox" id="incl" checked> Incluir minha gravação na exportação</label></section>
+<section class="card mix"><h2>4 · Mixagem</h2><div id="mix"></div><label class="check" style="display:flex;gap:8px;justify-content:flex-start"><input type="checkbox" id="incl" checked> Incluir minha gravação na exportação</label> <label><input type="checkbox" id="nolib"> Usar só timbres sintetizados (mais leve)</label></section>
 <section class="card"><div class="row"><button id="gen" class="gold">▶ Gerar e ouvir a banda</button><button id="stop">■ Parar</button></div><div class="row" style="margin-top:8px"><button id="wav">⬇ Baixar WAV</button><button id="send">🎚 Enviar ao estúdio</button></div><p id="msg" role="status"></p></section>
-<p class="sub">Timbres: bumbo, caixa, aro e chimbal dos kits MMSTUDIO do Anderclay. Zabumba usa o bumbo e o aro do kit; triângulo, baixo, sanfona e teclado são sintetizados no aparelho. A detecção de acordes erra às vezes — confira de ouvido e corrija o campo acima.</p>
+<p class="sub">Timbres: bumbo, caixa, aro e chimbal dos kits MMSTUDIO do Anderclay. Zabumba usa o bumbo e o aro do kit; baixo e teclado usam timbres reais da Biblioteca APS (gravações do Anderclay), afinados nota a nota; triângulo e sanfona ainda são sintetizados no aparelho. A detecção de acordes erra às vezes — confira de ouvido e corrija o campo acima.</p>
 <footer>Criado por Anderclay Pereira Silva · APS Audio Engine</footer></main>
-<script src="./aps-clean.js?v=390"></script><script src="./aps-chords.js?v=390"></script><script src="./aps-gen.js?v=390"></script>
+<script src="./aps-clean.js?v=390"></script><script src="./aps-chords.js?v=390"></script><script src="./aps-gen.js?v=390"></script><script src="./aps-lib.js?v=392"></script>
 <script>
 (()=>{'use strict';const G=APSGen,$=id=>document.getElementById(id),say=t=>$('msg').textContent=t;
 // padrões em 16 semicolcheias (1 compasso 4/4). k=bumbo/zabumba, s=caixa, r=aro/bacalhau, h=chimbal, o=chimbal aberto, t=triângulo (T=aberto), x=shaker
@@ -46,6 +46,7 @@ async function render(includeVoice){const s=ST[style],bpm=+$('bpm').value||s.bpm
  const bus={};for(const[k,,]of PARTS){bus[k]=ctx.createGain();bus[k].gain.value=g(k);bus[k].connect(ctx.destination);}
  const pan=(node,p)=>{const pn=ctx.createStereoPanner();pn.pan.value=p;pn.connect(node);return pn;};
  const kit='aps-studio',[kick,snare,rim,hat,open]=await Promise.all(['kick','snare','rim','hat','open'].map(p=>G.kitPiece(kit,p)));
+ const LIB=self.APSLib&&!($('nolib')?.checked),SB=LIB?await APSLib.sampler(ctx,'baixo').catch(()=>null):null,SK=LIB?await APSLib.sampler(ctx,'teclado').catch(()=>null):null;
  const zab=s.harm==='sanfona',tri=pan(bus.tri,.35),hm=pan(bus.harm,-.15),pc=bus.perc;
  if(includeVoice&&orig){const b=ctx.createBufferSource();b.buffer=orig;b.connect(bus.voz);b.start(0);}
  for(let b=0;b<bars;b++){const c=chords[b%chords.length],t0=off+b*16*step;
@@ -56,11 +57,11 @@ async function render(includeVoice){const s=ST[style],bpm=+$('bpm').value||s.bpm
   for(const i of s.o||[])G.play(ctx,open,t0+i*step,tri,.4);
   for(const i of s.t||[])G.tri(ctx,t0+i*step,tri,(s.T||[]).includes(i));
   for(const i of s.x||[])G.shaker(ctx,t0+i*step,tri,i%4===2?.2:.1);
-  for(const[i,iv,d]of s.bass)G.bass(ctx,t0+i*step,d*step,36+((c.root+iv)%12)+(iv>=12?12:0),bus.bass);
+  for(const[i,iv,d]of s.bass){const m=36+((c.root+iv)%12)+(iv>=12?12:0);if(!APSLib?.note(ctx,SB,t0+i*step,d*step,m,bus.bass,1))G.bass(ctx,t0+i*step,d*step,m,bus.bass);}
   const notes=G.voicing(c);const lens=s.comp.map((i,j)=>((s.comp[j+1]??16)-i));
-  s.comp.forEach((i,j)=>{const d=Math.min(lens[j],s.harm==='sanfona'?2:16)*step;(s.harm==='sanfona'?G.sanfona:G.keys)(ctx,t0+i*step,d*.95,notes,hm);});}
+  s.comp.forEach((i,j)=>{const d=Math.min(lens[j],s.harm==='sanfona'?2:16)*step;if(s.harm!=='sanfona'&&SK){for(const n of notes)APSLib.note(ctx,SK,t0+i*step,d*.95,n,hm,.32);G.keys(ctx,t0+i*step,d*.95,notes,hm,.06);}else(s.harm==='sanfona'?G.sanfona:G.keys)(ctx,t0+i*step,d*.95,notes,hm);});}
  return G.normalize(await ctx.startRendering());}
-async function ensure(){if(!mix||mix.incl!==$('incl').checked){say('Gerando a banda…');mix={buf:await render($('incl').checked),incl:$('incl').checked};}return mix.buf;}
+async function ensure(){if(!mix||mix.incl!==$('incl').checked||mix.nl!==$('nolib').checked){say('Gerando a banda…');mix={buf:await render($('incl').checked),incl:$('incl').checked,nl:$('nolib').checked};}return mix.buf;}
 $('gen').onclick=async()=>{try{stop();mix=null;const b=await ensure();const c=G.ctx();await c.resume();src=c.createBufferSource();src.buffer=b;src.connect(c.destination);src.start();say('▶ Tocando '+ST[style].n+' · '+$('bpm').value+' BPM. Ajuste os volumes e gere de novo.');}catch(e){say('Erro: '+e.message);}};
 function stop(){try{src?.stop();}catch{}src=null;}$('stop').onclick=stop;
 $('wav').onclick=async()=>{try{const b=await ensure();G.download(G.wav(b),'APS Banda '+ST[style].n+' '+$('bpm').value+'BPM.wav');say('WAV baixado.');}catch(e){say('Erro: '+e.message);}};
