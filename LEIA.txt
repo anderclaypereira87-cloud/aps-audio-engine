@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.9.0)
+APS AUDIO ENGINE — LEIA (versão 3.0.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,17 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+3.0.0 — Biblioteca de loops brasileiros (originais, livres de royalties)
+- Estúdio > Gravação: painel "🇧🇷 Loops brasileiros" com 18 loops: forró (zabumba+triângulo, baixo de baião,
+  sanfona), piseiro (batida, baixo synth, teclado), funk (tamborzão, 808, synth), gospel (bateria, piano, baixo),
+  sertanejo (bateria, violão, baixo) e trap (hi-hat rolls, 808 com glide, pluck).
+- Seguem o BPM do projeto (botão "BPM do gênero"), tom escolhido e 1/2/4/8 compassos; ▶ ouve em loop,
+  "+ Adicionar" coloca na posição atual, ou arraste o cartão para as pistas.
+- COMO SÃO FEITOS: nenhum sample gravado nem de terceiros. Cada som é sintetizado por fórmulas no aparelho
+  (osciladores, ruído filtrado, cordas Karplus-Strong) e os ritmos/progressões foram escritos para o APS.
+  Pode usar em músicas comerciais sem pagar royalties.
+- Cache do app: aps-shell-3.0.0.
+
 2.9.0 — Cifra automática
 - Estúdio > Partituras: painel "🎼 Cifra automática". Analise a pista selecionada, a mixagem ou qualquer música
   do aparelho: o app estima tom, BPM e acordes (maiores e menores) por cromagrama.
