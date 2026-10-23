@@ -11,7 +11,8 @@ window.APS_PLANS={
   'bateria.kits':'free','bateria.camadas':'free',
   'voz.afinacao':'free','voz.limpeza':'free',
   'gravacao.punch':'free','gravacao.metronomo':'free','gravacao.afinador':'free',
-  'compartilhar':'free','exportar.mp3':'free'
+  'compartilhar':'free','exportar.mp3':'free',
+  'master.nota':'free','cifra.auto':'free','loops.biblioteca':'free','loops.premium':'free','tutorial':'free'
  }
 };
 window.APSPlan={

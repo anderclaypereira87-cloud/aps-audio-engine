@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.7.0)
+APS AUDIO ENGINE — LEIA (versão 2.8.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,18 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.8.0 — Nota do master (0–100)
+- Estúdio > Mixagem > Masterização: painel "📊 Nota do master". Escolha a plataforma (Spotify −14, YouTube −14,
+  Apple Music −16 LUFS) e o gênero (pop, funk, piseiro, forró, sertanejo, gospel, trap, acústico) e avalie a
+  mixagem, o master pronto ou qualquer arquivo.
+- Itens medidos: volume integrado (LUFS), pico real (dBTP), clipping, dinâmica (PLR), balanço tonal comparado à
+  curva do gênero, estéreo/compatibilidade mono (correlação e largura) e graves centralizados.
+- Checklist em português com o que corrigir e botões de 1 toque: "🏆 Corrigir no master" (ajusta o alvo da
+  plataforma e masteriza), "🎚 Master com EQ suave" e "🤖 Abrir Mixagem IA".
+- Alvo −16 LUFS (Apple Music) adicionado à masterização.
+- As curvas de gênero são referências aproximadas: use os ouvidos como juiz final.
+- Cache do app: aps-shell-2.8.0.
+
 2.7.0 — Exportar MP3 e compartilhar (WhatsApp)
 - Finalização e exportação: novo "↓ Mixagem MP3" (128/192/320 kbps), codificado no próprio aparelho.
 - "📤 Compartilhar música": abre o menu de compartilhar do celular (WhatsApp, Telegram, e-mail…) com o MP3
