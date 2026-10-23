@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.6.0)
+APS AUDIO ENGINE — LEIA (versão 2.7.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,19 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.7.0 — Exportar MP3 e compartilhar (WhatsApp)
+- Finalização e exportação: novo "↓ Mixagem MP3" (128/192/320 kbps), codificado no próprio aparelho.
+- "📤 Compartilhar música": abre o menu de compartilhar do celular (WhatsApp, Telegram, e-mail…) com o MP3
+  (leve, recomendado) ou WAV. Em navegadores sem esse recurso (ex.: PC), o arquivo é baixado e o app
+  explica como anexar no WhatsApp (📎 > Documento/Áudio).
+- "📤 Compartilhar projeto (.aps)" na seção Seu projeto. Obs.: o Android costuma não aceitar .aps no menu
+  de compartilhar; nesse caso o arquivo é baixado para você enviar como Documento. Quem recebe abre em
+  Meus Projetos > Importar.
+- MP3 via lamejs (LAME, licença LGPL, arquivo separado em vendor/, com licença incluída).
+- Recursos com chave de plano em aps-plans.js (exportar.mp3, compartilhar, voz.limpeza, gravacao.punch);
+  nada é bloqueado hoje (enforce:false).
+- Cache do app: aps-shell-2.7.0.
+
 2.6.0 — Gravação: punch-in, contagem por compasso, metrônomo acentuado
 - Punch-in (aba Gravação): marque "🎯 Punch-in", defina Entrada e Saída (ou toque "posição atual") e grave.
   A base toca 1 compasso antes, a gravação para sozinha na saída e só esse trecho da pista selecionada é
