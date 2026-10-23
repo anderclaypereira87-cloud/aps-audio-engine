@@ -11,7 +11,7 @@ async function main(){
  if(session?.user?.email){
   const {email}=session.user;
   const allowed=cfg.owners||[];
-  if(!allowed.map(s=>s.toLowerCase()).includes(email.toLowerCase())){await sb.auth.signOut();m.textContent='Este e-mail não está autorizado no teste privado.';return;}
+  if(!allowed.map(s=>s.toLowerCase()).includes(email.toLowerCase())){await sb.auth.signOut();m.textContent='Este e-mail não está autorizado.';return;}
   m.textContent='Identidade verificada: '+email;
   const a=document.createElement('a');a.href='./painel.html';a.className='btn gold';a.textContent='Abrir minha DAW';m.appendChild(a);
  }
@@ -24,7 +24,7 @@ async function main(){
  }));
 }
 document.querySelectorAll('[data-provider]').forEach(b=>b.addEventListener('click',()=>{
- if(!cfg.supabaseUrl||!cfg.publishableKey)m.textContent='Para ativar '+b.textContent+', configure Google/Apple/Microsoft no servidor de autenticação APS. Enquanto isso, use o modo de teste.';
+ if(!cfg.supabaseUrl||!cfg.publishableKey)m.textContent='Para ativar '+b.textContent+', configure Google/Apple/Microsoft no servidor de autenticação APS. Esta opção será ativada em breve.';
 }));
 main().catch(e=>m.textContent='Login indisponível: '+e.message);
 </script></body></html>

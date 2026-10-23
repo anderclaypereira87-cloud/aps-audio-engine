@@ -1,4 +1,4 @@
-/* APS 3.6.0 — Modelos de mixagem por estilo brasileiro (1 toque).
+/* APS 3.6.1 — Modelos de mixagem por estilo brasileiro (1 toque).
    Valores de referência: medianas dos perfis de mixagem das gravações do próprio Anderclay
    (loudness ~ -11 LUFS, crest ~13 dB, correlação estéreo ~0.9). Nenhum áudio da biblioteca é usado. */
 (function(){'use strict';

@@ -3,7 +3,7 @@
  const ready=()=>{
   const $=id=>document.getElementById(id);
   const toolbar=document.createElement('section'); toolbar.className='aps-pro-toolbar';
-  toolbar.innerHTML='<div><strong>APS AUDIO ENGINE | STUDIO PRO</strong> <span style="color:#899aa8;font-size:11px">· Edição 1.5</span></div><div class="aps-pro-tools"><a href="./partitura-pro.html">♬ Editor de partitura</a><a href="./bateria.html">🥁 Bateria</a><a href="./midia.html">▣ Arquivos</a><a href="./painel.html">⌂ Painel</a></div>';
+  toolbar.innerHTML='<div><strong>APS AUDIO ENGINE | STUDIO PRO</strong></div><div class="aps-pro-tools"><a href="./partitura-pro.html">♬ Editor de partitura</a><a href="./bateria.html">🥁 Bateria</a><a href="./midia.html">▣ Arquivos</a><a href="./painel.html">⌂ Painel</a></div>';
   const h=$('apsScreenTitle'); if(h)h.before(toolbar);
   const edit=$('tracks');if(edit){let banner=document.createElement('div'); banner.className='aps-pro-head';banner.innerHTML='<strong>ARRANJO • PISTAS</strong><span>Selecione uma faixa para efeitos · R = preparar pista · M = silenciar · S = solo</span>';edit.closest('.timeline')?.before(banner);}
   // One-time keyboard transport when user is not editing a field

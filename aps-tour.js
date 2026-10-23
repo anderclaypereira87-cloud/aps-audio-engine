@@ -1,4 +1,4 @@
-/* APS 3.6.0 — Tour de início: mostra ONDE fica cada coisa (tela inicial e estúdio Pro). Pular a qualquer momento; rever pelo botão "?". Criado por Anderclay Pereira Silva. */
+/* APS 3.6.1 — Tour de início: mostra ONDE fica cada coisa (tela inicial e estúdio Pro). Pular a qualquer momento; rever pelo botão "?". Criado por Anderclay Pereira Silva. */
 (function(root){'use strict';
 const PAGE=/daw\.html/.test(location.pathname)?'daw':'index',KEY='aps-tour-'+PAGE+'-v2';
 const CRED='Criado por Anderclay Pereira Silva';
