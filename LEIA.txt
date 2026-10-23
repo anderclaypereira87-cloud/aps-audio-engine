@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 3.3.0)
+APS AUDIO ENGINE — LEIA (versão 3.4.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,17 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+3.4.0 — 🔎 Reconhecimento de gravações + biblioteca APS (preparação)
+- Cada gravação/região recebe etiquetas automáticas, calculadas NO APARELHO (nada sai do celular):
+  instrumento (voz, baixo, violão, teclado, sanfona, sopro, bateria, percussão, música completa),
+  BPM (autocorrelação dos ataques), groove (16 semicolcheias + linha dos graves, swing) e estilo provável
+  (forró, piseiro, funk, gospel, sertanejo, trap, pop, MPB). As etiquetas aparecem na região e ficam salvas no projeto.
+- Editor (Pro): botão 🔎 Reconhecer. Menu ☰: "Reconhecer gravações automaticamente".
+- Menu ☰ → 🤝 Contribuir com a biblioteca do APS: consentimento LGPD opt-in (DESLIGADO por padrão), revogável,
+  pedido de exclusão, gerar pacote .zip; o envio é só um placeholder — não existe servidor e nada é enviado.
+- Formato da biblioteca: aps-library/1 (manifest.json + samples/*.wav). Ver BIBLIOTECA-FORMATO.md.
+- Cache do app: aps-shell-3.4.0.
+
 3.3.0 — 🎻 Trocar instrumento (mantém a sua execução)
 - Estúdio Pro > aba "🎻 Trocar instrumento" (no modo clássico: aba Partituras). Selecione uma região e toque
   em "Ler notas": o app transcreve NO APARELHO mantendo início exato de cada nota, duração, força (pelo
