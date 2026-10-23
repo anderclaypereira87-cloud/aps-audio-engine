@@ -169,3 +169,6 @@ if($('apsMemoryInfo')){
 }
 $('start').addEventListener('click',main);$('cancel').addEventListener('click',()=>{cancelled=true;phase('Cancelado pelo usuário.',0);stopWorker?.();});window.addEventListener('pagehide',stopPreview);
 window.APS6Stem={pcmToWav,triangularWindow,SOURCES,SAMPLE_RATE,SEG,STRIDE};
+
+// 3.6.2: recebe a pista enviada pelo estúdio (daw.html → Separar pista selecionada)
+(async()=>{if(new URLSearchParams(location.search).get('importar')!=='daw')return;try{const db=await new Promise((ok,fail)=>{const r=indexedDB.open('aps-sep-input-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('pending');r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite'),st=tx.objectStore('pending'),g=st.get('latest');g.onsuccess=()=>{st.delete('latest');ok(g.result);};g.onerror=()=>fail(g.error);});db.close();if(!item?.blob)return;const f=new File([item.blob],item.name||'pista.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);const inp=$('song');inp.files=dt.files;inp.dispatchEvent(new Event('change',{bubbles:true}));$('duration').value='10';phase('Pista do estúdio carregada: '+f.name+'. Escolha a duração e toque em Separar.',0);inp.scrollIntoView({block:'center'});}catch(e){phase('Não consegui receber a pista do estúdio: '+e.message);}})();
