@@ -1,0 +1,52 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png">
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee9df;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}main{max-width:620px;margin:0 auto;padding:18px 16px 70px}h1{color:#e5be74;font-size:24px;margin:8px 0 2px}.card{background:#181d2b;border:1px solid #444b58;border-radius:16px;padding:16px;margin:14px 0}label{display:block;margin:10px 0 4px;color:#c8cad0;font-size:14px}input,select{width:100%;padding:12px;border-radius:10px;border:1px solid #555d6c;background:#0f131d;color:#eee9df;font-size:16px}input[type=range]{padding:0}button,.btn{display:block;width:100%;background:#dbb66f;color:#151922;border:0;border-radius:12px;padding:14px;margin:10px 0;font-weight:800;font-size:16px;min-height:50px;text-align:center;text-decoration:none;cursor:pointer}button.alt,.btn.alt{background:#282f3d;color:#f5d79e;border:1px solid #997d4b}button:disabled{opacity:.45}p,small{color:#c8cad0}.top a{color:#e5bd72;text-decoration:none}.msg{font-size:14px;color:#f5d79e;min-height:20px}.warn{border-color:#9e7c42;background:#1d1a14}.aps-credit{text-align:center;color:#9aa0aa;font-size:13px;margin-top:24px}.aps-credit b{color:#e5be74}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px;border-bottom:1px solid #333a48;text-align:left}.row{display:flex;gap:8px}.row>*{flex:1}</style>
+<title>Afinação de voz · APS</title></head><body><main><div class="top"><a href="./index.html">← Início</a></div>
+<h1>🎙 Afinação de voz com sotaque brasileiro</h1><p>Corrige a afinação da voz <b>sem apagar os enfeites</b> (vibrato, arrastes, floreios do forró, sertanejo e gospel). Funciona melhor com a voz sozinha (use o separador antes, se precisar).</p>
+<section class="card"><label>Voz (WAV/MP3)</label><input type="file" id="f" accept="audio/*">
+<div class="row"><div><label>Tom</label><select id="key"></select></div><div><label>Escala</label><select id="mode"><option value="maior">Maior</option><option value="menor">Menor</option><option value="cromatica">Cromática</option></select></div></div>
+<label>Velocidade de correção: <span id="sv"></span></label><input type="range" id="spd" min="10" max="400" value="120"><small>Mais lento = mais natural (mantém arrastes). Rápido = efeito "robô".</small>
+<label>Intensidade: <span id="iv"></span></label><input type="range" id="amt" min="0" max="100" value="70">
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="orn" checked style="width:auto"> Preservar enfeites (não corrige vibrato e notas de passagem)</label>
+<button id="go" disabled>Afinar</button><div class="msg" id="msg">Escolha a voz.</div>
+<canvas id="cv" width="600" height="200" style="width:100%;display:none;background:#0f131d;border-radius:10px"></canvas>
+<audio id="au" controls style="width:100%;display:none;margin-top:10px"></audio><a id="dl" class="btn alt" style="display:none">⬇ Baixar WAV</a></section>
+<section class="card"><small>Limites honestos: é um afinador suave feito no próprio aparelho. Com voz misturada com instrumentos, reverb forte ou duas vozes juntas ele erra a nota. Correções maiores que 1 semitom podem soar artificiais. Músicas longas demoram em celular simples (recomendo até 4 minutos).</small></section>
+<script src="./aps-master.js?v=380"></script>
+<script>
+const $=i=>document.getElementById(i),NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'],NB=['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+$('key').innerHTML='<option value="-1">Detectar automático</option>'+NB.map((n,i)=>'<option value="'+i+'">'+n+' ('+NN[i]+')</option>').join('');
+const upd=()=>{$('sv').textContent=$('spd').value+' ms';$('iv').textContent=$('amt').value+'%';};$('spd').oninput=$('amt').oninput=upd;upd();
+let buf=null,det=null;const DS=4,HOP=256;
+$('f').onchange=async e=>{const fl=e.target.files[0];if(!fl)return;$('msg').textContent='Lendo…';try{const ac=new (window.AudioContext||window.webkitAudioContext)();buf=await ac.decodeAudioData(await fl.arrayBuffer());ac.close();det=null;$('go').disabled=false;$('msg').textContent='Pronto: '+buf.duration.toFixed(0)+' s.'+(buf.duration>240?' Arquivo longo: vai demorar.':'');}catch(err){$('msg').textContent='Não consegui ler esse áudio.';}};
+function mono(){const L=buf.length,o=new Float32Array(L),n=buf.numberOfChannels;for(let c=0;c<n;c++){const d=buf.getChannelData(c);for(let i=0;i<L;i++)o[i]+=d[i]/n;}return o;}
+function detect(x,fs){const sr=fs/DS,ds=new Float32Array(Math.floor(x.length/DS));for(let i=0;i<ds.length;i++){let s=0;for(let k=0;k<DS;k++)s+=x[i*DS+k];ds[i]=s/DS;}
+const W=Math.round(sr*.04),minL=Math.floor(sr/1000),maxL=Math.ceil(sr/70),hop=HOP/DS,nF=Math.floor((ds.length-W-maxL)/hop),f0=new Float32Array(Math.max(0,nF)),d=new Float32Array(maxL+1);
+for(let f=0;f<nF;f++){const o=f*hop;let e=0;for(let i=0;i<W;i++)e+=ds[o+i]*ds[o+i];if(e/W<1e-5){f0[f]=0;continue;}
+d[0]=1;let run=0,best=-1;for(let t=1;t<=maxL;t++){let s=0;for(let i=0;i<W;i++){const v=ds[o+i]-ds[o+i+t];s+=v*v;}run+=s;d[t]=s*t/(run||1);}
+for(let t=minL;t<maxL;t++)if(d[t]<.15&&d[t]<=d[t+1]){best=t;break;}
+if(best<0){f0[f]=0;continue;}const a=d[best-1],b=d[best],c=d[best+1],sh=(a-c)/(2*(a-2*b+c)||1);f0[f]=sr/(best+(isFinite(sh)?sh:0));}return f0;}
+const midi=f=>69+12*Math.log2(f/440);
+function keyDetect(f0){const h=new Float64Array(12);for(const f of f0)if(f>0)h[((Math.round(midi(f))%12)+12)%12]++;const MA=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88],MI=[6.33,2.68,3.52,5.38,2.6,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+let best={s:-1e9};for(let k=0;k<12;k++)for(const [m,pr] of [['maior',MA],['menor',MI]]){let s=0;for(let i=0;i<12;i++)s+=h[(i+k)%12]*pr[i];if(s>best.s)best={s,k,m};}return best;}
+function scale(k,m){const st=m==='maior'?[0,2,4,5,7,9,11]:m==='menor'?[0,2,3,5,7,8,10]:[0,1,2,3,4,5,6,7,8,9,10,11];return st.map(s=>(s+k)%12);}
+function nearest(mm,sc){let b=mm,bd=99;for(let o=Math.floor(mm)-2;o<=Math.ceil(mm)+2;o++)if(sc.includes(((o%12)+12)%12)){const dd=Math.abs(o-mm);if(dd<bd){bd=dd;b=o;}}return b;}
+$('go').onclick=()=>{$('go').disabled=true;$('msg').textContent='Detectando as notas…';setTimeout(run,30);};
+function run(){try{const fs=buf.sampleRate,x=mono();if(!det)det=detect(x,fs);const f0=det;
+let k=+$('key').value,m=$('mode').value;if(k<0){const kd=keyDetect(f0);k=kd.k;if(m!=='cromatica'){m=kd.m;$('mode').value=m;}$('key').value=k;}const sc=scale(k,m);
+const fps=fs/HOP,alpha=1-Math.exp(-1/(fps*$('spd').value/1000)),amt=$('amt').value/100,orn=$('orn').checked,n=f0.length,shift=new Float32Array(n),mm=new Float32Array(n).map((_,i)=>f0[i]>0?midi(f0[i]):0);
+const cw=Math.max(2,Math.round(fps*.12));let cur=0;
+for(let i=0;i<n;i++){if(!mm[i]){cur*=.9;shift[i]=cur;continue;}let c=mm[i];if(orn){let s=0,cnt=0,lo=99,hi=-99;for(let j=Math.max(0,i-cw);j<=Math.min(n-1,i+cw);j++)if(mm[j]){s+=mm[j];cnt++;lo=Math.min(lo,mm[j]);hi=Math.max(hi,mm[j]);}c=s/cnt;if(hi-lo>1.2){cur+=(0-cur)*alpha;shift[i]=cur;continue;}}
+let tgt=(nearest(c,sc)-c)*amt;if(Math.abs(tgt)>1.5)tgt=0;cur+=(tgt-cur)*alpha;shift[i]=cur;}
+$('msg').textContent='Aplicando a correção…';setTimeout(()=>{const out=[];for(let c=0;c<buf.numberOfChannels&&c<2;c++)out.push(shiftCh(buf.getChannelData(c),shift,fs));
+const u=URL.createObjectURL(new Blob([APSMaster.wav16(out,fs)],{type:'audio/wav'}));$('au').src=u;$('au').style.display='block';$('dl').href=u;$('dl').download='voz-afinada.wav';$('dl').style.display='block';
+draw(mm,shift);$('msg').textContent='Pronto! Tom: '+NB[k]+' '+m+'. Correção média: '+(shift.reduce((a,b)=>a+Math.abs(b),0)/n*100).toFixed(0)+' cents.';$('go').disabled=false;},30);}catch(e){$('msg').textContent='Erro: '+e.message;$('go').disabled=false;}}
+function shiftCh(x,shift,fs){const L=x.length,y=new Float32Array(L),Wd=Math.round(fs*.03);let d=0;
+for(let i=0;i<L;i++){const fi=i/HOP,a=Math.min(shift.length-1,Math.floor(fi)),b=Math.min(shift.length-1,a+1),s=shift[a]+(shift[b]-shift[a])*(fi-a),r=Math.pow(2,s/12);
+d+=1-r;d=((d%Wd)+Wd)%Wd;const d2=(d+Wd/2)%Wd,g1=1-Math.abs(2*d/Wd-1),g2=1-g1;y[i]=tap(x,i-d+Wd/2)*g1+tap(x,i-d2+Wd/2)*g2;}return y;}
+function tap(x,p){if(p<0)return 0;const i=Math.floor(p),f=p-i;return (x[i]||0)*(1-f)+(x[i+1]||0)*f;}
+function draw(mm,sh){const c=$('cv'),g=c.getContext('2d'),W=c.width,H=c.height;c.style.display='block';g.fillStyle='#0f131d';g.fillRect(0,0,W,H);const v=mm.filter(a=>a);if(!v.length)return;const lo=Math.min(...v.slice(0,5e4))-1,hi=Math.max(...v.slice(0,5e4))+1,y=a=>H-(a-lo)/(hi-lo)*H;
+g.strokeStyle='#333a48';for(let p=Math.ceil(lo);p<hi;p++){g.beginPath();g.moveTo(0,y(p));g.lineTo(W,y(p));g.stroke();}const st=Math.max(1,Math.floor(mm.length/W));
+for(let i=0;i<mm.length;i+=st)if(mm[i]){const X=i/mm.length*W;g.fillStyle='#5b6b8a';g.fillRect(X,y(mm[i]),2,2);g.fillStyle='#e5be74';g.fillRect(X,y(mm[i]+sh[i]),2,2);}g.font='12px system-ui';g.fillStyle='#8fa3c8';g.fillText('■ original',8,14);g.fillStyle='#e5be74';g.fillText('■ afinada',80,14);}
+</script>
+<p class="aps-credit">APS Audio Engine · <b>Criado por Anderclay Pereira Silva</b></p></main>
+<script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});</script></body></html>
