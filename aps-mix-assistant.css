@@ -54,3 +54,11 @@
 #apsAICanvas{width:100%;height:auto;border-radius:12px;border:1px solid #33404f;margin:8px 0}
 .aps-ai-log{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.55}.aps-ai-log li{margin:4px 0}
 @media(max-width:480px){.aps-ai{padding:12px}.aps-ai-card{padding:8px;font-size:11px}.aps-ai-actions button{flex:1 1 45%}}
+/* 2.4.0 Afinação de voz */
+.aps-vt{border:1px solid #6f5a34;border-radius:14px;padding:12px;margin:0 0 14px;background:#121823;color:#eadcbc}.aps-vt h3{margin:0;color:#f1d099;font-size:17px}
+.aps-vt-sub,.aps-vt-hint{font-size:12px;color:#b9c5d5;margin:4px 0}.aps-vt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.aps-vt-grid label{display:flex;flex-direction:column;font-size:12px;gap:4px}.aps-vt select{background:#1d2431;color:#f3e3c0;border:1px solid #6f5a34;border-radius:9px;padding:8px}
+.aps-vt-acts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;align-items:center;font-size:12px}.aps-vt button{min-height:42px;padding:8px 11px;border-radius:10px;border:1px solid #64656b;background:#222d3b;color:#f9e8c5;font-weight:650}
+.aps-vt button.gold{background:linear-gradient(180deg,#e7c27a,#b88a3e);color:#1a1307;border-color:#e7c27a}.aps-vt button:disabled{opacity:.45}
+.aps-vt-status{font-size:13px;padding:8px 10px;border-radius:10px;background:#0f141d;border:1px solid #33404f}.aps-vt-status[data-kind=ok]{border-color:#3f7a62;color:#bdebdc}.aps-vt-status[data-kind=error]{border-color:#a05252;color:#ffbcbc}
+#apsVtCanvas{width:100%;height:auto;border-radius:10px;border:1px solid #33404f;margin:6px 0;touch-action:manipulation}
