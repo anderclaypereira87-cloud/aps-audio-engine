@@ -1,0 +1,43 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APS — Planos</title><style>
+:root{--bg:#0d0d0f;--card:#17171b;--gold:#d4af37;--tx:#eee;--mut:#999}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif;padding:16px;max-width:960px;margin:auto}
+h1,h2{color:var(--gold)}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.c{background:var(--card);border:1px solid #2a2a30;border-radius:14px;padding:16px}.c.dest{border-color:var(--gold)}
+.p{font-size:26px;font-weight:700;color:var(--gold)}button{background:var(--gold);color:#111;border:0;border-radius:10px;padding:10px 14px;font-weight:700;width:100%;margin-top:6px;cursor:pointer}
+button.alt{background:transparent;color:var(--gold);border:1px solid var(--gold)}input,select{width:100%;padding:10px;margin:4px 0;background:#0f0f12;color:var(--tx);border:1px solid #333;border-radius:8px}
+#modal{display:none;position:fixed;inset:0;background:#000c;padding:16px;overflow:auto}#modal .c{max-width:420px;margin:30px auto}
+.mut{color:var(--mut);font-size:13px}#st{margin:8px 0}img.qr{width:220px;display:block;margin:10px auto;background:#fff;border-radius:8px}
+</style></head><body>
+<h1>Planos APS Audio Engine</h1><div id="st" class="mut"></div>
+<div class="grid">
+ <div class="c"><h2>Grátis</h2><div class="p">R$ 0</div><p class="mut">Recursos básicos para começar.</p></div>
+ <div class="c dest"><h2>Pro</h2><div class="p">R$ 14,90<small>/mês</small></div><p class="mut">ou R$ 149/ano (2 meses grátis)</p>
+  <button data-p="pro_mensal">Assinar mensal</button><button class="alt" data-p="pro_anual">Assinar anual</button></div>
+ <div class="c"><h2>Estúdio</h2><div class="p">R$ 39,90<small>/mês</small></div><p class="mut">ou R$ 399/ano</p>
+  <button data-p="estudio_mensal">Assinar mensal</button><button class="alt" data-p="estudio_anual">Assinar anual</button></div>
+</div>
+<h2>Extras</h2><div class="grid">
+ <div class="c">10 separações na nuvem<div class="p">R$ 9,90</div><button data-p="sep_nuvem_10">Comprar</button></div>
+ <div class="c">Separação completa (1 música)<div class="p">R$ 19,90</div><button data-p="sep_completa_1">Comprar</button></div>
+ <div class="c">20 créditos de música<div class="p">R$ 19,90</div><button data-p="musica_20">Comprar</button></div>
+ <div class="c">60 créditos de música<div class="p">R$ 49,90</div><button data-p="musica_60">Comprar</button></div>
+</div>
+<p class="mut">Pagamento seguro via Asaas: Pix, cartão ou boleto. Criado por Anderclay Pereira Silva.</p>
+<div id="modal"><div class="c" id="mc"></div></div>
+<script src="./aps-plans.js?v=351"></script><script src="./aps-pay.js?v=351"></script><script>
+const $=s=>document.querySelector(s), modal=$('#modal'), mc=$('#mc'); let produto;
+const nomes={pro:'Pro',estudio:'Estúdio',dono:'Dono (tudo liberado)',free:'Grátis'};
+async function showSt(){const s=await APSPay.refresh(); $('#st').textContent=s?`Conta: ${s.email} — plano ${nomes[s.plan]||s.plan}${s.pending?' (pagamento pendente)':''}`:'';}
+showSt();
+document.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{produto=b.dataset.p; APSPay.token()?pay():cadastro();});
+function cadastro(){modal.style.display='block';mc.innerHTML=`<h2>Seus dados</h2><input id=n placeholder="Nome completo"><input id=e type=email placeholder="E-mail"><input id=d inputmode=numeric placeholder="CPF ou CNPJ"><input id=f inputmode=tel placeholder="Celular (opcional)"><button id=ok>Continuar</button><button class=alt onclick="modal.style.display='none'">Cancelar</button><p id=er class=mut></p>`;
+ $('#ok').onclick=async()=>{try{await APSPay.signup({name:$('#n').value,email:$('#e').value,cpfCnpj:$('#d').value,phone:$('#f').value});pay();}catch(x){$('#er').textContent=x.message;}};}
+function pay(){modal.style.display='block';mc.innerHTML=`<h2>Forma de pagamento</h2><select id=bt><option value=PIX>Pix</option><option value=CREDIT_CARD>Cartão de crédito</option><option value=BOLETO>Boleto</option></select><button id=go>Gerar pagamento</button><button class=alt onclick="modal.style.display='none'">Cancelar</button><p id=er class=mut></p>`;
+ $('#go').onclick=async()=>{$('#go').disabled=true;try{const r=await APSPay.api('/checkout','POST',{product:produto,billingType:$('#bt').value});
+  mc.innerHTML=r.pix?`<h2>Pague com Pix</h2><img class=qr src="data:image/png;base64,${r.pix.image}"><input readonly value="${r.pix.copiaECola}" onclick="this.select();navigator.clipboard&&navigator.clipboard.writeText(this.value)"><p class=mut>Toque no código para copiar. O plano libera sozinho após a confirmação.</p>`:`<h2>Quase lá</h2><p>Finalize no ambiente seguro do Asaas.</p>`;
+  if(r.invoiceUrl) mc.innerHTML+=`<button onclick="window.open('${r.invoiceUrl}','_blank')">Abrir fatura / pagar</button>`;
+  mc.innerHTML+=`<button class=alt onclick="modal.style.display='none';showSt()">Fechar</button>`;
+  const t=setInterval(async()=>{const s=await APSPay.refresh();if(s&&!s.pending){clearInterval(t);showSt();}},8000);
+ }catch(x){$('#er').textContent=x.message;$('#go').disabled=false;}};}
+</script></body></html>

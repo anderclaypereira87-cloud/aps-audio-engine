@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>APS — Painel do dono</title><style>
+body{margin:0;background:#0d0d0f;color:#eee;font:14px system-ui;padding:14px}h1{color:#d4af37}input,select,button{padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#eee}
+button{background:#d4af37;color:#111;font-weight:700;border:0;cursor:pointer}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border-bottom:1px solid #222;padding:6px;text-align:left}th{color:#d4af37}
+.box{overflow-x:auto}.rev{font-size:22px;color:#d4af37}
+</style></head><body><h1>Painel do dono</h1>
+<p>Chave de administrador (fica só neste aparelho): <input id=k type=password> <button id=en>Entrar</button> <button id=own>Marcar esta conta como dono</button></p>
+<div id=out></div>
+<script src="./aps-pay.js?v=351"></script><script>
+const $=s=>document.querySelector(s);$('#k').value=localStorage.getItem('aps_admin')||'';
+const A=(p,m,b)=>APSPay.api(p,m,b,$('#k').value);const dt=t=>t?new Date(t).toLocaleDateString('pt-BR'):'—';
+const pg={PIX:'Pix',CREDIT_CARD:'Cartão',BOLETO:'Boleto'};
+async function load(){localStorage.setItem('aps_admin',$('#k').value);try{const d=await A('/admin/users');
+ $('#out').innerHTML=`<div>Receita ${d.revenueMonth}: <span class=rev>R$ ${d.revenue.toFixed(2).replace('.',',')}</span> — ${d.users.length} usuários</div><div class=box><table><tr><th>Nome</th><th>E-mail</th><th>Cadastro</th><th>Plano</th><th>Status pagamento</th><th>Último pagamento</th><th>Acesso grátis</th></tr>${d.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${dt(u.created)}</td><td>${u.status.plan}${u.status.comp?' (cortesia)':''}</td><td>${u.lastEvent?esc(u.lastEvent.event)+' · '+(pg[u.lastEvent.billingType]||u.lastEvent.billingType||''):(u.status.pending?'pendente':'—')}</td><td>${u.lastPayment?dt(u.lastPayment.at)+' · R$ '+u.lastPayment.value+' · '+(pg[u.lastPayment.billingType]||''):'—'}</td><td><select id="p_${u.id}"><option value=pro>Pro</option><option value=estudio>Estúdio</option></select> <input id="d_${u.id}" size=3 placeholder="dias"> <button onclick="comp('${u.id}')">Liberar</button> <button onclick="comp('${u.id}',1)">Revogar</button></td></tr>`).join('')}</table></div>`;}catch(e){$('#out').textContent=e.message;}}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');}
+async function comp(id,revoke){await A('/admin/comp','POST',{userId:id,revoke:!!revoke,plan:$('#p_'+id).value,days:+$('#d_'+id).value||0});load();}
+$('#en').onclick=load;
+$('#own').onclick=async()=>{try{const r=await A('/admin/claim-owner','POST',{userToken:APSPay.token()});APSPay.apply(r.status);alert('Conta marcada como dono: tudo liberado.');}catch(e){alert(e.message+' — cadastre-se antes em planos.html com seu e-mail.');}};
+if($('#k').value)load();
+</script></body></html>
