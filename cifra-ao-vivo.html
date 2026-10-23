@@ -1,0 +1,38 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><title>Cifra ao vivo · APS Audio Engine</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png"><link rel="stylesheet" href="./aps-live.css?v=390">
+<style>.chord{font-size:84px;min-height:100px}.meter{height:8px;background:#0f1320;border-radius:6px;overflow:hidden}.meter i{display:block;height:100%;background:#dbb66f;width:0}pre{white-space:pre-wrap;background:#0f1320;border:1px solid #444b58;border-radius:10px;padding:10px;font:15px/1.5 ui-monospace,monospace;min-height:60px}.saved li{margin:6px 0}</style></head><body><main>
+<header><a href="./index.html">← APS</a><h1>🎸 Cifra ao vivo</h1></header>
+<section class="card"><div class="chord" id="ch">—</div><div class="mut" style="text-align:center" id="cf">Toque o violão, teclado ou cavaco perto do celular</div><div class="meter"><i id="lv"></i></div>
+<button class="big g" id="go" type="button">🎤 Começar a ouvir</button><div class="row"><button id="rec" type="button" disabled>⏺ Gravar cifra</button><label>BPM (opcional) <input id="bpm" type="number" min="0" max="220" value="0" style="width:80px"></label><label>Transpor <select id="tr"></select></label></div><div class="st" id="st"></div></section>
+<section class="card"><h2>Cifra gravada</h2><input id="title" type="text" placeholder="Nome da música" style="width:100%"><pre id="out"></pre>
+<div class="row"><button id="save" type="button" class="g">💾 Salvar</button><button id="share" type="button">📤 Compartilhar</button><a class="b" id="palco" href="./palco.html">🎤 Mandar pro Palco</a><button id="clr" type="button">Limpar</button></div><div class="st" id="st2"></div></section>
+<section class="card"><h2>Cifras salvas</h2><ul class="saved" id="saved"></ul></section>
+<p class="mut">Reconhece acordes maiores e menores. Acordes com sétima, diminutos e baixo invertido aparecem como o acorde mais próximo — revise antes de usar. Funciona melhor com um instrumento só e pouco barulho.</p>
+<p class="foot">APS Audio Engine 3.9.0 · <b>Criado por Anderclay Pereira Silva</b></p></main>
+<script src="./aps-live.js?v=390"></script>
+<script>
+const L=APSLive,$=id=>document.getElementById(id);$('tr').innerHTML=[...Array(13)].map((_,i)=>i-6).map(v=>`<option value="${v}"${v?'':' selected'}>${v>0?'+':''}${v}</option>`).join('');
+let on=null,rec=false,ev=[],recT0=0;const sm=new Float32Array(12);
+async function startMic(){const ac=L.ac();let s;try{s=await L.mic();}catch(e){$('st').textContent='Sem acesso ao microfone. Libere nas configurações do navegador.';return;}
+ const an=ac.createAnalyser();an.fftSize=8192;an.smoothingTimeConstant=.5;ac.createMediaStreamSource(s).connect(an);on={s,an,fa:new Float32Array(an.frequencyBinCount),last:null,cand:null,cn:0,iv:0};
+ on.iv=setInterval(step,100);$('go').textContent='⏹ Parar de ouvir';$('rec').disabled=false;L.wake(true);}
+function stopMic(){if(!on)return;clearInterval(on.iv);on.s.getTracks().forEach(t=>t.stop());on=null;if(rec)toggleRec();$('go').textContent='🎤 Começar a ouvir';$('rec').disabled=true;L.wake(false);}
+function step(){const{c,e}=L.chromaFromAnalyser(on.an,on.fa);for(let i=0;i<12;i++)sm[i]=sm[i]*.6+c[i]*.4;$('lv').style.width=Math.min(100,e*400)+'%';
+ const m=e>.003?L.matchChord(sm):null,key=m?m.root+m.q:'';if(key===on.cand)on.cn++;else{on.cand=key;on.cn=1;}
+ if(on.cn===3&&key!==on.last){on.last=key;const name=m?L.cname(m.root,m.q):'—';$('ch').textContent=m?L.cname(m.root,m.q,+$('tr').value):'—';$('cf').textContent=m?'confiança '+Math.round(m.score*100)+'%':'sem acorde claro';
+  if(rec&&m){const t=L.ac().currentTime-recT0-.2;const lst=ev.at(-1);if(!lst||lst.n!==name)ev.push({t:Math.max(0,t),r:m.root,q:m.q,n:name});render();}}}
+function toggleRec(){rec=!rec;if(rec){ev=[];recT0=L.ac().currentTime;on&&(on.last=null);}$('rec').textContent=rec?'⏹ Parar gravação':'⏺ Gravar cifra';$('rec').classList.toggle('on',rec);$('st').textContent=rec?'Gravando… toque a música.':ev.length?'Gravado: '+ev.length+' trocas de acorde.':'';render();}
+function sheet(){const tr=+$('tr').value,bpm=+$('bpm').value,N=e=>L.cname(e.r,e.q,tr);if(!ev.length)return '';
+ if(bpm>=40){const bar=240/bpm,end=ev.at(-1).t+bar,nb=Math.ceil(end/bar),rows=[];let row=[],prev='';for(let b=0;b<nb;b++){const tt=b*bar+bar*.25;let e=ev[0];for(const x of ev)if(x.t<=tt)e=x;const n=N(e);row.push((n===prev?'%':n).padEnd(6));prev=n;if(row.length===4||b===nb-1){rows.push('['+L.fmt((b-row.length+1)*bar)+'] | '+row.join('| ')+'|');row=[];}}return rows.join('\n');}
+ return ev.map(e=>'['+L.fmt(e.t)+'] '+N(e)).join('\n');}
+function full(){const t=$('title').value.trim()||'Cifra ao vivo';return t+'\nTom/transposição: '+(+$('tr').value>0?'+':'')+$('tr').value+(+$('bpm').value?' · BPM '+$('bpm').value:'')+'\n\n'+sheet()+'\n\n— APS Audio Engine · Criado por Anderclay Pereira Silva';}
+function render(){$('out').textContent=sheet()||'Toque em Começar a ouvir e depois em Gravar cifra.';const u=new URL('palco.html',location.href);u.hash='s='+L.enc({l:[{t:$('title').value.trim()||'Cifra ao vivo',bpm:+$('bpm').value||0,c:sheet()}]});$('palco').href=u.href;}
+$('go').onclick=()=>on?stopMic():startMic();$('rec').onclick=toggleRec;$('tr').onchange=()=>{render();};$('bpm').oninput=render;$('title').oninput=render;
+$('clr').onclick=()=>{ev=[];render();};
+const KEY='aps-cifras-ao-vivo';const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return[];}};
+function list(){const a=load();$('saved').innerHTML=a.map((x,i)=>`<li><b>${x.title.replace(/</g,'')}</b> <span class="mut">${new Date(x.at).toLocaleDateString('pt-BR')}</span> <button class="mini" data-o="${i}" type="button">Abrir</button> <button class="mini" data-x="${i}" type="button">✕</button></li>`).join('')||'<li class="mut">Nenhuma ainda.</li>';
+ $('saved').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{const x=load()[+b.dataset.o];ev=x.ev;$('title').value=x.title;$('bpm').value=x.bpm||0;$('tr').value=x.tr||0;render();});
+ $('saved').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{const a=load();a.splice(+b.dataset.x,1);localStorage.setItem(KEY,JSON.stringify(a));list();});}
+$('save').onclick=()=>{if(!ev.length)return $('st2').textContent='Grave uma cifra primeiro.';const a=load();a.unshift({title:$('title').value.trim()||'Cifra ao vivo',ev,bpm:+$('bpm').value,tr:+$('tr').value,at:Date.now()});localStorage.setItem(KEY,JSON.stringify(a.slice(0,50)));$('st2').textContent='Salva neste aparelho.';list();};
+$('share').onclick=async()=>{if(!ev.length)return $('st2').textContent='Grave uma cifra primeiro.';$('st2').textContent=await L.share($('title').value||'Cifra',full());};
+render();list();
+</script><script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});</script></body></html>

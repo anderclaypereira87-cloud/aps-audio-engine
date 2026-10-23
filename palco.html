@@ -1,0 +1,48 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#000000"><title>Modo palco · APS Audio Engine</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png"><link rel="stylesheet" href="./aps-live.css?v=390">
+<style>.it{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #2a3142}.it .n{font-size:22px;color:#e5be74;font-weight:900;width:30px}textarea{width:100%;min-height:120px;font-family:ui-monospace,monospace}
+#stage{position:fixed;inset:0;background:#000;display:none;flex-direction:column;z-index:9}#stage.on{display:flex}#sTop{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;color:#e5be74;font-weight:900;font-size:22px;gap:8px}#sTop small{color:#a9adb7;font-size:14px}
+#scroll{flex:1;overflow-y:auto;padding:30vh 16px 60vh;font:700 30px/1.6 ui-monospace,monospace;color:#fff;white-space:pre-wrap;scroll-behavior:auto}#sBot{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px}#sBot button{min-height:72px;font-size:26px}#prog{height:6px;background:#222}#prog i{display:block;height:100%;background:#dbb66f;width:0}#beat{width:22px;height:22px;border-radius:50%;background:#333}#beat.on{background:#dbb66f}</style></head><body><main>
+<header><a href="./index.html">← APS</a><h1>🎤 Modo palco</h1></header>
+<section class="card"><h2>Repertório do show</h2><div id="list"></div><div class="st" id="st"></div><button class="big g" id="startShow" type="button">▶ Entrar no palco</button></section>
+<section class="card"><h2>Adicionar música</h2><input id="aT" type="text" placeholder="Nome" style="width:100%"><div class="row"><label>BPM <input id="aB" type="number" min="40" max="220" value="90" style="width:80px"></label><label>Linhas = <select id="aL"><option value="4">4 compassos</option><option value="2">2 compassos</option><option value="1">1 compasso</option></select></label><label class="b">🎵 Base (playback)<input id="aF" type="file" accept="audio/*" hidden></label><span class="mut" id="aFn"></span></div>
+<textarea id="aC" placeholder="Cifra / letra. Ex.:&#10;G  D  Em  C&#10;Am  C  D  G"></textarea><button id="add" type="button" class="big">+ Adicionar ao repertório</button></section>
+<section class="card"><div class="row"><button id="share" type="button">📤 Compartilhar repertório</button><a class="b" href="./ensaio.html">⛪ Ensaio</a><a class="b" href="./cifra-ao-vivo.html">🎸 Cifra ao vivo</a></div><small>A base (áudio) fica guardada só neste aparelho; o link leva nome, BPM e cifra.</small></section>
+<p class="foot">APS Audio Engine 3.9.0 · <b>Criado por Anderclay Pereira Silva</b></p></main>
+<div id="stage"><div id="prog"><i></i></div><div id="sTop"><span id="sT"></span><small id="sInfo"></small><div id="beat"></div></div><div id="scroll"></div>
+<div id="sBot"><button id="sPrev" type="button" aria-label="Anterior">⏮</button><button id="sPlay" class="g" type="button" aria-label="Tocar">▶</button><button id="sNext" type="button" aria-label="Próxima">⏭</button><button id="sFont" type="button" aria-label="Letra">A±</button><button id="sExit" type="button" aria-label="Sair">✕</button></div></div>
+<script src="./aps-live.js?v=390"></script>
+<script>
+const L=APSLive,$=id=>document.getElementById(id),KEY='aps-palco-setlist';let SL=[];try{SL=JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){}
+const m=location.hash.match(/s=([^&]+)/);if(m){try{const d=L.dec(m[1]);if(Array.isArray(d.l)){const add=d.l.map(x=>({id:'s'+Date.now()+Math.random().toString(36).slice(2,6),t:String(x.t||'Música'),bpm:+x.bpm||0,c:String(x.c||''),semi:+x.semi||0,speed:+x.speed||1,lines:4}));SL=SL.filter(s=>!add.some(a=>a.t===s.t)).concat(add);$('st').textContent='Recebido: '+add.length+' música(s).';history.replaceState(null,'',location.pathname);}}catch(e){$('st').textContent='Link inválido.';}}
+function db(){return new Promise((ok,no)=>{const r=indexedDB.open('aps-palco-audio',1);r.onupgradeneeded=()=>r.result.createObjectStore('a');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});}
+async function putA(id,blob){const d=await db();await new Promise((ok,no)=>{const tx=d.transaction('a','readwrite');tx.objectStore('a').put(blob,id);tx.oncomplete=ok;tx.onerror=()=>no(tx.error);});d.close();}
+async function getA(id){const d=await db();const v=await new Promise(ok=>{const g=d.transaction('a').objectStore('a').get(id);g.onsuccess=()=>ok(g.result||null);g.onerror=()=>ok(null);});d.close();return v;}
+async function delA(id){try{const d=await db();d.transaction('a','readwrite').objectStore('a').delete(id);}catch(e){}}
+const esc=s=>String(s).replace(/[<&]/g,c=>c==='<'?'&lt;':'&amp;');
+function save(){localStorage.setItem(KEY,JSON.stringify(SL));$('list').innerHTML=SL.map((s,i)=>`<div class="it"><span class="n">${i+1}</span><span><b>${esc(s.t)}</b><br><small>${s.bpm?s.bpm+' BPM':'sem BPM'}${s.semi?' · tom '+(s.semi>0?'+':'')+s.semi:''}${s.audio?' · com base':''}${s.c?'':' · sem cifra'}</small></span><span><button class="mini" data-u="${i}" type="button" aria-label="Subir">↑</button> <button class="mini" data-x="${i}" type="button" aria-label="Remover">✕</button></span></div>`).join('')||'<p class="mut">Vazio. Adicione abaixo ou receba um link do Ensaio.</p>';
+ $('list').querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{const i=+b.dataset.u;if(i>0){[SL[i-1],SL[i]]=[SL[i],SL[i-1]];save();}});
+ $('list').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{const[s]=SL.splice(+b.dataset.x,1);if(s.audio)delA(s.id);save();});}
+let pend=null;$('aF').onchange=e=>{pend=e.target.files[0]||null;$('aFn').textContent=pend?pend.name:'';if(pend&&!$('aT').value)$('aT').value=pend.name.replace(/\.[^.]+$/,'');};
+$('add').onclick=async()=>{const s={id:'s'+Date.now(),t:$('aT').value.trim()||'Música '+(SL.length+1),bpm:+$('aB').value||0,c:$('aC').value,semi:0,speed:1,lines:+$('aL').value};
+ if(pend){try{await putA(s.id,pend);s.audio=pend.name;}catch(e){$('st').textContent='Não coube a base no aparelho: '+e.message;}}SL.push(s);save();$('aT').value='';$('aC').value='';pend=null;$('aFn').textContent='';$('st').textContent='Adicionada.';};
+$('share').onclick=async()=>{if(!SL.length)return;const u=new URL(location.href.split('#')[0]);u.hash='s='+L.enc({l:SL.map(s=>({t:s.t,bpm:s.bpm,c:s.c,semi:s.semi,speed:s.speed}))});$('st').textContent=await L.share('Repertório — APS',SL.map((s,i)=>(i+1)+'. '+s.t).join('\n'),u.href);};
+// Palco
+let idx=0,au=null,url=null,playing=false,t0=0,last=0,fsz=30,raf=0,beatT=0;const sc=$('scroll');
+async function show(i){stop();idx=Math.max(0,Math.min(SL.length-1,i));const s=SL[idx];$('sT').textContent=(idx+1)+'. '+s.t;$('sInfo').textContent=(s.bpm?s.bpm+' BPM':'')+(idx<SL.length-1?' · próxima: '+SL[idx+1].t:' · última');
+ sc.textContent=L.transposeText(s.c||'(sem cifra)',s.semi||0);sc.scrollTop=0;if(url){URL.revokeObjectURL(url);url=null;}au=null;
+ if(s.audio){const b=await getA(s.id);if(b){url=URL.createObjectURL(b);au=new Audio(url);au.preservesPitch=true;au.playbackRate=s.speed||1;au.onended=()=>{stop();};}}$('prog').firstChild.style.width='0';}
+function lineH(){const cs=getComputedStyle(sc);return parseFloat(cs.lineHeight)||fsz*1.6;}
+function frame(ts){if(!playing)return;const s=SL[idx],dt=(ts-(last||ts))/1000;last=ts;const max=sc.scrollHeight-sc.clientHeight;
+ if(au&&au.duration){sc.scrollTop=max*(au.currentTime/au.duration);$('prog').firstChild.style.width=(au.currentTime/au.duration*100)+'%';}
+ else if(s.bpm){const secPerLine=(s.lines||4)*4*60/s.bpm;sc.scrollTop+=lineH()/secPerLine*dt;}
+ if(s.bpm){const bt=Math.floor((performance.now()-t0)/(60000/s.bpm/(s.speed||1)));if(bt!==beatT){beatT=bt;$('beat').classList.add('on');setTimeout(()=>$('beat').classList.remove('on'),90);}}
+ raf=requestAnimationFrame(frame);}
+function play(){if(!SL.length)return;playing=true;last=0;t0=performance.now();if(au)au.play().catch(()=>{});$('sPlay').textContent='⏸';raf=requestAnimationFrame(frame);}
+function stop(){playing=false;cancelAnimationFrame(raf);if(au)au.pause();$('sPlay').textContent='▶';}
+$('startShow').onclick=async()=>{if(!SL.length)return $('st').textContent='Adicione músicas primeiro.';$('stage').classList.add('on');try{await document.documentElement.requestFullscreen?.();}catch(e){}const w=await L.wake(true);if(!w)$('st').textContent='Este navegador não deixa travar a tela acesa; ajuste o tempo de tela nas configurações.';show(0);};
+$('sExit').onclick=()=>{stop();$('stage').classList.remove('on');L.wake(false);try{document.fullscreenElement&&document.exitFullscreen();}catch(e){}};
+$('sPlay').onclick=()=>playing?stop():play();$('sNext').onclick=()=>show(idx+1);$('sPrev').onclick=()=>show(idx-1);
+$('sFont').onclick=()=>{fsz=fsz>=44?22:fsz+6;sc.style.fontSize=fsz+'px';};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('stage').classList.contains('on'))L.wake(true);});
+save();
+</script><script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});</script></body></html>

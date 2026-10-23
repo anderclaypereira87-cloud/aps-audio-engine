@@ -1,0 +1,57 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><title>Professor · APS Audio Engine</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png"><link rel="stylesheet" href="./aps-live.css?v=390">
+<style>canvas{width:100%;height:220px;background:#0f1320;border:1px solid #444b58;border-radius:12px;display:block}.score{font-size:64px;font-weight:900;color:#e5be74;text-align:center;line-height:1}.fb{font-size:22px;text-align:center;font-weight:800;min-height:32px}.ok{color:#7fe08a}.bad{color:#f08a6a}</style></head><body><main>
+<header><a href="./index.html">← APS</a><h1>👨‍🏫 Professor de instrumento</h1></header>
+<section class="card"><h2>1. O que vamos treinar</h2>
+<div class="row"><label>Modo <select id="mode"><option value="mel">Melodia (notas)</option><option value="acc">Acordes (violão, teclado)</option></select></label><label>Tom <select id="key"></select></label><label>BPM <input id="bpm" type="number" min="40" max="180" value="70" style="width:80px"></label></div>
+<div class="row" id="melRow"><label>Exercício <select id="ex"><option value="esc">Escala maior</option><option value="escm">Escala menor</option><option value="arp">Arpejo (1-3-5-8)</option><option value="pent">Pentatônica</option><option value="ref">Melodia de um áudio (referência)</option></select></label><label>Região <select id="oct"><option value="3">Grave (baixo, voz masc.)</option><option value="4" selected>Média (violão, voz)</option><option value="5">Aguda (flauta, voz fem.)</option></select></label><label><input type="checkbox" id="anyOct" checked> Aceitar qualquer oitava</label></div>
+<div class="row" id="refRow" hidden><label class="b">📂 Áudio de referência (melodia/voz)<input id="refFile" type="file" accept="audio/*" hidden></label><small>Use de preferência a voz separada. Usamos os primeiros 30 s.</small></div>
+<div class="row" id="accRow" hidden><label>Acordes <input id="accSeq" type="text" value="G D Em C" style="width:220px"></label><small>1 compasso por acorde</small></div>
+<div class="row"><label><input type="checkbox" id="guide"> Tocar guia junto (use fone)</label></div><div class="st" id="st"></div></section>
+<section class="card"><canvas id="cv" width="600" height="220"></canvas><div class="fb" id="fb">Toque em Começar</div><div class="row" style="justify-content:center"><span class="mut" id="now">—</span></div>
+<button class="big g" id="go" type="button">🎤 Começar</button></section>
+<section class="card" id="res" hidden><div class="score" id="sc">0</div><div class="mut" style="text-align:center">nota de 0 a 10</div><p id="det"></p></section>
+<p class="mut">Usa o microfone. Nada é gravado nem enviado. Em lugar com barulho a nota pode ficar mais baixa. A detecção de notas funciona melhor com uma nota por vez; para acordes use o modo Acordes.</p>
+<p class="foot">APS Audio Engine 3.9.0 · <b>Criado por Anderclay Pereira Silva</b></p></main>
+<script src="./aps-live.js?v=390"></script>
+<script>
+const L=APSLive,$=id=>document.getElementById(id);$('key').innerHTML=L.PT.map((n,i)=>`<option value="${i}">${n}</option>`).join('');
+const mode=()=>$('mode').value;function vis(){$('melRow').hidden=mode()!=='mel';$('accRow').hidden=mode()!=='acc';$('refRow').hidden=!(mode()==='mel'&&$('ex').value==='ref');}$('mode').onchange=vis;$('ex').onchange=vis;
+let refNotes=null;const st=m=>$('st').textContent=m;
+$('refFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;st('Lendo a melodia…');try{const b=await L.ac().decodeAudioData(await f.arrayBuffer()),sr=b.sampleRate,x=b.getChannelData(0),hop=Math.round(sr*.03),W=2048,n=Math.min(x.length,sr*30),tr=[];
+ for(let i=0;i+W<n;i+=hop){const f0=L.yin(x.subarray(i,i+W),sr,.15,.02);tr.push(f0>0?Math.round(L.midi(f0)):null);if(tr.length%300===0)await new Promise(r=>setTimeout(r,0));}
+ const notes=[];let s=0;for(let i=1;i<=tr.length;i++){if(i===tr.length||tr[i]!==tr[s]){if(tr[s]!=null&&(i-s)*.03>=.12)notes.push({m:tr[s],t:s*.03,d:(i-s)*.03});s=i;}}
+ refNotes=notes;st(notes.length?'Melodia com '+notes.length+' notas pronta.':'Não achei melodia clara neste áudio.');}catch(er){st('Não consegui ler: '+er.message);}};
+function build(){const bpm=Math.max(40,Math.min(180,+$('bpm').value||70)),q=60/bpm,k=+$('key').value,base=12*(+$('oct').value+1)+k,lead=4*q;
+ if(mode()==='acc'){const seq=$('accSeq').value.trim().split(/\s+/).filter(Boolean);return{lead,q,items:seq.map((c,i)=>{const m=c.match(/^([A-G])([#b]?)(m?)/);let r=m?L.SH.indexOf(m[1])+(m[2]==='#'?1:m[2]==='b'?-1:0):0;return{chord:true,root:(r+12)%12,qual:m&&m[3]?'m':'',label:c,t:lead+i*4*q,d:4*q};})};}
+ if($('ex').value==='ref'){if(!refNotes||!refNotes.length)return null;return{lead,q,ref:true,items:refNotes.map(n=>({m:n.m,t:lead+n.t,d:n.d}))};}
+ const pat={esc:[0,2,4,5,7,9,11,12,11,9,7,5,4,2,0],escm:[0,2,3,5,7,8,10,12,10,8,7,5,3,2,0],arp:[0,4,7,12,7,4,0,4,7,12],pent:[0,2,4,7,9,12,9,7,4,2,0]}[$('ex').value];
+ return{lead,q,items:pat.map((d,i)=>({m:base+d,t:lead+i*q,d:q}))};}
+let run=null;const cv=$('cv'),cx=cv.getContext('2d');
+async function begin(){const P=build();if(!P)return st('Escolha primeiro o áudio de referência.');const ac=L.ac();let stream;try{stream=await L.mic();}catch(e){return st('Sem acesso ao microfone. Libere nas configurações do navegador.');}
+ const src=ac.createMediaStreamSource(stream),an=ac.createAnalyser();an.fftSize=P.items[0].chord?8192:2048;src.connect(an);const buf=new Float32Array(2048),fa=new Float32Array(an.frequencyBinCount);
+ const T0=ac.currentTime+.15,end=P.items.at(-1).t+P.items.at(-1).d+.3;
+ // metrônomo de contagem + guia
+ const click=(t,hi)=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=hi?1500:1000;g.gain.setValueAtTime(.3,t);g.gain.exponentialRampToValueAtTime(.001,t+.05);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.06);};
+ for(let i=0;i<4;i++)click(T0+i*P.q,i===0);
+ if($('guide').checked)for(const it of P.items){const ms=it.chord?[0,it.qual?3:4,7].map(d=>48+it.root+d):[it.m];for(const m of ms){const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=L.hz(m);g.gain.setValueAtTime(0,T0+it.t);g.gain.linearRampToValueAtTime(.12,T0+it.t+.02);g.gain.setValueAtTime(.12,T0+it.t+it.d*.85);g.gain.linearRampToValueAtTime(0,T0+it.t+it.d*.95);o.connect(g).connect(ac.destination);o.start(T0+it.t);o.stop(T0+it.t+it.d);}}
+ P.items.forEach(it=>{it.n=0;it.ok=0;it.first=null;});run={P,T0,end,an,buf,fa,stream,trace:[]};$('go').textContent='⏹ Parar';$('res').hidden=true;loop();}
+function finish(){if(!run)return;const{P,stream}=run;stream.getTracks().forEach(t=>t.stop());run=null;$('go').textContent='🎤 Começar de novo';
+ let pa=0,ta=0,cnt=0;const lines=[];for(const it of P.items){const p=it.n?it.ok/it.n:0;let tm=0;if(it.first!=null)tm=Math.max(0,1-Math.abs(it.first)/(P.q*.6));pa+=p;ta+=tm;cnt++;}
+ pa/=cnt;ta/=cnt;const sc=Math.round(10*(.7*pa+.3*ta)*10)/10;$('sc').textContent=sc.toFixed(1).replace('.',',');$('res').hidden=false;
+ const late=P.items.filter(i=>i.first!=null&&i.first>P.q*.35).length,miss=P.items.filter(i=>!i.n||i.ok/i.n<.3).length;
+ $('det').innerHTML=`Afinação/acerto: <b>${Math.round(pa*100)}%</b> · Tempo: <b>${Math.round(ta*100)}%</b><br>${miss?miss+' nota(s)/acorde(s) com erro. ':''}${late?late+' entrada(s) atrasada(s). ':''}${sc>=8?'Muito bem! Suba o BPM.':sc>=5?'Bom caminho. Repita mais devagar nas partes difíceis.':'Diminua o BPM e ligue o guia com fone.'}`;$('fb').textContent='Fim!';}
+function loop(){if(!run)return;const{P,T0,end,an,buf,fa}=run,ac=L.ac(),t=ac.currentTime-T0;if(t>end)return finish();
+ const it=P.items.find(i=>t>=i.t&&t<i.t+i.d);let msg='',cls='';
+ if(P.items[0].chord){const{c}=L.chromaFromAnalyser(an,fa),ch=L.matchChord(c);$('now').textContent=ch?'Ouvindo: '+L.cname(ch.root,ch.q):'Ouvindo: —';
+  if(it&&t>it.t+it.d*.1){it.n++;const good=ch&&ch.root===it.root&&ch.q===it.qual;if(good){it.ok++;if(it.first==null)it.first=t-it.t;}msg=good?'✓ '+it.label:'Toque '+it.label;cls=good?'ok':'bad';}run.trace.push({t,m:ch?ch.root:null});}
+ else{an.getFloatTimeDomainData(buf);const f=L.yin(buf,ac.sampleRate,.15,.012),m=f>0?L.midi(f):null;$('now').textContent=m?'Ouvindo: '+L.nm(m)+' ('+Math.round(f)+' Hz)':'Ouvindo: —';run.trace.push({t,m});
+  if(it&&t>it.t+Math.min(.12,it.d*.2)){it.n++;if(m!=null){let d=m-it.m;if($('anyOct').checked)d=((d%12)+18)%12-6;const ok=Math.abs(d)<.5;if(ok){it.ok++;if(it.first==null)it.first=t-it.t;}const cents=Math.round(d*100);msg=ok?'✓ '+L.nm(it.m)+(Math.abs(cents)>20?(cents>0?' (um pouco alto)':' (um pouco baixo)'):''):(d>0?'Mais grave ↓ ':'Mais agudo ↑ ')+L.nm(it.m);cls=ok?'ok':'bad';}else msg='Toque '+L.nm(it.m);}}
+ if(t<P.items[0].t)msg='Prepare… '+Math.ceil((P.items[0].t-t)/P.q);$('fb').textContent=msg;$('fb').className='fb '+cls;draw(t);requestAnimationFrame(loop);}
+function draw(t){const W=cv.width=cv.clientWidth*(devicePixelRatio>1?1.5:1),H=cv.height,{P}=run;cx.clearRect(0,0,W,H);const span=6,px=W/span,x0=W*.25,xs=s=>x0+(s-t)*px;
+ cx.strokeStyle='#e5be74';cx.beginPath();cx.moveTo(x0,0);cx.lineTo(x0,H);cx.stroke();
+ if(P.items[0].chord){cx.font='bold 26px system-ui';for(const it of P.items){const x=xs(it.t);if(x>W||x+it.d*px<0)continue;cx.fillStyle=it.n&&it.ok/it.n>.5?'#2f5d36':'#2a3142';cx.fillRect(x,H/2-40,it.d*px-4,80);cx.fillStyle='#f5d79e';cx.fillText(it.label,x+8,H/2+9);}return;}
+ const ms=P.items.map(i=>i.m),lo=Math.min(...ms)-3,hi=Math.max(...ms)+3,ys=m=>H-(m-lo)/(hi-lo)*H;cx.font='12px system-ui';
+ for(const it of P.items){const x=xs(it.t);if(x>W||x+it.d*px<0)continue;cx.fillStyle=it.n?(it.ok/it.n>.5?'#3fa25a':'#a8553f'):'#dbb66f';cx.fillRect(x,ys(it.m)-6,it.d*px-3,12);cx.fillStyle='#eee9df';cx.fillText(L.nm(it.m),x+2,ys(it.m)-9);}
+ cx.fillStyle='#8fd3ff';for(const p of run.trace){if(p.m==null||p.t<t-span*.25)continue;let m=p.m;if($('anyOct').checked){const it=P.items.find(i=>p.t>=i.t&&p.t<i.t+i.d);if(it)m=it.m+(((m-it.m)%12)+18)%12-6;}cx.fillRect(xs(p.t)-1,ys(m)-2,3,4);}}
+$('go').onclick=()=>run?finish():begin();vis();
+</script><script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});</script></body></html>
