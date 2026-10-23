@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.4.0)
+APS AUDIO ENGINE — LEIA (versão 2.5.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,16 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.5.0 — Limpeza de ruído e eco da sala, no aparelho
+- Estúdio > aba Gravação: painel "🧽 Limpar gravação". Ajuste "Ruído de fundo" (chiado, ventilador, geladeira)
+  e "Eco da sala" (reverberação do cômodo), escolha o tamanho da sala e a naturalidade, e toque em
+  "Limpar pista selecionada". "↩ Voltar original" desfaz.
+- Técnica: porta de ruído espectral (aprende o ruído nos trechos mais silenciosos) + redução de reverberação
+  tardia. Grátis, sem internet, nada é enviado.
+- Dica: deixe 1–2 s de silêncio no começo da gravação. Exagerar pode deixar a voz "metálica": use "mais natural".
+- Teste: ruído de fundo −16 dB, cauda de eco −6 dB, voz praticamente intacta (−1 dB).
+- Cache do app: aps-shell-2.5.0.
+
 2.4.0 — Afinação de voz (estilo auto-tune), no aparelho
 - Estúdio > aba Afinador: painel "🎤 Afinação de voz". Escolha tom (Dó a Si) e escala (maior, menor, menor
   harmônica, pentatônicas, blues, cromática), velocidade da correção (0 ms = robótico; 20–60 ms = natural)
