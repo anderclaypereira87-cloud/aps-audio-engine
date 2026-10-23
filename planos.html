@@ -25,13 +25,13 @@ button.alt{background:transparent;color:var(--gold);border:1px solid var(--gold)
 </div>
 <p class="mut">Pagamento seguro via Asaas: Pix, cartão ou boleto. Criado por Anderclay Pereira Silva.</p>
 <div id="modal"><div class="c" id="mc"></div></div>
-<script src="./aps-plans.js?v=351"></script><script src="./aps-pay.js?v=351"></script><script>
+<script src="./aps-plans.js?v=351"></script><script src="./auth-config.js?v=362"></script><script src="./aps-pay.js?v=362"></script><script>
 const $=s=>document.querySelector(s), modal=$('#modal'), mc=$('#mc'); let produto;
 const nomes={pro:'Pro',estudio:'Estúdio',dono:'Dono (tudo liberado)',free:'Grátis'};
 async function showSt(){const s=await APSPay.refresh(); $('#st').textContent=s?`Conta: ${s.email} — plano ${nomes[s.plan]||s.plan}${s.pending?' (pagamento pendente)':''}`:'';}
 showSt();
 document.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{produto=b.dataset.p; APSPay.token()?pay():cadastro();});
-function cadastro(){modal.style.display='block';mc.innerHTML=`<h2>Seus dados</h2><input id=n placeholder="Nome completo"><input id=e type=email placeholder="E-mail"><input id=d inputmode=numeric placeholder="CPF ou CNPJ"><input id=f inputmode=tel placeholder="Celular (opcional)"><button id=ok>Continuar</button><button class=alt onclick="modal.style.display='none'">Cancelar</button><p id=er class=mut></p>`;
+function cadastro(){modal.style.display='block';mc.innerHTML=`<h2>Seus dados</h2><input id=n placeholder="Nome completo"><input id=e type=email placeholder="E-mail"><input id=d inputmode=numeric placeholder="CPF ou CNPJ"><input id=f inputmode=tel placeholder="Celular (opcional)"><button id=ok>Continuar</button><p class=mut style="text-align:center"><a href="./login.html?volta=planos">Ou entre com Google, Microsoft ou X</a></p><button class=alt onclick="modal.style.display='none'">Cancelar</button><p id=er class=mut></p>`;
  $('#ok').onclick=async()=>{try{await APSPay.signup({name:$('#n').value,email:$('#e').value,cpfCnpj:$('#d').value,phone:$('#f').value});pay();}catch(x){$('#er').textContent=x.message;}};}
 function pay(){modal.style.display='block';mc.innerHTML=`<h2>Forma de pagamento</h2><select id=bt><option value=PIX>Pix</option><option value=CREDIT_CARD>Cartão de crédito</option><option value=BOLETO>Boleto</option></select><button id=go>Gerar pagamento</button><button class=alt onclick="modal.style.display='none'">Cancelar</button><p id=er class=mut></p>`;
  $('#go').onclick=async()=>{$('#go').disabled=true;try{const r=await APSPay.api('/checkout','POST',{product:produto,billingType:$('#bt').value});
@@ -39,5 +39,5 @@ function pay(){modal.style.display='block';mc.innerHTML=`<h2>Forma de pagamento<
   if(r.invoiceUrl) mc.innerHTML+=`<button onclick="window.open('${r.invoiceUrl}','_blank')">Abrir fatura / pagar</button>`;
   mc.innerHTML+=`<button class=alt onclick="modal.style.display='none';showSt()">Fechar</button>`;
   const t=setInterval(async()=>{const s=await APSPay.refresh();if(s&&!s.pending){clearInterval(t);showSt();}},8000);
- }catch(x){$('#er').textContent=x.message;$('#go').disabled=false;}};}
+ }catch(x){if(x.data&&x.data.needCustomer){cadastro();return;}$('#er').textContent=x.message;$('#go').disabled=false;}};}
 </script></body></html>

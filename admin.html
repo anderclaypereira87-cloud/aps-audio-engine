@@ -6,7 +6,7 @@ button{background:#d4af37;color:#111;font-weight:700;border:0;cursor:pointer}tab
 </style></head><body><h1>Painel do dono</h1>
 <p>Chave de administrador (fica só neste aparelho): <input id=k type=password> <button id=en>Entrar</button> <button id=own>Marcar esta conta como dono</button></p>
 <div id=out></div>
-<script src="./aps-pay.js?v=351"></script><script>
+<script src="./auth-config.js?v=362"></script><script src="./aps-pay.js?v=362"></script><script>
 const $=s=>document.querySelector(s);$('#k').value=localStorage.getItem('aps_admin')||'';
 const A=(p,m,b)=>APSPay.api(p,m,b,$('#k').value);const dt=t=>t?new Date(t).toLocaleDateString('pt-BR'):'—';
 const pg={PIX:'Pix',CREDIT_CARD:'Cartão',BOLETO:'Boleto'};

@@ -3,8 +3,6 @@
 <div class="w"><nav><a class="lg" href="./index.html">APS</a><a href="./index.html">Abrir o app →</a></nav>
 <section class="hero"><h1>Seu estúdio completo<br><b>no celular</b></h1><p>Grave, separe instrumentos, mixe com Inteligência Artificial e masterize suas músicas — feito para o músico brasileiro e leve até para celular simples.</p><a class="cta" href="./index.html">Começar grátis</a><a class="cta alt" href="#planos">Ver planos</a></section>
 
-<h2>Ouça a diferença</h2><p class="note">Mesmo trecho gerado pelos loops do próprio APS: primeiro sem mixagem, depois com o modelo de estilo “Forró” aplicado (EQ, compressão, reverb e panorama).</p>
-<div class="ab"><div class="card"><h3>Antes · sem mixagem</h3><div class="bars" id="b0"></div><button class="play" id="pb0" type="button">▶ Ouvir antes</button></div><div class="card after"><h3>Depois · mix APS em 1 toque</h3><div class="bars" id="b1"></div><button class="play gold" id="pb1" type="button">▶ Ouvir depois</button></div></div>
 
 <h2>O que você faz com o APS</h2><div class="grid">
 <div class="card"><h3>🎚 Estúdio multipista</h3><p>Grave e importe pistas, corte, arraste e edite na linha do tempo, como num estúdio de computador.</p></div>
@@ -32,29 +30,4 @@
 <details><summary>A mixagem com IA muda a minha interpretação?</summary><p>Não. Ela ajusta volume, equalização e efeitos. As gravações originais ficam intactas e você pode desfazer.</p></details>
 </div>
 <footer>APS Audio Engine · <b>Criado por Anderclay Pereira Silva</b><br><a href="./index.html">Abrir o app</a></footer>
-<script>
-const SR=22050,DUR=8;let cache={},cur=null,ctx=null;
-function bars(id,seed){const el=document.getElementById(id);let s='';for(let i=0;i<32;i++){const h=seed?30+Math.abs(Math.sin(i*1.7))*55:15+Math.abs(Math.sin(i*2.3))*85*(i%4?0.5:1);s+=`<i style="height:${h}%"></i>`;}el.innerHTML=s;}
-bars('b0',0);bars('b1',1);
-async function render(mixed){const c=new OfflineAudioContext(2,SR*DUR,SR),bpm=110,sp=60/bpm/2;
- const bus=c.createGain();let out=bus;
- if(mixed){const comp=c.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;comp.attack.value=.01;comp.release.value=.2;const g=c.createGain();g.gain.value=1.6;bus.connect(comp).connect(g).connect(c.destination);
-  const conv=c.createConvolver(),L=SR*1.2,ir=c.createBuffer(2,L,SR);for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<L;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/L,3);}conv.buffer=ir;const rv=c.createGain();rv.gain.value=.12;bus.connect(rv).connect(conv).connect(g);}
- else bus.connect(c.destination);
- const ch=(gain,pan,eq)=>{const g=c.createGain();g.gain.value=gain;let n=g;if(eq)for(const[t,f,v]of eq){const b=c.createBiquadFilter();b.type=t;b.frequency.value=f;if(t==='highpass'||t==='lowpass')b.Q.value=.7;else b.gain.value=v;n.connect(b);n=b;}const p=c.createStereoPanner();p.pan.value=pan;n.connect(p).connect(bus);return g;};
- const M=mixed;
- const kick=ch(M?.9:.7,0,M?[['peaking',60,4],['peaking',300,-4]]:[['peaking',250,6]]);
- const bass=ch(M?.45:.75,0,M?[['highpass',35],['peaking',120,2],['peaking',250,-3]]:[['peaking',200,6]]);
- const acc=ch(M?.22:.3,M?-.3:0,M?[['highpass',150],['peaking',350,-3],['peaking',2500,2]]:[['peaking',3000,6]]);
- const tri=ch(M?.18:.07,M?.4:0,M?[['highpass',2000],['highshelf',6000,3]]:[['lowpass',3000]]);
- const notes=[[45,57,60,64],[45,57,60,64],[50,62,65,69],[52,64,68,71]],mf=m=>440*Math.pow(2,(m-69)/12);
- for(let s=0;s<DUR/sp;s++){const t=s*sp,bar=Math.floor(s/8)%4,st=s%8,ch4=notes[bar];
-  if(st===0||st===3||st===4){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.connect(g).connect(kick);o.start(t);o.stop(t+.32);}
-  if(st%2===0){const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=mf(ch4[0]-12+(st===4?7:0));g.gain.setValueAtTime(.8,t);g.gain.exponentialRampToValueAtTime(.001,t+sp*1.8);o.connect(g).connect(bass);o.start(t);o.stop(t+sp*2);}
-  if(st===2||st===6||st===7){for(const m of ch4.slice(1)){const o=c.createOscillator(),g=c.createGain();o.type='sawtooth';o.frequency.value=mf(m);g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+sp*.9);o.connect(g).connect(acc);o.start(t);o.stop(t+sp);}}
-  {const o=c.createOscillator(),g=c.createGain();o.frequency.value=4200;g.gain.setValueAtTime(st%2?.5:.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.08);o.connect(g).connect(tri);o.start(t);o.stop(t+.1);}}
- return c.startRendering();}
-function stop(){if(cur){try{cur.stop()}catch{}cur=null;}document.getElementById('pb0').textContent='▶ Ouvir antes';document.getElementById('pb1').textContent='▶ Ouvir depois';}
-async function play(k){const was=cur&&cur._k===k;stop();if(was)return;const b=document.getElementById('pb'+k);b.textContent='⏳ Gerando…';ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();cache[k]=cache[k]||await render(k===1);const s=ctx.createBufferSource();s.buffer=cache[k];s.connect(ctx.destination);s.start();s._k=k;s.onended=()=>{if(cur===s)stop();};cur=s;b.textContent='⏹ Parar';}
-document.getElementById('pb0').onclick=()=>play(0);document.getElementById('pb1').onclick=()=>play(1);
-</script></body></html>
+</body></html>
