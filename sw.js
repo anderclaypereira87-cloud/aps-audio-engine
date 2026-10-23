@@ -1,4 +1,4 @@
-const CACHE='aps-shell-2.5.0';
+const CACHE='aps-shell-2.6.0';
 const BASE=new URL('./',self.location).pathname;
 const FILES=['index.html', 'login.html', 'auth-config.js',  'painel.html', 'daw.html', 'midia.html', 'bateria.html', 'separador.html', 'separador.js', 'separador-worker.js', 'partitura-pro.html', 'partitura-pro.js', 'aps-mix-assistant.js','aps-master.js', 'aps-mix-assistant.css', 'aps-studio-pro.css', 'aps-studio-pro.js', 'projetos.html','aps-projects.js','drive-config.js','aps-plans.js','aps-vocal.js','aps-clean.js','manifest.json', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES.map(f=>BASE+f))));});

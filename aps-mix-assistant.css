@@ -64,3 +64,4 @@
 #apsVtCanvas{width:100%;height:auto;border-radius:10px;border:1px solid #33404f;margin:6px 0;touch-action:manipulation}
 .aps-cl{border:1px solid #3e6a63;border-radius:14px;padding:12px;margin:12px 0;background:#101a1d;color:#d9ece8}.aps-cl h3{margin:0 0 6px;color:#8fe0d2;font-size:16px}.aps-cl h3 small{font-weight:400;color:#9fb5b1;font-size:11px}
 .aps-cl label{display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0}.aps-cl input[type=range]{flex:1;accent-color:#66c7b8}.aps-cl select{flex:1;background:#18252a;color:#d9ece8;border:1px solid #3e6a63;border-radius:8px;padding:6px}
+.aps-punch{border:1px dashed #6f5a34;border-radius:12px;padding:8px 10px;margin:10px 0}.aps-punch-row{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px}

@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.5.0)
+APS AUDIO ENGINE — LEIA (versão 2.6.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,15 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.6.0 — Gravação: punch-in, contagem por compasso, metrônomo acentuado
+- Punch-in (aba Gravação): marque "🎯 Punch-in", defina Entrada e Saída (ou toque "posição atual") e grave.
+  A base toca 1 compasso antes, a gravação para sozinha na saída e só esse trecho da pista selecionada é
+  trocado, com transição suave de 12 ms. A tomada completa continua disponível para baixar.
+- Contagem antes de gravar: 1 ou 2 compassos, seguindo o compasso escolhido (4/4, 3/4, 6/8…), com o 1º tempo acentuado.
+- Metrônomo: acentua o 1º tempo de cada compasso; volume ajustável.
+- Afinador: continua na aba Gravação (microfone ao vivo ou pista selecionada).
+- Cache do app: aps-shell-2.6.0.
+
 2.5.0 — Limpeza de ruído e eco da sala, no aparelho
 - Estúdio > aba Gravação: painel "🧽 Limpar gravação". Ajuste "Ruído de fundo" (chiado, ventilador, geladeira)
   e "Eco da sala" (reverberação do cômodo), escolha o tamanho da sala e a naturalidade, e toque em
