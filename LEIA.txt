@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.2.0)
+APS AUDIO ENGINE — LEIA (versão 2.3.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,18 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.3.0 — Meus Projetos
+- Nova página "📁 Meus Projetos" (projetos.html), com atalho na entrada e no estúdio (aba Projeto).
+- Salvar, abrir, renomear, duplicar e excluir projetos guardados no aparelho (IndexedDB).
+- O projeto guarda as pistas (WAV 16-bit, metade do tamanho do formato antigo), todos os ajustes de cada pista
+  E os ajustes da Mixagem IA (EQ, compressão, de-esser, sidechain). Antes a Mixagem IA se perdia ao reabrir.
+- Salvamento automático a cada ~45 s (e ao sair da tela) enquanto houver mudanças. Pode desligar no estúdio.
+- Exportar/Importar arquivo .aps (ZIP) para guardar onde quiser ou mandar para outra pessoa.
+- Google Drive: "☁️ Salvar no Drive" e "📂 Abrir do Drive" (pasta "APS Projetos", permissão drive.file, o APS só
+  vê os arquivos que ele criou). Precisa do Client ID no arquivo drive-config.js; sem ele, aparece um aviso.
+- aps-plans.js: lista de recursos grátis/pagos para o futuro (hoje nada é bloqueado).
+- Cache do app: aps-shell-2.3.0.
+
 2.2.0 — Mixagem IA (tudo no aparelho, sem API paga)
 - Novo painel "🤖 Mixagem IA" na aba Mixagem do estúdio.
 - Análise de cada pista: espectro (26 bandas), LUFS, pico, fator de crista, brilho e ataques por segundo.

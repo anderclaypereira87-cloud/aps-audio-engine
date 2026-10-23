@@ -1,0 +1,46 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><title>Meus Projetos · APS Audio Engine</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png">
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee9df;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}main{max-width:760px;margin:0 auto;padding:20px 14px 80px}
+a{color:#e5bd72}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.brand{color:#e5be74;font-weight:850;letter-spacing:3px}
+h1{margin:14px 0 4px;font-size:26px;color:#f1d099}.sub{color:#b9c5d5;font-size:13px;margin:0 0 12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}button,.btn{min-height:46px;padding:10px 14px;border-radius:12px;border:1px solid #74694c;background:#222a38;color:#f6e3bb;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.gold{background:linear-gradient(180deg,#e7c27a,#b88a3e);color:#1a1307;border-color:#e7c27a}button:disabled{opacity:.45}
+.card{background:#161b27;border:1px solid #3a4352;border-radius:16px;padding:14px;margin:10px 0}.card h3{margin:0;font-size:17px;color:#f4d89d;overflow-wrap:anywhere}
+.meta{font-size:12px;color:#a8b2c0;margin:4px 0 10px}.acts{display:flex;flex-wrap:wrap;gap:6px}.acts button{min-height:40px;padding:7px 10px;font-size:13px}
+.danger{border-color:#8a4b4b;color:#ffbcbc}#status{padding:10px 12px;border-radius:12px;background:#111620;border:1px solid #33404f;font-size:14px;margin:10px 0}#status[data-kind=error]{border-color:#a05252;color:#ffbcbc}#status[data-kind=ok]{border-color:#3f7a62;color:#bdebdc}
+.drive{border-color:#6f5a34;background:linear-gradient(180deg,#171d29,#121722)}.empty{text-align:center;color:#a8b2c0;padding:26px}.tag{font-size:11px;border:1px solid #4f7a6a;color:#a9e6cf;border-radius:8px;padding:1px 6px;margin-left:6px}
+</style></head><body><main>
+<div class="top"><a class="brand" href="./index.html" style="text-decoration:none">APS AUDIO ENGINE</a><a href="./daw.html?modulo=gravacao">🎚 Abrir estúdio →</a></div>
+<h1>📁 Meus Projetos</h1><p class="sub">Seus projetos ficam guardados neste aparelho, com as pistas, todos os ajustes e a Mixagem IA. Leve para outro aparelho pelo Google Drive ou pelo arquivo .aps.</p>
+<div class="bar"><a class="btn gold" href="./daw.html?modulo=gravacao">➕ Novo projeto</a><label class="btn">📥 Importar .aps<input id="importFile" type="file" accept=".aps,.timbra,application/zip" hidden></label></div>
+<section class="card drive"><h3>☁️ Google Drive</h3><p class="meta">Salva e abre projetos na pasta “APS Projetos” do seu Drive. O APS só enxerga os arquivos que ele mesmo criou.</p><div class="acts"><button id="driveList">📂 Abrir do Drive</button></div><div id="driveFiles"></div></section>
+<p id="status" role="status">Carregando seus projetos…</p>
+<div id="list"></div>
+</main>
+<script src="./drive-config.js?v=230"></script><script src="./aps-plans.js?v=230"></script><script src="./aps-projects.js?v=230"></script>
+<script>
+(()=>{'use strict';const $=id=>document.getElementById(id),P=window.APSProjects;
+const say=(t,k)=>{const e=$('status');e.textContent=t;e.dataset.kind=k||'';};
+const mb=b=>(b/1048576).toFixed(1)+' MB',when=t=>new Date(t).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);}
+const safe=s=>String(s).replace(/[\\/:*?"<>|]+/g,' ').trim()||'projeto';
+async function render(){const items=await P.list();const root=$('list');root.replaceChildren();
+ if(!items.length){root.innerHTML='<div class="card empty">Nenhum projeto ainda.<br>Abra o estúdio, importe ou grave pistas e toque em <b>💾 Salvar em Meus Projetos</b>.</div>';say('Nenhum projeto salvo neste aparelho.');return;}
+ for(const r of items){const c=document.createElement('div');c.className='card';c.dataset.id=r.id;const h=document.createElement('h3');h.textContent=r.name;if(r.driveId){const t=document.createElement('span');t.className='tag';t.textContent='☁️ no Drive';h.append(t);}
+  const m=document.createElement('div');m.className='meta';m.textContent=r.tracks+' pista(s) · '+mb(r.size)+' · salvo em '+when(r.updated);
+  const a=document.createElement('div');a.className='acts';
+  const b=(txt,fn,cls)=>{const x=document.createElement('button');x.type='button';x.textContent=txt;if(cls)x.className=cls;x.onclick=async()=>{x.disabled=true;try{await fn();}catch(e){say(e.message,'error');}finally{x.disabled=false;}};a.append(x);return x;};
+  b('▶ Abrir',()=>{location.href='./daw.html?modulo=mixagem&projeto='+encodeURIComponent(r.id);},'gold');
+  b('✏️ Renomear',async()=>{const n=prompt('Novo nome do projeto:',r.name);if(!n||!n.trim())return;await P.rename(r.id,n.trim());say('Projeto renomeado.','ok');render();});
+  b('⧉ Duplicar',async()=>{await P.duplicate(r.id);say('Cópia criada.','ok');render();});
+  b('⬇ Exportar .aps',async()=>{const full=await P.get(r.id);download(full.blob,safe(full.name)+'.aps');say('Arquivo .aps baixado. Guarde-o onde quiser.','ok');});
+  b('☁️ Salvar no Drive',async()=>{if(!P.driveConfigured())return say(P.NOT_CONFIGURED,'error');const full=await P.get(r.id);say('Conectando ao Google…');await P.driveSave(full,t=>say(t));say('Salvo no Google Drive, pasta “APS Projetos”.','ok');render();});
+  b('🗑 Excluir',async()=>{if(!confirm('Excluir “'+r.name+'” deste aparelho? (Cópias no Drive não são apagadas.)'))return;await P.remove(r.id);say('Projeto excluído do aparelho.','ok');render();},'danger');
+  c.append(h,m,a);root.append(c);}
+ say(items.length+' projeto(s) neste aparelho.');}
+$('importFile').onchange=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{const p=await P.peek(f);await P.put({name:p.name,blob:f,tracks:p.tracks});say('Projeto “'+p.name+'” importado'+(p.ai?' (com Mixagem IA)':'')+'.','ok');render();}catch(err){say(err.message,'error');}};
+$('driveList').onclick=async()=>{if(!P.driveConfigured())return say(P.NOT_CONFIGURED,'error');try{say('Buscando projetos no Drive…');const files=await P.driveList();const box=$('driveFiles');box.replaceChildren();if(!files.length){say('Nenhum projeto APS no seu Drive ainda.');return;}
+ for(const f of files){const d=document.createElement('div');d.className='card';d.innerHTML='<h3></h3><div class="meta"></div>';d.querySelector('h3').textContent=f.name;d.querySelector('.meta').textContent=mb(Number(f.size)||0)+' · '+when(f.modifiedTime);const x=document.createElement('button');x.textContent='⬇ Trazer para o aparelho';x.onclick=async()=>{x.disabled=true;try{say('Baixando do Drive…');const r=await P.driveOpen(f);say('“'+r.name+'” pronto neste aparelho.','ok');render();}catch(e){say(e.message,'error');}finally{x.disabled=false;}};d.append(x);box.append(d);}
+ say(files.length+' projeto(s) no Drive.','ok');}catch(e){say(e.message,'error');}};
+render().catch(e=>say(e.message,'error'));
+})();
+</script></body></html>
