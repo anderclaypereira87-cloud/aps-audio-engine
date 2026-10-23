@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 3.1.0)
+APS AUDIO ENGINE — LEIA (versão 3.2.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,25 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+3.2.0 — Estúdio Pro: DAW em tela cheia (estilo Logic/Cubase)
+- O estúdio abre em tela cheia (só a DAW). Botão ⛶ para tela cheia de verdade (no celular tenta girar para
+  horizontal). "☰ > Modo clássico" volta à tela antiga com todas as ferramentas; "🎛 Estúdio Pro" retorna.
+- Barra de transporte: ⏮ ▶/❚❚ ■ ● ⟲, posição em compasso.tempo.sub + minutos, BPM, compasso, metrônomo,
+  grade (livre/compasso/tempo/1/8/1/16), ferramentas (ponteiro/tesoura, seleção múltipla, dividir, duplicar,
+  apagar, desfazer/refazer), zoom (−/ver tudo/+ e altura das pistas).
+- Pistas à esquerda: cor, nome editável, M/S/● (armar gravação), volume e pan.
+- Linha do tempo: régua de compassos (toque para posicionar), agulha, formas de onda em alta resolução
+  (picos em cache, nítidas em telas retina), rolagem horizontal/vertical, zoom com pinça, Ctrl+roda ou botões.
+- Edição NÃO destrutiva: selecionar (Shift/Ctrl ou ☑ ou toque longo = múltipla; arrastar no vazio = laço),
+  mover e levar para outra pista, dividir (S ou tesoura), aparar puxando as bordas, fades pelas alças brancas,
+  apagar (Del), duplicar (Ctrl+D), copiar/colar (Ctrl+C/V na agulha), desfazer/refazer (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y).
+- Painel inferior: Mixer (canais com medidores, fader, pan, M/S, inserts e master), Editor (valores exatos da
+  região + Canal e timbragem), Mixagem IA, Master, Gravar (punch-in, afinador, limpeza), Loops e Exportar.
+- Tudo continua funcionando: gravação (entra na pista armada), punch-in, Mixagem IA, projetos com salvamento
+  automático (as regiões editadas são salvas) e exportação (sai exatamente como editado).
+- Projetos: regiões do mesmo áudio compartilham o arquivo (o .aps não cresce ao dividir). Até 64 regiões.
+- Cache do app: aps-shell-3.2.0.
+
 3.1.0 — Tour guiado na primeira visita
 - Na primeira vez que abre o início e o estúdio, um guia curto (6–7 passos) destaca as partes principais.
 - "Pular" fecha a qualquer momento; o botão dourado "?" (canto inferior direito) reabre o tour quando quiser.

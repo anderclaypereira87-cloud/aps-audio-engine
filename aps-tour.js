@@ -9,11 +9,11 @@ const STEPS={
   {sel:'a[href*="bateria.html"]',t:'Bateria',d:'Troque o timbre da bateria pelos seus kits.'},
   {sel:'#apsTourBtn',t:'Rever o tour',d:'Quando quiser ver este guia de novo, toque no "?".'}],
  daw:[{sel:null,t:'Este é o estúdio 🎛',d:'Vamos fazer um passeio rápido de 6 passos.'},
-  {sel:'#apsTabs, nav',t:'Abas',d:'Cada aba mostra uma parte: Gravação, Mixagem, Partituras (cifra), Afinador, Projeto…'},
-  {sel:'#importBtn',t:'Importar',d:'Traga áudios do celular (guia, playback, voz).'},
-  {sel:'#record',t:'Gravar',d:'Grava com contagem, metrônomo e até punch-in num trecho.'},
-  {sel:'#play',t:'Ouvir',d:'Reproduz todas as pistas juntas.'},
-  {sel:'#apsLoopsPanel',t:'Loops brasileiros',d:'Forró, piseiro, funk, gospel, sertanejo e trap no BPM da sua música.'},
+  {sel:'.pro-top, nav',t:'Transporte',d:'Tocar, parar, gravar, repetir, BPM, compasso, metrônomo, grade e ferramentas de edição.'},
+  {sel:'#proImport, #importBtn',t:'Importar',d:'Traga áudios do celular (guia, playback, voz).'},
+  {sel:'#proRec, #record',t:'Gravar',d:'Grava com contagem, metrônomo e até punch-in num trecho.'},
+  {sel:'#proCanvas, #play',t:'Linha do tempo',d:'Arraste regiões para mover, puxe as bordas para aparar, as alças brancas fazem fades. S divide, Ctrl+Z desfaz. Pinça para zoom.'},
+  {sel:'.pro-tabs, #apsLoopsPanel',t:'Painéis',d:'Mixer, Editor, Mixagem IA, Master, Gravar (punch-in, afinador), Loops brasileiros e Exportar.'},
   {sel:'#apsTourBtn',t:'Ajuda',d:'Toque no "?" para rever este tour. Bom som!'}]};
 function vis(el){if(!el)return false;const r=el.getBoundingClientRect();return r.width>0&&r.height>0;}
 function start(){end();const steps=STEPS[PAGE];let i=0;const ov=document.createElement('div');ov.id='apsTour';ov.className='aps-tour';ov.innerHTML='<div class="aps-tour-hole"></div><div class="aps-tour-box" role="dialog" aria-modal="true" aria-labelledby="apsTourT"><small id="apsTourN"></small><h3 id="apsTourT"></h3><p id="apsTourD"></p><div><button type="button" id="apsTourSkip">Pular</button><button type="button" id="apsTourBack">◀</button><button type="button" id="apsTourNext" class="accent">Próximo ▶</button></div></div>';document.body.appendChild(ov);
