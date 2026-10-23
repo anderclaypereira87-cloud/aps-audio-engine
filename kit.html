@@ -1,0 +1,48 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="author" content="Anderclay Pereira Silva"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10131b"><title>Kit do seu jeito · APS</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png">
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee9df;font:16px/1.4 system-ui,-apple-system,Roboto,sans-serif}main{max-width:620px;margin:0 auto;padding:14px 14px 70px}header{display:flex;align-items:center;gap:10px}header a{color:#e5be74;text-decoration:none;font-weight:800;border:1px solid #9e7c42;border-radius:10px;padding:6px 10px}h1{font-size:19px;margin:0;color:#e5be74}h2{font-size:15px;color:#e5be74;margin:0 0 8px}.card{background:#181d2b;border:1px solid #444b58;border-radius:16px;padding:14px;margin:12px 0}.sub{color:#aab;font-size:13px;margin:4px 0}button,.btn{font:inherit;font-weight:800;border-radius:12px;border:1px solid #9e7c42;background:#1b2130;color:#f5d79e;padding:11px 12px;cursor:pointer}button.gold{background:#dbb66f;color:#151922}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 auto}input,select{width:100%;background:#0f1320;color:#fff;border:1px solid #444b58;border-radius:10px;padding:9px;font:inherit}input[type=range]{accent-color:#dbb66f;padding:0}label{font-size:13px;color:#cfc6b4;display:block;margin-top:6px}#msg{min-height:1.4em;color:#f5d79e;font-size:14px}.grid{overflow-x:auto;margin-top:8px}.lane{display:flex;align-items:center;gap:2px;margin:3px 0}.lane span{width:62px;flex:none;font-size:12px;color:#cfc6b4}.lane i{flex:none;width:18px;height:22px;border-radius:4px;background:#232a3b;border:1px solid #2e3547;cursor:pointer}.lane i.beat{border-color:#5d4c2c}.lane i.on{background:#dbb66f}.lane i.on.hat{background:#8fc7e6}.lane i.on.snare{background:#e58a6f}footer{color:#8a8576;font-size:12px;text-align:center;margin-top:20px}</style></head><body><main>
+<header><a href="./index.html">← Início</a><h1>🥁 Kit do seu jeito</h1></header>
+<p class="sub">Bata na mesa, estale os dedos ou faça beatbox. O APS separa cada batida em bumbo, caixa ou chimbal, coloca no tempo e toca com os kits MMSTUDIO do Anderclay.</p>
+<section class="card"><h2>1 · Grave sua batida</h2><div class="row"><button id="rec" class="gold">🎙 Gravar</button><label class="btn" style="text-align:center;margin:0">📂 Importar áudio<input id="file" type="file" accept="audio/*" hidden></label></div><p class="sub">Dica: grave grave = bumbo (“tum”, soco na mesa), médio = caixa (“tá”, palma), agudo e curto = chimbal (“tss”, estalo). Até 30 s.</p></section>
+<section class="card"><h2>2 · Ajustes</h2><div class="row"><div><label for="bpm">BPM</label><input id="bpm" type="number" min="50" max="200" value="100"></div><div><label for="grid">Grade</label><select id="grid"><option value="4">1/16</option><option value="2">1/8</option></select></div><div><label for="kit">Kit</label><select id="kit"></select></div></div>
+<label for="q">Força da quantização: <b id="qv">100%</b></label><input id="q" type="range" min="0" max="100" value="100"><label for="sens">Sensibilidade: <b id="sv">100%</b></label><input id="sens" type="range" min="40" max="200" value="100"><label for="loops">Repetir (vezes)</label><input id="loops" type="number" min="1" max="16" value="2">
+<p class="sub" id="stats"></p><div class="grid" id="lanes"></div><p class="sub">Toque num quadrado para ligar/desligar ou trocar a batida.</p></section>
+<section class="card"><div class="row"><button id="play" class="gold">▶ Ouvir no kit</button><button id="stop">■ Parar</button></div><div class="row" style="margin-top:8px"><button id="wav">⬇ Baixar WAV</button><button id="send">🎚 Enviar ao estúdio</button></div><p id="msg" role="status"></p></section>
+<footer>Criado por Anderclay Pereira Silva · APS Audio Engine</footer></main>
+<script src="./aps-gen.js?v=390"></script>
+<script>
+(()=>{'use strict';const G=APSGen,$=id=>document.getElementById(id),say=t=>$('msg').textContent=t;
+const NAMES={kick:'Bumbo',snare:'Caixa',hat:'Chimbal'},ORDER=['hat','snare','kick'];
+let raw=null,hits=[],grid=[],steps=16,src=null,recr=null;
+G.loadKits().then(k=>{for(const[id,v]of Object.entries(k))$('kit').add(new Option(v.name,id));}).catch(()=>say('Não consegui carregar os kits.'));
+function feat(x,sr,t){const N=1024,s=Math.floor(t*sr),re=new Float32Array(N),im=new Float32Array(N);for(let i=0;i<N;i++){const v=x[s+i]||0;re[i]=v*(0.5-0.5*Math.cos(2*Math.PI*i/N));}G.fft(re,im);
+ let tot=0,low=0,cen=0;for(let k=1;k<N/2;k++){const m=re[k]*re[k]+im[k]*im[k],f=k*sr/N;tot+=m;cen+=m*f;if(f<250)low+=m;}return{cen:cen/(tot||1),lr:low/(tot||1)};}
+// bumbo = energia grave dominante; o resto é dividido em 2 grupos pelo brilho (mais agudo = chimbal), adaptando-se à voz/mesa de cada pessoa
+function classifyAll(x,sr,times){const F=times.map(t=>feat(x,sr,t)),out=F.map(f=>f.lr>.4||f.cen<600?'kick':null);const rest=F.map((f,i)=>[Math.log(f.cen),i]).filter(([,i])=>!out[i]);
+ if(rest.length){const v=rest.map(r=>r[0]),mn=Math.min(...v),mx=Math.max(...v);if(mx-mn<Math.log(1.3)){for(const[c,i]of rest)out[i]=Math.exp(c)>5500?'hat':'snare';}
+  else{let a=mn,b=mx;for(let it=0;it<20;it++){const A=v.filter(c=>Math.abs(c-a)<=Math.abs(c-b)),B=v.filter(c=>Math.abs(c-a)>Math.abs(c-b));if(A.length)a=A.reduce((s,c)=>s+c,0)/A.length;if(B.length)b=B.reduce((s,c)=>s+c,0)/B.length;}for(const[c,i]of rest)out[i]=Math.abs(c-a)<=Math.abs(c-b)?'snare':'hat';}}
+ return out;}
+async function load(blob){say('Analisando as batidas…');raw=G.trim(await G.decode(blob),30);analyse();}
+function analyse(){if(!raw)return;const x=G.mono(raw),sr=raw.sampleRate,on=G.onsets(x,sr,{sens:+$('sens').value/100});
+ if(on.length<2){hits=[];grid=[];draw();say('Encontrei poucas batidas. Grave mais forte ou aumente a sensibilidade.');return;}
+ const ioi=on.slice(1).map((t,i)=>t-on[i]).sort((a,b)=>a-b);let bpm=G.bpm(x,sr);$('bpm').value=bpm;
+ const cls=classifyAll(x,sr,on);hits=on.map((t,i)=>({t:t-on[0],c:cls[i]}));build();const n={kick:0,snare:0,hat:0};hits.forEach(h=>n[h.c]++);
+ $('stats').textContent=hits.length+' batidas: '+n.kick+' bumbo, '+n.snare+' caixa, '+n.hat+' chimbal · BPM estimado '+bpm+' (corrija se precisar).';say('Pronto! Confira a grade e toque em Ouvir.');}
+function build(){const bpm=+$('bpm').value||100,sub=+$('grid').value,st=60/bpm/sub,last=Math.max(0,...hits.map(h=>h.t));const bars=Math.max(1,Math.ceil((last+st*.5)/(st*sub*4)));steps=bars*sub*4;grid=[];
+ const q=+$('q').value/100;for(const h of hits){const i=Math.round(h.t/st);if(i>=steps)continue;const exact=h.t/st;grid.push({i,c:h.c,off:(exact-i)*(1-q)});}
+ const seen=new Set();grid=grid.filter(g=>{const k=g.i+g.c;if(seen.has(k))return false;seen.add(k);return true;});draw();}
+function draw(){const L=$('lanes');L.replaceChildren();const sub=+$('grid').value;for(const c of ORDER){const d=document.createElement('div');d.className='lane';d.innerHTML='<span>'+NAMES[c]+'</span>';for(let i=0;i<steps;i++){const e=document.createElement('i');if(i%sub===0)e.classList.add('beat');if(grid.some(g=>g.i===i&&g.c===c))e.classList.add('on',c);e.title=NAMES[c]+' '+(i+1);e.onclick=()=>{const k=grid.findIndex(g=>g.i===i&&g.c===c);if(k>=0)grid.splice(k,1);else grid.push({i,c,off:0});draw();};d.append(e);}L.append(d);}}
+async function render(){if(!grid.length)throw Error('Grave ou importe uma batida primeiro.');const bpm=+$('bpm').value||100,st=60/bpm/+$('grid').value,loops=Math.max(1,Math.min(16,+$('loops').value||1)),kit=$('kit').value||'aps-studio';
+ const smp={};for(const c of ORDER)smp[c]=await G.kitPiece(kit,c);const len=steps*st*loops+2,sr=44100,ctx=new OfflineAudioContext(2,Math.ceil(len*sr),sr);
+ const gains={kick:1,snare:.8,hat:.45};for(let l=0;l<loops;l++)for(const g of grid)G.play(ctx,smp[g.c],Math.max(0,(l*steps+g.i+g.off)*st),ctx.destination,gains[g.c]);return G.normalize(await ctx.startRendering());}
+$('rec').onclick=async()=>{try{if(recr){const b=await recr.stop();recr=null;$('rec').textContent='🎙 Gravar';await load(b);return;}recr=await G.recorder();$('rec').textContent='⏹ Parar gravação';say('Gravando… faça sua batida.');}catch(e){recr=null;$('rec').textContent='🎙 Gravar';say('Não foi possível usar o microfone: '+e.message);}};
+$('file').onchange=e=>{const f=e.target.files[0];if(f)load(f).catch(err=>say('Não consegui abrir: '+err.message));};
+$('q').oninput=()=>{$('qv').textContent=$('q').value+'%';if(hits.length)build();};$('sens').oninput=()=>{$('sv').textContent=$('sens').value+'%';};$('sens').onchange=analyse;
+$('bpm').onchange=$('grid').onchange=()=>{if(hits.length)build();};
+function stop(){try{src?.stop();}catch{}src=null;}$('stop').onclick=stop;
+$('play').onclick=async()=>{try{stop();const b=await render(),c=G.ctx();await c.resume();src=c.createBufferSource();src.buffer=b;src.connect(c.destination);src.start();say('▶ Tocando no kit '+$('kit').selectedOptions[0].text);}catch(e){say(e.message);}};
+$('wav').onclick=async()=>{try{G.download(G.wav(await render()),'APS Kit '+$('bpm').value+'BPM.wav');say('WAV baixado.');}catch(e){say(e.message);}};
+$('send').onclick=async()=>{try{const b=await render();say('Enviando ao estúdio…');await G.sendToStudio(G.wav(b),'APS Kit do seu jeito '+$('bpm').value+' BPM.wav');}catch(e){say(e.message);}};
+window.APSKit={load,get grid(){return grid},render,classifyAll};
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+})();
+</script></body></html>
