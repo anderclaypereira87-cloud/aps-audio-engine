@@ -54,3 +54,14 @@ body.aps-pro-on .aps-pro-back{display:none!important}
 .pro-logo{white-space:nowrap;flex:none}.pro-lcd small{display:flex;gap:3px;align-items:center}
 @media (max-height:500px){.pro-top{padding:3px 6px;gap:4px}.pro-logo{padding:4px 6px;font-size:11px}.pro-sel{font-size:0}.pro-sel select{font-size:12px}.pro-chk{display:none}.pro-lcd{padding:1px 8px}.pro-lcd span{font-size:12px}.pro-dock{height:40vh}.pro-strip{width:74px}.pro-fadwrap,.pro-fader,.pro-meter{height:70px}#apsPro .pro-tabs button{padding:2px 8px;font-size:11px;min-height:24px}}
 #apsPro{grid-template-columns:minmax(0,1fr)}#apsPro>*{min-width:0}
+/* 3.8.0 Pro+ */
+#apsPro .pro-plus{padding:8px;min-height:0}
+#apsPro .pr-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+#apsPro .pr-bar select,#apsPro .pr-bar input{background:#151925;color:#f1ead8;border:1px solid #2b3246;border-radius:8px;padding:5px;font:inherit}
+#apsPro .pr-bar label{display:flex;gap:4px;align-items:center;color:#cfc3a6}
+#apsPro button.gold{background:#d9af5b;color:#111;font-weight:700}
+#apsPro .pr-grid{overflow:auto;max-height:34vh;border:1px solid #2b3246;border-radius:8px;-webkit-overflow-scrolling:touch}
+#apsPro .pr-grid canvas{display:block;touch-action:pan-y}
+#apsPro .au-cv{width:100%;height:140px;display:block;border:1px solid #2b3246;border-radius:8px;touch-action:none}
+#apsPro .pro-plus:not([hidden]){display:flex;flex-direction:column}
+@media(max-width:760px){#apsPro .pro-plus .pr-grid{order:-1;max-height:30vh;margin-bottom:6px}#apsPro .pr-bar{gap:4px}#apsPro .pr-bar button,#apsPro .pr-bar select{padding:4px 7px;font-size:12px}#apsPro .pr-bar #prInst{max-width:62vw}#apsPro .pro-plus .sub{font-size:11px}}
