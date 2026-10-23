@@ -46,16 +46,17 @@ function shelf(fs,f,gDb,high){const A=lin(gDb/2),w=2*Math.PI*f/fs,c=Math.cos(w),
 function hp30(fs){const w=2*Math.PI*30/fs,al=Math.sin(w)/(2*0.7071),c=Math.cos(w),a0=1+al;return{b0:(1+c)/2/a0,b1:-(1+c)/a0,b2:(1+c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};}
 function softEQ(channels,fs){const hp=hp30(fs);// passa-alta suave 30 Hz para limpar subgrave
  return channels.map(ch=>biquad(biquad(biquad(biquad(ch,hp),shelf(fs,100,1,false)),peaking(fs,300,-1,1)),shelf(fs,10000,1.5,true)));}
-function master(input,fs,{target=-14,ceiling=-1,eq=true}={}){
+function matchEQ(channels,fs,bands){return channels.map(ch=>{let y=ch;for(const b of bands||[]){const c=b.type==='lowshelf'?shelf(fs,b.f,b.g,false):b.type==='highshelf'?shelf(fs,b.f,b.g,true):peaking(fs,b.f,b.g,b.q||.9);y=biquad(y,c);}return y;});}
+function master(input,fs,{target=-14,ceiling=-1,eq=true,match=null}={}){
  const before=integratedLUFS(input,fs),tpBefore=db(truePeak(input));
- let ch=input.map(c=>new Float32Array(c));if(eq)ch=softEQ(ch,fs);
+ let ch=input.map(c=>new Float32Array(c));if(eq)ch=softEQ(ch,fs);if(match&&match.length)ch=matchEQ(ch,fs,match);
  compress(ch,fs,target>-11?{threshold:-16,ratio:3}:{threshold:-18,ratio:2});
  for(let pass=0;pass<3;pass++){const now=integratedLUFS(ch,fs);if(!isFinite(now))break;const g=lin(target-now);for(const c of ch)for(let i=0;i<c.length;i++)c[i]*=g;limit(ch,fs,ceiling);if(Math.abs(integratedLUFS(ch,fs)-target)<.3)break;}
  return{channels:ch,before,after:integratedLUFS(ch,fs),tpBefore,tpAfter:db(truePeak(ch))};}
 function wav16(channels,fs){const n=channels[0].length,nc=channels.length,b=new ArrayBuffer(44+n*nc*2),v=new DataView(b),s=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
  s(0,'RIFF');v.setUint32(4,36+n*nc*2,true);s(8,'WAVE');s(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,nc,true);v.setUint32(24,fs,true);v.setUint32(28,fs*nc*2,true);v.setUint16(32,nc*2,true);v.setUint16(34,16,true);s(36,'data');v.setUint32(40,n*nc*2,true);
  let p=44;for(let i=0;i<n;i++)for(let c=0;c<nc;c++){const d=(Math.random()-Math.random())/65536,x=Math.max(-1,Math.min(1,channels[c][i]+d));v.setInt16(p,x<0?x*32768:x*32767,true);p+=2;}return b;}
-const API={integratedLUFS,truePeak,master,limit,compress,softEQ,wav16,db};
+const API={matchEQ,integratedLUFS,truePeak,master,limit,compress,softEQ,wav16,db};
 root.APSMaster=API;if(typeof module!=='undefined')module.exports=API;
 
 // ---------- Interface ----------
@@ -69,7 +70,7 @@ function ui(){const $=id=>document.getElementById(id),panel=$('apsMasterPanel');
  $('apsMasterFile').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();const b=await ctx.decodeAudioData(await f.arrayBuffer());src={rate:b.sampleRate,ch:toBuffers(b)};srcName=f.name.replace(/\.[^.]+$/,'');const l=integratedLUFS(src.ch,src.rate);$('apsMasterBefore').textContent=fmt(l);say('Arquivo carregado: '+f.name+' · '+fmt(l)+' LUFS. Toque em Masterizar.');}catch(err){say('Não foi possível ler o arquivo: '+err.message,'error');}});
  $('apsMasterUseMix').addEventListener('click',()=>{src=null;srcName='mix';$('apsMasterFile').value='';say('Fonte: mixagem atual do estúdio.');});
  $('apsMasterRun').addEventListener('click',async()=>{const btn=$('apsMasterRun');btn.disabled=true;try{const s=await getSource();say('Masterizando… (pode levar alguns segundos)');await new Promise(r=>setTimeout(r,30));
-   const target=Number($('apsMasterTarget').value);result=master(s.ch,s.rate,{target,eq:$('apsMasterEQ').checked});result.rate=s.rate;
+   const tv=$('apsMasterTarget').value,ref=tv==='ref'?window.APSMasterRef:null;const target=ref?ref.lufs:Number(tv);result=master(s.ch,s.rate,{target,eq:$('apsMasterEQ').checked,match:ref?ref.eq:null});result.rate=s.rate;
    $('apsMasterBefore').textContent=fmt(result.before);$('apsMasterAfter').textContent=fmt(result.after);$('apsMasterTP').textContent=fmt(result.tpAfter);
    $('apsMasterPlay').disabled=false;$('apsMasterDownload').disabled=false;say('Pronto: '+fmt(result.after)+' LUFS integrado, pico real '+fmt(result.tpAfter)+' dBTP.','ok');}
   catch(err){say(err.message,'error');}finally{btn.disabled=false;}});

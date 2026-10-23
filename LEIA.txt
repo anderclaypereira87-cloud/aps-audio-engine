@@ -1,4 +1,4 @@
-APS AUDIO ENGINE — LEIA (versão 2.1.0)
+APS AUDIO ENGINE — LEIA (versão 2.2.0)
 =========================================
 
 COMO ABRIR
@@ -7,6 +7,22 @@ COMO ABRIR
 - Painel com todas as ferramentas: painel.html. Estúdio: daw.html. Separador: separador.html.
 
 CHANGELOG
+2.2.0 — Mixagem IA (tudo no aparelho, sem API paga)
+- Novo painel "🤖 Mixagem IA" na aba Mixagem do estúdio.
+- Análise de cada pista: espectro (26 bandas), LUFS, pico, fator de crista, brilho e ataques por segundo.
+- Reconhece o instrumento pelo nome do arquivo e, se o nome não ajudar, pelo som (espectro). Dá para corrigir.
+- "✨ Mixagem IA (1 toque)": volumes equilibrados, EQ por instrumento (tira o "embolado", presença na voz),
+  corte de mascaramento entre pistas (ex.: bumbo x baixo, voz x violão), compressão própria por instrumento,
+  panorama automático, sidechain bumbo→baixo, de-esser na voz e reverb/delay conforme o estilo.
+- Estilos: Pop, Rock, Gospel, Sertanejo, Funk, Trap, Forró/Piseiro, Acústico.
+- Gráfico com o espectro das pistas e as faixas de conflito em vermelho, e uma lista em português explicando
+  o que a IA fez e por quê.
+- 🅰🅱 Comparar (original x IA) e ↩ Desfazer.
+- 🎯 Música de referência: compara timbre e volume e leva o ajuste para a Masterização ("Igual à referência").
+- Limites: é um sistema de regras de engenharia de áudio + medições, não uma IA generativa; de-esser é um corte
+  fixo suave (não dinâmico); os ajustes da IA ainda não são salvos no arquivo de projeto.
+- Cache do app: aps-shell-2.2.0.
+
 2.1.0
 - Separador: escolha entre "⚡ Modo leve" (download ~42 MB) e "🎚 Modo completo" (download ~136 MB).
   Aparelho com 4 GB ou menos (ou celular que não informa a memória) já abre no Modo leve.

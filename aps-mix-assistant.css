@@ -35,3 +35,22 @@
 .aps-master-meters div{background:#10131d;border:1px solid #6f5a34;border-radius:12px;padding:10px;text-align:center}
 .aps-master-meters span{display:block;font-size:12px;color:#aab2c2}.aps-master-meters b{display:block;font-size:26px;color:#e5bd72}.aps-master-meters small{color:#aab2c2}
 #apsMasterStatus[data-kind=error]{border-color:#c5706c}#apsMasterStatus[data-kind=ok]{border-color:#5fbd8f}
+/* 2.2.0 Mixagem IA */
+.aps-ai{background:linear-gradient(180deg,#151b26,#10151e);border:1px solid #6f5a34;border-radius:16px;padding:16px;margin:0 0 16px;color:#eadcbc}
+.aps-ai-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end}.aps-ai h2{margin:0;color:#f1d099;font-size:22px}
+.aps-ai-sub,.aps-ai-small{font-size:12px;color:#b9c5d5;margin:4px 0 0}
+.aps-ai select{background:#1d2431;color:#f3e3c0;border:1px solid #6f5a34;border-radius:9px;padding:8px}
+.aps-ai-actions,.aps-ai-ref{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+.aps-ai button{min-height:44px;padding:9px 13px;border-radius:11px;border:1px solid #64656b;background:#222d3b;color:#f9e8c5;font-weight:650;cursor:pointer}
+.aps-ai button.gold{background:linear-gradient(180deg,#e7c27a,#b88a3e);color:#1a1307;border-color:#e7c27a}
+.aps-ai button:disabled{opacity:.45;cursor:not-allowed}
+.aps-ai-file{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px dashed #8b7347;border-radius:11px;cursor:pointer}.aps-ai-file input{max-width:170px;font-size:12px}
+.aps-ai-opts{font-size:13px;margin:4px 0}.aps-ai-opts label{display:inline-flex;gap:6px;margin:6px 12px 0 0}
+.aps-ai-status{padding:9px 11px;border-radius:10px;background:#0f141d;border:1px solid #33404f;font-size:14px}
+.aps-ai-status[data-kind=ok]{border-color:#3f7a62;color:#bdebdc}.aps-ai-status[data-kind=error]{border-color:#a05252;color:#ffbcbc}
+.aps-ai-tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.aps-ai-card{background:#1a202c;border:1px solid #38475a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;font-size:12px}
+.aps-ai-card strong{color:#f1d099;font-size:14px}.aps-ai-card small{color:#9aa6b6;overflow-wrap:anywhere}.aps-ai-card b{color:#fff}
+#apsAICanvas{width:100%;height:auto;border-radius:12px;border:1px solid #33404f;margin:8px 0}
+.aps-ai-log{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.55}.aps-ai-log li{margin:4px 0}
+@media(max-width:480px){.aps-ai{padding:12px}.aps-ai-card{padding:8px;font-size:11px}.aps-ai-actions button{flex:1 1 45%}}
