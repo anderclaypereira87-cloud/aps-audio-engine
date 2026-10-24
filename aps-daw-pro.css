@@ -68,3 +68,5 @@ body.aps-pro-on .aps-pro-back{display:none!important}
 
 .lib-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:4px}.lib-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#151821;border:1px solid #2a2f3d;border-radius:8px}.lib-row span{flex:1;font-size:13px;color:#e9e1cc}.lib-row small{color:#9a8f76;margin-left:6px}.lib-row button{min-width:38px;min-height:34px}
 body.aps-pro-on>#apsDrumNotice{position:fixed;left:8px;right:8px;bottom:8px;z-index:60;box-shadow:0 6px 24px #000a}body.aps-pro-on>#apsDrumNotice[hidden]{display:none!important}
+
+body.aps-pro-on #proIR{white-space:nowrap;flex:none;background:#3a2f17;border:1px solid #caa45b;color:#f4dba2;font-weight:700}
