@@ -30,9 +30,10 @@ async function render(){const items=await P.list();const root=$('list');root.rep
   const a=document.createElement('div');a.className='acts';
   const b=(txt,fn,cls)=>{const x=document.createElement('button');x.type='button';x.textContent=txt;if(cls)x.className=cls;x.onclick=async()=>{x.disabled=true;try{await fn();}catch(e){say(e.message,'error');}finally{x.disabled=false;}};a.append(x);return x;};
   b('▶ Abrir',()=>{location.href='./daw.html?modulo=mixagem&projeto='+encodeURIComponent(r.id);},'gold');
+  b('🎚 Baixar música completa (mixagem WAV com todas as pistas e IR)',()=>{location.href='./daw.html?modulo=mixagem&baixar=1&projeto='+encodeURIComponent(r.id);},'gold');
   b('✏️ Renomear',async()=>{const n=prompt('Novo nome do projeto:',r.name);if(!n||!n.trim())return;await P.rename(r.id,n.trim());say('Projeto renomeado.','ok');render();});
   b('⧉ Duplicar',async()=>{await P.duplicate(r.id);say('Cópia criada.','ok');render();});
-  b('⬇ Exportar .aps',async()=>{const full=await P.get(r.id);download(full.blob,safe(full.name)+'.aps');say('Arquivo .aps baixado. Guarde-o onde quiser.','ok');});
+  b('⬇ Projeto .aps (backup, não é música)',async()=>{const full=await P.get(r.id);download(full.blob,safe(full.name)+'.aps');say('Arquivo .aps baixado. Guarde-o onde quiser.','ok');});
   b('☁️ Salvar no Drive',async()=>{if(!P.driveConfigured())return say(P.NOT_CONFIGURED,'error');const full=await P.get(r.id);say('Conectando ao Google…');await P.driveSave(full,t=>say(t));say('Salvo no Google Drive, pasta “APS Projetos”.','ok');render();});
   b('🗑 Excluir',async()=>{if(!confirm('Excluir “'+r.name+'” deste aparelho? (Cópias no Drive não são apagadas.)'))return;await P.remove(r.id);say('Projeto excluído do aparelho.','ok');render();},'danger');
   c.append(h,m,a);root.append(c);}
