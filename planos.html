@@ -25,7 +25,7 @@ button.alt{background:transparent;color:var(--gold);border:1px solid var(--gold)
 </div>
 <p class="mut">Pagamento seguro via Asaas: Pix, cartão ou boleto. Criado por Anderclay Pereira Silva.</p>
 <div id="modal"><div class="c" id="mc"></div></div>
-<script src="./aps-plans.js?v=3951"></script><script src="./auth-config.js?v=362"></script><script src="./aps-pay.js?v=395"></script><script>
+<script src="./aps-plans.js?v=3952"></script><script src="./auth-config.js?v=362"></script><script src="./aps-pay.js?v=395"></script><script>
 const $=s=>document.querySelector(s), modal=$('#modal'), mc=$('#mc'); let produto;
 const nomes={pro:'Pro',estudio:'Estúdio',dono:'Dono (tudo liberado)',free:'Grátis'};
 async function showSt(){const s=await APSPay.refresh(); $('#st').textContent=s?`Conta: ${s.email} — plano ${nomes[s.plan]||s.plan}${s.pending?' (pagamento pendente)':''}`:'';}
