@@ -27,5 +27,5 @@ window.APSPlan={
  function banner(){if(document.getElementById('aps-free-banner'))return;var d=document.createElement('div');d.id='aps-free-banner';d.setAttribute('role','status');
   d.style.cssText='background:linear-gradient(90deg,#b8913f,#e5be74);color:#151922;font:700 14px/1.4 system-ui,sans-serif;text-align:center;padding:10px 12px;position:relative;z-index:99999';
   d.textContent='🎁 Acesso total liberado sem cobrança até 31/10';document.body.insertBefore(d,document.body.firstChild);
-  var st=document.createElement('style');st.textContent='[data-aps-upsell]{display:none!important}';document.head.appendChild(st);}
+  var st=document.createElement('style');st.textContent='[data-aps-upsell]{display:none!important}body.aps-pro-on>#aps-free-banner{display:block!important;position:fixed!important;left:0;right:0;bottom:0;padding:5px 8px!important;font-size:12px!important;pointer-events:none;opacity:.95}';document.head.appendChild(st);}
  if(document.body)banner();else document.addEventListener('DOMContentLoaded',banner);})();
