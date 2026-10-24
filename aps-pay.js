@@ -16,7 +16,8 @@ window.APSPay = {
   async logout(){ const sb=await this.sb(); if(sb) await sb.auth.signOut(); this.sbToken=null; localStorage.removeItem('aps_pay_status'); },
   apply(s){ if(!s||!window.APS_PLANS) return; localStorage.setItem('aps_pay_status',JSON.stringify(s));
     APS_PLANS.currentPlan = (s.plan==='dono'||s.plan==='estudio'||s.plan==='pro') ? 'pro' : 'free';
-    APS_PLANS.planName = s.plan; APS_PLANS.credits = s.credits||{}; APS_PLANS.owner = !!s.owner; }
+    if(window.APS_FREE_NOW&&APS_FREE_NOW()&&APS_PLANS.currentPlan==='free'){APS_PLANS.currentPlan='pro';}
+    APS_PLANS.planName = (window.APS_FREE_NOW&&APS_FREE_NOW()&&s.plan!=='dono')?'estudio':s.plan; APS_PLANS.credits = s.credits||{}; APS_PLANS.owner = !!s.owner; }
 };
 try{ APSPay.apply(JSON.parse(localStorage.getItem('aps_pay_status'))); }catch(e){}
 APSPay.refresh();
