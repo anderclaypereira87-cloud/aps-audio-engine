@@ -131,7 +131,10 @@ function syncHeads(){const l=$('proHList');if(l)l.style.transform='translateY('+
 // ---------- dock ----------
 const MOVED=[];function adopt(el,host){if(!el||!host)return;if(!el.__apsPh){el.__apsPh=document.createComment('aps-ph');el.parentNode.insertBefore(el.__apsPh,el);MOVED.push(el);}el.classList.add('aps-visible');el.hidden=false;host.appendChild(el);}
 function giveBack(){for(const el of MOVED){el.__apsPh.parentNode.insertBefore(el,el.__apsPh);}}
-const side=i=>document.querySelectorAll('.layout > aside > section.panel')[i],mainP=i=>document.querySelectorAll('.layout > main > section.panel')[i];
+// Capture as referências ANTES de movê-las para as abas: consultas posteriores mudam de índice.
+const originalSidePanels=[...document.querySelectorAll('.layout > aside > section.panel')];
+const originalMainPanels=[...document.querySelectorAll('.layout > main > section.panel')];
+const side=i=>originalSidePanels[i],mainP=i=>originalMainPanels[i];
 const PANELS={editor:()=>[side(0)],ia:()=>[$('apsMixAI'),$('apsBandMixer')],master:()=>[$('apsMasterPanel')],gravar:()=>[side(1)],loops:()=>[$('apsLoopsPanel')],trocar:()=>[$('apsSwapPanel')],projeto:()=>[mainP(2),mainP(3)]};
 let panelRefs=null;
 function renderDock(){const body=$('proDockBody');if(!body)return;document.querySelectorAll('.pro-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===st.dock));$('proDock').classList.toggle('closed',!st.dockOpen);
