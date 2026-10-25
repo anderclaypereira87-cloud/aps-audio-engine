@@ -1,6 +1,6 @@
 import { drawVideo, outputDimensions, VIDEO_DEFAULTS, AUDIO_DEFAULTS } from '../aps-video-enhance.js';
 import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js?v=wide-sync-preview-20261025';
-import { encodingOptions, removeTemp } from './media-io.js';
+import { encodingOptions, removeTemp } from './media-io.js?v=aps-music-sync-10-20261025';
 
 const $ = id => document.getElementById(id), video = $('sync-preview'), audio = $('sync-external');
 const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, framingPlan: null, nativePreviewShift: 0, nativePreviewReady: true, nativePreviewCalibrated: false, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
@@ -28,7 +28,7 @@ function job(type, data = {}) {
   const jobTemps = new Set();
   state.busy = true; video.pause(); audio.pause(); readiness(); $('media-progress').value = 0;
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./media-worker.js?v=wide-sync-preview-20261025', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./media-worker.js?v=aps-music-sync-10-20261025', import.meta.url), { type: 'module' });
     let timeout, settled = false, cancelled = false;
     const finish = (error, result) => {
       if (settled) return; settled = true; clearTimeout(timeout); worker.terminate(); active = null;
@@ -116,10 +116,12 @@ async function synchronize() {
   else {
     $('sync-offset').value = (a.offsetSeconds * 1000).toFixed(2);
     $('sync-drift').disabled = !a.driftDetected; $('sync-drift').checked = false;
-    $('sync-result').textContent = a.shortClip
+    $('sync-result').textContent = a.method === 'music-chroma-stft'
+      ? `Música reconhecida por notas/acordes · Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Desvio: ${((a.rate - 1) * 100).toFixed(2)}% · ${a.points.length} trechos confirmados. Estimativa musical aproximada; confira a exportação e ouça início/meio/fim.`
+      : a.shortClip
       ? `Trecho curto alinhado: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Confiança: ${a.confidence.toFixed(3)} · verificado no início e no fim · resolução 5 ms. Confira também o arquivo exportado.`
       : `${a.wideSearch ? 'Busca ampliada até 10 minutos · ' : ''}Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Correlação: ${a.confidence.toFixed(3)}\n${a.points.length} marcadores · Resíduo máximo: ${(a.residualSeconds * 1000).toFixed(1)} ms · Resolução de análise: 5 ms`;
-    $('drift-note').textContent = a.shortClip ? 'Trecho curto: não é seguro estimar desvio progressivo; velocidade mantida.' : a.driftDetected ? `Desvio estimado: ${a.driftPpm.toFixed(0)} ppm · ${(a.driftSeconds * 1000).toFixed(1)} ms no final. Ative a correção para compensar.` : 'Nenhum desvio progressivo significativo foi medido.';
+    $('drift-note').textContent = a.shortClip ? 'Trecho curto: não é seguro estimar desvio progressivo; velocidade mantida.' : a.driftDetected ? `Desvio estimado: ${a.driftPpm.toFixed(0)} ppm · ${(a.driftSeconds * 1000).toFixed(1)} ms no final. ${Math.abs(a.rate - 1) > .005 ? 'Correção optativa com preservação de afinação por WSOLA experimental; confira o resultado.' : 'Ative a correção para compensar.'}` : 'Nenhum desvio progressivo significativo foi medido.';
     status('Deslocamento aplicado. Confira início, meio e final antes de exportar.');
   }
   drawWave(); syncPlayback(true);
@@ -247,7 +249,7 @@ function syncPlayback(force = false) {
   if (!state.videoInfo) return;
   const desired = externalTime(video.currentTime - state.videoInfo.videoStart, Number($('sync-offset').value) / 1000, rate()) + state.nativePreviewShift;
   const activeAudio = state.nativePreviewReady && state.listen === 'after' && $('sync-source').value === 'external' && !video.paused && !video.seeking && video.readyState >= 2 && !!state.audioFile;
-  audio.playbackRate = rate(); audio.preservesPitch = false;
+  audio.playbackRate = rate(); audio.preservesPitch = Math.abs(rate() - 1) > .005;
   if (!activeAudio || desired >= (state.audioInfo?.duration || 0)) { audio.pause(); return; }
   if (desired < 0) {
     // Keep the audio element playing silently during positive-offset preroll.
@@ -304,10 +306,15 @@ async function render(audioOnly = false) {
   let measured = 'Sincronismo não verificado por referência. Confira o arquivo final.';
   if (result.verification?.accepted) {
     const v = result.verification;
-    const worst = Math.max(Math.abs(v.rate * v.offsetSeconds), Math.abs((v.rate - 1) * result.duration - v.rate * v.offsetSeconds)) + v.residualSeconds + v.resolutionSeconds;
-    const passed = worst <= result.minFrameSeconds;
-    measured = `Limite estimado por correlação no arquivo exportado: ${(worst * 1000).toFixed(1)} ms (inclui resolução de 5 ms) · ${passed ? 'dentro' : 'fora'} de 1 quadro (${(result.minFrameSeconds * 1000).toFixed(1)} ms).`;
-    result.verification.estimatedWorstErrorSeconds = worst; result.verification.withinOneFrame = passed;
+    if (v.method === 'music-chroma-stft') {
+      measured = `Música reencontrada na exportação por espectro de notas/acordes (${v.points.length} trechos). A análise musical tem resolução de 150 ms e NÃO comprova erro dentro de um quadro. Ouça início/meio/fim.`;
+      result.verification.withinOneFrame = null;
+    } else {
+      const worst = Math.max(Math.abs(v.rate * v.offsetSeconds), Math.abs((v.rate - 1) * result.duration - v.rate * v.offsetSeconds)) + v.residualSeconds + v.resolutionSeconds;
+      const passed = worst <= result.minFrameSeconds;
+      measured = `Limite estimado por correlação no arquivo exportado: ${(worst * 1000).toFixed(1)} ms (inclui resolução de 5 ms) · ${passed ? 'dentro' : 'fora'} de 1 quadro (${(result.minFrameSeconds * 1000).toFixed(1)} ms).`;
+      result.verification.estimatedWorstErrorSeconds = worst; result.verification.withinOneFrame = passed;
+    }
   }
   const measuredContainer = result.measuredContainer?.durationSeconds != null
     ? `\nContêiner reaberto: ${result.measuredContainer.durationSeconds.toFixed(3)} s · diferença ${(result.measuredContainer.durationDifferenceSeconds * 1000).toFixed(1)} ms · vídeo ${result.measuredContainer.videoCodec || 'nenhum'} · áudio ${result.measuredContainer.audioCodec || 'nenhum'}.`
