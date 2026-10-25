@@ -17,7 +17,7 @@
     el('date').textContent=new Date(profile.created_at).toLocaleDateString('pt-BR');
     el('admin').style.display=profile.role==='admin'?'block':'none';
     el('profile').hidden=false;status.textContent='';
-    el('logout').onclick=async()=>{await sb.auth.signOut();location.replace('./login.html');};
+    el('logout').onclick=async()=>{await sb.auth.signOut();APSPay.sbToken=null;localStorage.removeItem('aps_pay_token');localStorage.removeItem('aps_pay_status');location.replace('./login.html');};
   }catch(e){status.textContent=e.message;}
 })();
 </script></body></html>
