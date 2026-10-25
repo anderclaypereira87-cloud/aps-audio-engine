@@ -1,6 +1,7 @@
 import { inspectFile, readEnvelope, exportMedia, openInput } from './media-io.js';
 import { analyzeAlignment } from '../aps-video-sync.js';
 import { scanCameraMotion } from './advanced/motion-scan.js';
+import { scanMusician } from './advanced/pose-scan.js';
 
 let controller;
 const post = data => self.postMessage(data);
@@ -21,6 +22,12 @@ self.onmessage = async ({ data }) => {
       const input = openInput(data.videoFile);
       try {
         result = await scanCameraMotion(input, data.videoInfo, { signal, progress: f => progress({ stage: 'stabilize', fraction: f }) });
+      } finally { input.dispose(); }
+    }
+    else if (data.type === 'frame') {
+      const input = openInput(data.videoFile);
+      try {
+        result = await scanMusician(input, data.videoInfo, { signal, progress: f => progress({ stage: 'framing', fraction: f }) });
       } finally { input.dispose(); }
     }
     else if (data.type === 'sync') {
