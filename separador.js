@@ -1,198 +1,121 @@
-// APS Audio Engine: separação local experimental via HTDemucs-6s ONNX.
-// Fontes: https://stemsplit.github.io/demucs-onnx/browser/ e https://huggingface.co/StemSplitio/htdemucs-6s-onnx
-const modelUrl = 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx';
-const ortUrl='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.mjs';
-const WASM_URL='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
-const SAMPLE_RATE=44100;
-const SEG=343980;
-const OVERLAP=Math.floor(SEG/4);
-const STRIDE=SEG-OVERLAP;
-const SOURCES=[{name:'Bateria',id:'bateria',head:'🥁'},{name:'Baixo',id:'baixo',head:'🎸'},{name:'Outros',id:'outros',head:'🎼'},{name:'Voz',id:'voz',head:'🎤'},{name:'Guitarra',id:'guitarra',head:'🎸'},{name:'Teclado / Piano',id:'piano',head:'🎹'}];
+// APS Audio Engine v4.0 · Separador de 6 pistas (HTDemucs-6s ONNX, no aparelho).
+// Regras: nenhuma pista é sintetizada; erro aparece na tela; Cancelar encerra o worker e libera a memória.
+import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits} from './aps-sep-core.js?v=400';
 const $=id=>document.getElementById(id);
-let cancelled=false,working=false,resultAudio=null,resultBlobs=null,context=null,session=null,ort=null,player=null;
-function phase(msg,percent){$('phase').textContent=msg;if(percent!==undefined){$('bar').style.width=percent+'%';document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));}}
-// 1.8.0: verificação do aparelho antes de separar
-function deviceInfo(){const mem=navigator.deviceMemory||null,cpu=navigator.hardwareConcurrency||null,mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
- const weak=(mem!==null&&mem<=4)||(cpu!==null&&cpu<=4)||(mobile&&mem===null);const strong=(mem===null||mem>=8)&&(cpu===null||cpu>=8)&&!mobile;return{mem,cpu,mobile,weak,strong};}
-function apsEngine(){return document.querySelector('input[name="apsEngine"]:checked')?.value||'leve';}
-function apsLocalEngine(){const v=apsEngine();return v==='nuvem'?'leve':v;}
-async function apsShowModelCache(){try{const c=await caches.open('aps-models-v1');const keys=(await c.keys()).map(r=>r.url);$('apsEngLeveCache').textContent=keys.some(u=>u.includes('htdemucs_6s_leve'))?'✔ já baixado neste aparelho':'';$('apsEngCompletoCache').textContent=keys.some(u=>u.includes('fp16weights'))?'✔ já baixado neste aparelho':'';}catch{}}
-function showDeviceCheck(){const el=$('deviceCheck');if(!el)return;const d=deviceInfo();
- const lowMem=(d.mem!==null&&d.mem<=4)||(d.mobile&&d.mem===null);const r=document.querySelector('input[name="apsEngine"][value="'+(lowMem?'leve':'completo')+'"]');if(r&&!document.querySelector('input[name="apsEngine"][value="nuvem"]:checked'))r.checked=true;apsShowModelCache();
- const desc='Memória: '+(d.mem?('~'+d.mem+' GB'):'não informada')+' · Processadores: '+(d.cpu||'não informado');
- if(d.weak){el.className='aps-devcheck weak';el.textContent='📱 Aparelho com poucos recursos ('+desc+'). Recomendado: 10 segundos. Para músicas longas, use a saída compacta ou importe a bateria já separada.';$('duration').value='10';}
- else if(d.strong){el.className='aps-devcheck';el.textContent='💻 Aparelho potente ('+desc+'). Pode tentar trechos maiores.';}
- else{el.className='aps-devcheck';el.textContent='🙂 Aparelho intermediário ('+desc+'). Comece com 10 a 30 segundos.';}}
-let etaStart=0;
-function nextPaint(){return new Promise(r=>setTimeout(r,20));}
-function pcmToWav(left,right){
- const length=left.length, bytes=44+length*4,b=new ArrayBuffer(bytes),v=new DataView(b);
- const str=(offset,s)=>{for(let i=0;i<s.length;i++)v.setUint8(offset+i,s.charCodeAt(i));};
- str(0,'RIFF');v.setUint32(4,bytes-8,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);v.setUint32(24,SAMPLE_RATE,true);v.setUint32(28,SAMPLE_RATE*4,true);v.setUint16(32,4,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,length*4,true);
- for(let i=0,p=44;i<length;i++){const l=Math.max(-1,Math.min(1,left[i])),r=Math.max(-1,Math.min(1,right[i]));v.setInt16(p,l<0?l*32768:l*32767,true);v.setInt16(p+2,r<0?r*32768:r*32767,true);p+=4;}
- return new Blob([b],{type:'audio/wav'});
+let working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
+
+function phase(msg,percent,error=false){const el=$('phase');el.textContent=msg;el.classList.toggle('err',!!error);if(percent!==undefined){$('bar').style.width=percent+'%';document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));}}
+export function deviceInfo(){
+ const mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+ return {deviceMemory:navigator.deviceMemory??null,cores:navigator.hardwareConcurrency||null,mobile,wasmThreads:!!globalThis.crossOriginIsolated&&typeof SharedArrayBuffer!=='undefined',webgpu:!!navigator.gpu};
 }
-function wavHeader(frames,rate,channels){
- const length=frames*channels*2;const b=new ArrayBuffer(44),v=new DataView(b);
- const str=(offset,text)=>{for(let i=0;i<text.length;i++)v.setUint8(offset+i,text.charCodeAt(i));};
- str(0,'RIFF');v.setUint32(4,36+length,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,channels,true);v.setUint32(24,rate,true);v.setUint32(28,rate*channels*2,true);v.setUint16(32,channels*2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,length,true);return b;
+let LIMITS=deviceLimits(deviceInfo());
+function engine(){return document.querySelector('input[name="apsEngine"]:checked')?.value||'leve';}
+async function showModelCache(){try{const c=await caches.open('aps-models-v1');const keys=(await c.keys()).map(r=>r.url);$('apsEngLeveCache').textContent=keys.some(u=>u.includes('htdemucs_6s_leve'))?'✔ já baixado neste aparelho':'';$('apsEngCompletoCache').textContent=keys.some(u=>u.includes('fp16weights'))?'✔ já baixado neste aparelho':'';}catch{}}
+function applyLimits(){
+ const d=deviceInfo();LIMITS=deviceLimits(d);const el=$('deviceCheck');
+ const desc='Memória: '+(d.deviceMemory?('~'+d.deviceMemory+' GB'):'não informada')+' · Processadores: '+(d.cores||'?')+' · Threads WASM: '+(d.wasmThreads?'sim':'não (1 núcleo)')+' · WebGPU: '+(d.webgpu?'presente (não usado ainda)':'não');
+ el.className='aps-devcheck'+(LIMITS.local&&LIMITS.maxSeconds>=180?'':' weak');
+ el.textContent=(LIMITS.local?'':'⛔ ')+LIMITS.reason+' ('+desc+')';
+ for(const r of document.querySelectorAll('input[name="apsEngine"]')){const ok=LIMITS.engines.includes(r.value);r.disabled=!ok;r.closest('label').style.opacity=ok?1:.45;}
+ if(!LIMITS.engines.includes(engine())){const f=document.querySelector('input[name="apsEngine"]:not(:disabled)');if(f)f.checked=true;}
+ for(const o of $('duration').options){o.disabled=Number(o.value)>LIMITS.maxSeconds;}
+ if(Number($('duration').value)>LIMITS.maxSeconds){const ok=[...$('duration').options].filter(o=>!o.disabled).pop();if(ok)$('duration').value=ok.value;}
+ $('start').disabled=!LIMITS.local;
+ if(!LIMITS.local)phase('Este aparelho não tem memória suficiente para o modelo de separação. Use um computador, ou importe uma bateria já separada abaixo. Nenhuma pista será inventada.',0,true);
+ showModelCache();
 }
-function sourceWav(i){if(resultBlobs)return resultBlobs[i];if(!resultAudio)throw Error('Sem stems');return pcmToWav(resultAudio[i][0],resultAudio[i][1]);}
 function stopPreview(){try{player?.stop();}catch{}player=null;}
-async function preview(i){
- if(resultBlobs){stopPreview();const u=URL.createObjectURL(resultBlobs[i]);const a=new Audio(u);player={stop:()=>{a.pause();URL.revokeObjectURL(u);}};a.onended=()=>{if(player){URL.revokeObjectURL(u);player=null;}};await a.play();return;}
- stopPreview();context=context||new (window.AudioContext||window.webkitAudioContext)();await context.resume();const [l,r]=resultAudio[i],b=context.createBuffer(2,l.length,SAMPLE_RATE);b.copyToChannel(l,0);b.copyToChannel(r,1);player=context.createBufferSource();player.buffer=b;player.connect(context.destination);player.start();}
-function showResult(){const box=$('result');box.replaceChildren();const prefix=($('song').files[0].name||'APS_stems').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,45)||'APS';
- SOURCES.forEach((s,i)=>{const card=document.createElement('div');card.className='resultcard';const title=document.createElement('h3');title.textContent=s.head+' '+s.name;const actions=document.createElement('div');actions.className='buttons';const listen=document.createElement('button');listen.className='alt';listen.textContent='▶ Ouvir';listen.addEventListener('click',()=>preview(i).catch(e=>phase('Erro ao reproduzir: '+e.message)));const download=document.createElement('button');download.textContent='↓ WAV';download.addEventListener('click',()=>{try{const url=URL.createObjectURL(sourceWav(i));const a=document.createElement('a');a.href=url;a.download=prefix+'_'+s.id+'.wav';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){phase('Não foi possível salvar: '+e.message);}});actions.append(listen,download);card.append(title,actions);box.append(card);});$('resultsPanel').hidden=false;$('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});}
-function triangularWindow(){const win=new Float32Array(SEG);win.fill(1);for(let i=0;i<OVERLAP;i++){win[i]=Math.max(1e-5,i/OVERLAP);win[SEG-1-i]=Math.max(1e-5,i/OVERLAP);}return win;}
-// O processamento pesado ocorre fora da interface, em um Web Worker.
-// Assim o botão Cancelar continua responsivo mesmo durante inferência ONNX.
-let activeWorker = null;
-let stopWorker = null;
-let elapsedTimer = null;
-let jobStarted = 0;
-function closeWorker(){
- if(activeWorker){activeWorker.terminate();activeWorker=null;}
- if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}
+async function preview(i){stopPreview();const u=URL.createObjectURL(resultBlobs[i]);const a=new Audio(u);player={stop:()=>{a.pause();URL.revokeObjectURL(u);}};a.onended=()=>{if(player){URL.revokeObjectURL(u);player=null;}};await a.play();}
+function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+function prefix(){return(($('song').files[0]?.name)||'APS_stems').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,45)||'APS';}
+function showResult(){
+ const box=$('result');box.replaceChildren();
+ SOURCES.forEach((s,i)=>{const card=document.createElement('div');card.className='resultcard';const title=document.createElement('h3');title.textContent=s.head+' '+s.name;
+  const note=document.createElement('div');note.className='cardnote';note.textContent='WAV '+(resultInfo.channels===1?'mono':'estéreo')+' '+(resultInfo.rate/1000).toFixed(2).replace('.',',')+' kHz · '+(resultBlobs[i].size/1048576).toFixed(1)+' MB · saída do modelo (não editada)';
+  const actions=document.createElement('div');actions.className='buttons';
+  const listen=document.createElement('button');listen.className='alt';listen.textContent='▶ Ouvir';listen.dataset.stem=s.id;listen.addEventListener('click',()=>preview(i).catch(e=>phase('Erro ao reproduzir: '+e.message,undefined,true)));
+  const dl=document.createElement('button');dl.textContent='↓ WAV';dl.dataset.download=s.id;dl.addEventListener('click',()=>download(resultBlobs[i],prefix()+'_'+s.id+'.wav'));
+  actions.append(listen,dl);card.append(title,note,actions);box.append(card);});
+ const dIn=resultInfo.inputFrames/SAMPLE_RATE,dOut=resultInfo.frames/resultInfo.rate;
+ $('resultCheck').textContent='Verificação automática: duração de entrada '+dIn.toFixed(3)+' s · duração de cada pista '+dOut.toFixed(3)+' s (diferença '+Math.abs(dIn-dOut).toFixed(3)+' s). Todas começam no mesmo instante (amostra 0). Soma das 6 pistas × original: '+resultInfo.sumSnrDb.toFixed(1)+' dB de semelhança (quanto maior, menos áudio perdido; não mede a qualidade de cada pista). Tempo de processamento: '+resultInfo.seconds.toFixed(0)+' s.';
+ $('resultsPanel').hidden=false;$('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function runWorker(audio){
+function closeWorker(){if(activeWorker){try{activeWorker.postMessage({type:'cancel'});}catch{}activeWorker.terminate();activeWorker=null;}if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}}
+function runWorker(audio,durationSec){
  return new Promise((resolve,reject)=>{
-  let settled=false;
-  const worker=new Worker('./separador-worker.js?v=210',{type:'module'});
-  activeWorker=worker;
-  jobStarted=Date.now();
-  const maxMinutes=Number($('duration').value)<=30?8:Math.max(25,Math.ceil(Number($('duration').value)/10)*2);
-  const maxMs=maxMinutes*60000;
-  const finish=(err,out)=>{if(settled)return;settled=true;stopWorker=null;closeWorker();err?reject(err):resolve(out);};
-  stopWorker=()=>finish(Error('Cancelado pelo usuário.'));
-  elapsedTimer=setInterval(()=>{
-   if(settled)return;
-   const seconds=Math.floor((Date.now()-jobStarted)/1000);
-   $('elapsed').textContent=`Tempo de processamento: ${Math.floor(seconds/60)}m ${String(seconds%60).padStart(2,'0')}s`;
-   if(Date.now()-jobStarted>maxMs){finish(Error('Tempo limite atingido. O aparelho não conseguiu concluir o modelo local; a gravação original não foi alterada.'));}
-  },1000);
-  worker.onmessage=(evt)=>{
-   if(settled)return;
-   const data=evt.data;
-   if(data.type==='phase'){phase(data.message,data.percent);if(data.block){if(data.block===1)etaStart=Date.now();else{const per=(Date.now()-etaStart)/(data.block-1),left=Math.round(per*(data.steps-data.block+1)/1000);$('eta').textContent=`Tempo estimado restante: ~${Math.floor(left/60)}m ${String(left%60).padStart(2,'0')}s`;}}}
-   else if(data.type==='chunk'){
-    if(!worker._chunks)worker._chunks=Array.from({length:6},()=>[]);
-    worker._frames=(worker._frames||0)+data.frames;
-    worker._rate=data.rate;worker._channels=data.channels;
-    data.parts.forEach((part,i)=>worker._chunks[i].push(new Blob([part],{type:'application/octet-stream'})));
-   }
-   else if(data.type==='done'){
-    const header=wavHeader(worker._frames||data.frames,data.rate,data.channels);
-    resultBlobs=worker._chunks.map(parts=>new Blob([header,...parts],{type:'audio/wav'}));
-    finish(null,null);
-   }
-   else if(data.type==='result')finish(null,data.stems.map(pair=>[new Float32Array(pair[0]),new Float32Array(pair[1])]));
-   else if(data.type==='error')finish(Error(data.message||'Erro desconhecido do motor de IA.'));
-  };
-  worker.onerror=(evt)=>finish(Error('O motor de IA falhou ao iniciar: '+(evt.message||'erro de execução.')));
+  let settled=false,etaStart=0;const chunks=Array.from({length:6},()=>[]);
+  const worker=new Worker('./separador-worker.js?v=400',{type:'module'});activeWorker=worker;const started=Date.now();
+  const steps=blockCount(audio[0].length);
+  // limite de tempo proporcional: 4 min por bloco no pior caso (celular lento), mínimo 10 min
+  const maxMs=Math.max(10,steps*4)*60000;
+  const finish=(err,out)=>{if(settled)return;settled=true;stopWorker=null;closeWorker();if(err){chunks.length=0;reject(err);}else resolve(out);};
+  stopWorker=()=>finish(Object.assign(Error('Cancelado pelo usuário. O processamento foi encerrado e a memória liberada.'),{cancelled:true}));
+  elapsedTimer=setInterval(()=>{const s=Math.floor((Date.now()-started)/1000);$('elapsed').textContent=`Tempo de processamento: ${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s`;
+   if(Date.now()-started>maxMs)finish(Error('Tempo limite atingido ('+Math.round(maxMs/60000)+' min). O aparelho não concluiu o modelo; a gravação original não foi alterada.'));},1000);
+  worker.onmessage=evt=>{if(settled)return;const d=evt.data;
+   if(d.type==='phase'){phase(d.message,d.percent);if(d.block){if(d.block===1)etaStart=Date.now()-d.blockSeconds*1000;const per=(Date.now()-etaStart)/d.block,left=Math.round(per*(d.steps-d.block)/1000);$('eta').textContent=d.block<d.steps?`Tempo estimado restante: ~${Math.floor(left/60)}m ${String(left%60).padStart(2,'0')}s`:'';}}
+   else if(d.type==='chunk')d.parts.forEach((p,i)=>chunks[i].push(new Blob([p])));
+   else if(d.type==='done'){const h=wavHeader(d.frames,d.rate,d.channels);finish(null,{blobs:chunks.map(parts=>new Blob([h,...parts],{type:'audio/wav'})),info:d});}
+   else if(d.type==='error')finish(Error(d.message||'Erro desconhecido do motor.'));};
+  worker.onerror=evt=>finish(Error('O motor falhou ao iniciar: '+(evt.message||'erro de execução')+'. Seu navegador pode não suportar Web Workers de módulo.'));
   worker.onmessageerror=()=>finish(Error('Falha ao receber as pistas processadas.'));
-  try{worker.postMessage({type:'separate',mode:'stream',engine:apsLocalEngine(),quality:$('outputQuality').value,left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}
-  catch(err){finish(err);}
+  try{worker.postMessage({type:'separate',engine:engine(),quality:$('outputQuality').value,threads:LIMITS.threads,left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}catch(err){finish(err);}
  });
 }
-async function decodeInput(file){phase('Preparando o áudio…',2);context=context||new (window.AudioContext||window.webkitAudioContext)();const raw=await context.decodeAudioData(await file.arrayBuffer());const from=Number($('from').value)||0,selection=Number($('duration').value);if(from>=raw.duration)throw Error('O início do trecho ultrapassa a duração da música.');
- const time=Math.min(selection,Math.max(.1,raw.duration-from));const offset=Math.floor(from*raw.sampleRate),width=Math.round(time*raw.sampleRate);if(width<=0)throw Error('Áudio vazio');const clip=context.createBuffer(Math.min(raw.numberOfChannels,2),width,raw.sampleRate);for(let ch=0;ch<clip.numberOfChannels;ch++){clip.copyToChannel(raw.getChannelData(ch).subarray(offset,offset+width),ch);}const outputLength=Math.ceil(time*SAMPLE_RATE);const off=new OfflineAudioContext(2,outputLength,SAMPLE_RATE);const src=off.createBufferSource();src.buffer=clip;src.connect(off.destination);src.start();const resampled=await off.startRendering();if(cancelled)throw Error('Operação cancelada');const l=resampled.getChannelData(0),r=resampled.getChannelData(1);const left=new Float32Array(l),right=new Float32Array(r);return [left,right];}
-
-// 3.7.1: separação na nuvem (worker aps-pagamentos → Replicate htdemucs_6s). Se falhar, cai no aparelho.
-const APS_CLOUD=(window.APS_PAY_URL||'https://aps-pagamentos.aps-audio.workers.dev');
-const CLOUD_KEYS=['drums','bass','other','vocals','guitar','piano'];
-function apsCloudToken(){try{if(window.APSPay&&APSPay.token)return APSPay.token();}catch(e){}return localStorage.getItem('aps_pay_token');}
-async function runCloud(mix){
- try{if(window.APSPay&&APSPay.session)await APSPay.session();}catch(e){}
- const wav=pcmToWav(mix[0],mix[1]);const h={'Content-Type':'audio/wav'};const t=apsCloudToken();if(t)h.Authorization='Bearer '+t;
- phase('Enviando o trecho para a nuvem…',8);
- const r=await fetch(APS_CLOUD+'/separar',{method:'POST',headers:h,body:wav});const d=await r.json().catch(()=>({}));
- if(!r.ok){const e=Error(d.error||('Erro '+r.status));e.fallback=!!d.fallback||r.status>=500;e.limit=r.status===403||r.status===429;throw e;}
- const t0=Date.now();let p=12;
- while(true){if(cancelled)throw Error('Cancelado');await new Promise(z=>setTimeout(z,2500));
-  const s=await (await fetch(APS_CLOUD+'/separar/'+d.id)).json().catch(()=>({}));
-  if(s.status==='succeeded'&&s.stems)break;
-  if(s.status==='failed'||s.status==='canceled'){const e=Error('A separação falhou na nuvem');e.fallback=true;throw e;}
-  p=Math.min(85,p+3);phase((s.status==='starting'?'Ligando o separador na nuvem… ':'Separando na nuvem… ')+Math.round((Date.now()-t0)/1000)+' s',p);
- }
- const blobs=[];for(let i=0;i<CLOUD_KEYS.length;i++){if(cancelled)throw Error('Cancelado');phase('Baixando pista '+(i+1)+' de 6 ('+SOURCES[i].name+')…',86+i*2);
-  const a=await fetch(APS_CLOUD+'/separar/'+d.id+'/'+CLOUD_KEYS[i]);if(!a.ok)throw Object.assign(Error('Falha ao baixar '+SOURCES[i].name),{fallback:true});blobs.push(await a.blob());}
- return blobs;
+async function decodeInput(file){
+ phase('Decodificando o áudio…',2);context=context||new (window.AudioContext||window.webkitAudioContext)();
+ const raw=await context.decodeAudioData(await file.arrayBuffer());const from=Math.max(0,Number($('from').value)||0),selection=Number($('duration').value);
+ if(from>=raw.duration)throw Error('O início do trecho ultrapassa a duração da música ('+raw.duration.toFixed(1)+' s).');
+ const time=Math.min(selection,raw.duration-from),offset=Math.floor(from*raw.sampleRate),width=Math.round(time*raw.sampleRate);if(width<=0)throw Error('Áudio vazio');
+ const clip=context.createBuffer(Math.min(raw.numberOfChannels,2),width,raw.sampleRate);for(let ch=0;ch<clip.numberOfChannels;ch++)clip.copyToChannel(raw.getChannelData(ch).subarray(offset,offset+width),ch);
+ // O modelo trabalha a 44,1 kHz estéreo. Reamostrar não muda andamento (BPM) nem duração.
+ const off=new OfflineAudioContext(2,Math.round(time*SAMPLE_RATE),SAMPLE_RATE);const src=off.createBufferSource();src.buffer=clip;src.connect(off.destination);src.start();const res=await off.startRendering();
+ return [new Float32Array(res.getChannelData(0)),new Float32Array(res.getChannelData(1))];
 }
-async function main(){if(working)return;const file=$('song').files[0];if(!file){phase('Escolha um áudio primeiro.');return;}if(file.size>220*1024*1024){phase('O arquivo é grande demais para separação local no celular. Use um áudio de até 220 MB.');return;}
- {const d=deviceInfo(),dur=Number($('duration').value);if(apsEngine()!=='nuvem'&&d.weak&&dur>10&&!confirm('Este aparelho tem poucos recursos e pode travar com '+dur+' segundos. Recomendado: 10 segundos. Continuar mesmo assim?'))return;}
- working=true;cancelled=false;if($('eta'))$('eta').textContent='';$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultAudio=null;resultBlobs=null;
- try{const mix=await decodeInput(file);if(cancelled)throw Error('Cancelado');let done=false;if(apsEngine()==='nuvem'){try{resultBlobs=await runCloud(mix);done=true;}catch(ce){if(cancelled)throw ce;if(ce.limit&&!confirm(ce.message+' Separar no aparelho?'))throw ce;phase((ce.limit?ce.message+' ':'Separação na nuvem indisponível no momento, usando o aparelho. '),4);await new Promise(z=>setTimeout(z,1500));}}
- if(!done){phase('Carregando motor de IA em segundo plano…',6);resultAudio=await runWorker(mix);}if(cancelled)throw Error('Cancelado');phase('Separação finalizada! Ouça e baixe as pistas produzidas pelo motor.',100);showResult();}
- catch(e){const msg=String(e?.message||e);phase((cancelled?'Cancelado. ':'Não foi possível concluir no aparelho. ')+msg+'. O motor local não conseguiu concluir. Tente o modo menor, ou use uma bateria já isolada diretamente no APS.',0);console.error(e);}
- finally{closeWorker();apsShowModelCache();working=false;$('start').disabled=false;$('cancel').disabled=true;}
+async function main(){
+ if(working)return;const file=$('song').files[0];if(!file){phase('Escolha um áudio primeiro.',0,true);return;}
+ if(!LIMITS.local){phase(LIMITS.reason,0,true);return;}
+ if(file.size>220*1048576){phase('Arquivo acima de 220 MB. Recorte ou converta para MP3 antes.',0,true);return;}
+ if(Number($('duration').value)>LIMITS.maxSeconds){phase('Duração acima do limite deste aparelho ('+LIMITS.maxSeconds+' s).',0,true);return;}
+ working=true;$('eta').textContent='';$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;resultInfo=null;
+ try{const mix=await decodeInput(file);const dur=mix[0].length/SAMPLE_RATE;
+  phase('Trecho de '+dur.toFixed(1)+' s pronto ('+blockCount(mix[0].length)+' blocos). Carregando o motor…',3);
+  const out=await runWorker(mix,dur);resultBlobs=out.blobs;resultInfo=out.info;
+  phase('Separação concluída. Ouça e baixe as 6 pistas geradas pelo modelo.',100);showResult();}
+ catch(e){phase((e.cancelled?'':'Não foi possível concluir: ')+(e?.message||e)+(e.cancelled?'':' Nenhuma pista foi criada. Tente um trecho menor ou o modo leve.'),0,true);console.error(e);}
+ finally{closeWorker();showModelCache();working=false;$('start').disabled=!LIMITS.local;$('cancel').disabled=true;}
 }
-
-// Transferência local dos WAVs: IndexedDB mantém os arquivos entre as duas telas.
-function apsOpenDB(){return new Promise((resolve,reject)=>{
- if(!window.indexedDB){reject(Error('O navegador não permite transferir arquivos entre páginas. Baixe os WAVs manualmente.'));return;}
- const request=indexedDB.open('aps-stems-transfer-v1',1);
- request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('sessions'))db.createObjectStore('sessions');};
- request.onsuccess=()=>resolve(request.result);
- request.onerror=()=>reject(request.error||Error('Falha ao acessar o armazenamento de arquivos.'));
-});}
+function openDB(name,store){return new Promise((ok,fail)=>{if(!window.indexedDB)return fail(Error('Armazenamento local indisponível.'));const r=indexedDB.open(name,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(store))r.result.createObjectStore(store);};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});}
+async function put(name,store,value){const db=await openDB(name,store);try{await new Promise((ok,fail)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value,'latest');tx.oncomplete=ok;tx.onerror=()=>fail(tx.error||Error('Armazenamento insuficiente.'));tx.onabort=()=>fail(tx.error||Error('Transferência cancelada.'));});}finally{db.close();}}
+// Integração com a DAW: o mesmo canal já existente (IndexedDB "aps-stems-transfer-v1" + daw.html?importStems=1).
 async function sendStemsToMixer(){
- if(!(resultAudio||resultBlobs)||working){$('transferStatus').textContent='Conclua a separação primeiro.';return;}
- const btn=$('sendMixer');btn.disabled=true;
- try{
-  const db=await apsOpenDB();
-  const stems=SOURCES.map((s,i)=>({name:s.name+'.wav',type:s.id,blob:sourceWav(i)}));
-  $('transferStatus').textContent='Salvando as seis pistas para abrir no mixer…';
-  await new Promise((resolve,reject)=>{
-   const tx=db.transaction('sessions','readwrite');
-   tx.objectStore('sessions').put({stems,savedAt:Date.now()},'latest');
-   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error('Armazenamento insuficiente.'));tx.onabort=()=>reject(tx.error||Error('Transferência cancelada.'));
-  });
-  db.close();
-  window.location.href='./daw.html?modulo=mixagem&importStems=1';
- }catch(e){$('transferStatus').textContent='Não foi possível enviar: '+(e?.message||e)+'. Use os botões WAV.';btn.disabled=false;}
+ if(!resultBlobs||working){$('transferStatus').textContent='Conclua a separação primeiro.';return;}
+ $('sendMixer').disabled=true;
+ try{$('transferStatus').textContent='Salvando as seis pistas para abrir no mixer…';
+  await put('aps-stems-transfer-v1','sessions',{stems:SOURCES.map((s,i)=>({name:s.name+'.wav',type:s.id,blob:resultBlobs[i]})),savedAt:Date.now()});
+  location.href='./daw.html?modulo=mixagem&importStems=1';
+ }catch(e){$('transferStatus').textContent='Não foi possível enviar: '+(e?.message||e)+'. Use os botões WAV.';$('sendMixer').disabled=false;}
 }
-$('sendMixer').addEventListener('click',sendStemsToMixer);
-
-
-// O stem real de bateria (primeira saída do modelo de 6 pistas) é transferido
-// localmente, em WAV, para o Drum Sampler. Não publica o arquivo.
-async function apsSendDrumStem(){
- if(!(resultAudio||resultBlobs)||working){$('transferStatus').textContent='Primeiro conclua a separação das seis pistas.';return;}
- const button=$('apsOpenDrumSwap');button.disabled=true;
- try{
-  const db=await new Promise((res,rej)=>{const q=indexedDB.open('aps-drum-separated-v1',1);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('pending'))q.result.createObjectStore('pending');};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
-  const blob=sourceWav(0);const rawName=($('song').files[0]?.name||'Bateria').replace(/\.[^.]+$/,'');
-  await new Promise((res,rej)=>{const tx=db.transaction('pending','readwrite');tx.objectStore('pending').put({blob,name:rawName+'-bateria-separada.wav'},'latest');tx.oncomplete=res;tx.onerror=()=>rej(tx.error||Error('Espaço insuficiente'));});
-  db.close();location.href='./bateria.html?importar=separador#aps-drum-analyzer';
- }catch(e){$('transferStatus').textContent='Falha ao transferir bateria: '+e.message+'. Baixe o WAV de Bateria e importe manualmente.';button.disabled=false;}
+async function sendDrumStem(){
+ if(!resultBlobs||working){$('transferStatus').textContent='Primeiro conclua a separação das seis pistas.';return;}
+ try{await put('aps-drum-separated-v1','pending',{blob:resultBlobs[0],name:prefix()+'-bateria-separada.wav',source:'htdemucs_6s'});location.href='./bateria.html?importar=separador#aps-drum-analyzer';}
+ catch(e){$('transferStatus').textContent='Falha ao transferir bateria: '+e.message+'. Baixe o WAV de Bateria e importe manualmente.';}
 }
-$('apsOpenDrumSwap')?.addEventListener('click',apsSendDrumStem);
-
-showDeviceCheck();
-{const el=$('elapsed');if(el&&!$('eta')){const e=document.createElement('div');e.id='eta';e.setAttribute('role','status');e.style.cssText='color:#e5bd72;font-size:14px;margin-top:4px';el.after(e);}}
-
-// Pista de bateria previamente separada entra no mesmo APS, sem app externo.
-$('apsDrumOnlyGo')?.addEventListener('click',async()=>{
- const status=$('apsDrumOnlyStatus'),input=$('apsDrumOnlyFile');
- const file=input?.files?.[0];if(!file){status.textContent='Escolha primeiro um WAV ou MP3 de bateria.';return;}
- if(file.size>220*1024*1024){status.textContent='Arquivo grande demais para este modo (máximo 220 MB).';return;}
- try{
-  status.textContent='Salvando a bateria dentro do APS…';
-  const db=await new Promise((ok,fail)=>{const r=indexedDB.open('aps-drum-separated-v1',1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains('pending'))r.result.createObjectStore('pending');};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});
-  await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite');tx.objectStore('pending').put({blob:file,name:file.name},'latest');tx.oncomplete=ok;tx.onerror=()=>fail(tx.error);});db.close();
-  location.href='./bateria.html?importar=separador#aps-drum-analyzer';
- }catch(e){status.textContent='Armazenamento indisponível: '+e.message;}
-});
-
-const apsDeviceMemory=navigator.deviceMemory;
-if($('apsMemoryInfo')){
- $('apsMemoryInfo').textContent=apsDeviceMemory?
-  'Memória aproximada informada pelo dispositivo: '+apsDeviceMemory+' GB. Para sessões longas, prefira saída compacta e feche outros aplicativos.':
-  'Este navegador não informa a memória disponível. Se a separação longa falhar, reduza a duração ou importe a bateria já isolada diretamente.';
+async function downloadZip(){
+ if(!resultBlobs)return;const b=$('zipAll');b.disabled=true;
+ try{const zip=await zipBlobs(SOURCES.map((s,i)=>({name:prefix()+'_'+s.id+'.wav',blob:resultBlobs[i]})),(i,n)=>{$('transferStatus').textContent='Montando ZIP: pista '+(i+1)+' de '+n+'…';});
+  download(zip,prefix()+'_6-pistas.zip');$('transferStatus').textContent='ZIP com as 6 pistas pronto ('+(zip.size/1048576).toFixed(1)+' MB).';}
+ catch(e){$('transferStatus').textContent='Falha ao montar ZIP: '+e.message+'. Baixe as pistas uma a uma.';}finally{b.disabled=false;}
 }
-$('start').addEventListener('click',main);$('cancel').addEventListener('click',()=>{cancelled=true;phase('Cancelado pelo usuário.',0);stopWorker?.();});window.addEventListener('pagehide',stopPreview);
-window.APS6Stem={pcmToWav,triangularWindow,SOURCES,SAMPLE_RATE,SEG,STRIDE};
-
-// 3.6.2: recebe a pista enviada pelo estúdio (daw.html → Separar pista selecionada)
-(async()=>{if(new URLSearchParams(location.search).get('importar')!=='daw')return;try{const db=await new Promise((ok,fail)=>{const r=indexedDB.open('aps-sep-input-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('pending');r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite'),st=tx.objectStore('pending'),g=st.get('latest');g.onsuccess=()=>{st.delete('latest');ok(g.result);};g.onerror=()=>fail(g.error);});db.close();if(!item?.blob)return;const f=new File([item.blob],item.name||'pista.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);const inp=$('song');inp.files=dt.files;inp.dispatchEvent(new Event('change',{bubbles:true}));$('duration').value='10';phase('Pista do estúdio carregada: '+f.name+'. Escolha a duração e toque em Separar.',0);inp.scrollIntoView({block:'center'});}catch(e){phase('Não consegui receber a pista do estúdio: '+e.message);}})();
+$('sendMixer').addEventListener('click',sendStemsToMixer);$('apsOpenDrumSwap').addEventListener('click',sendDrumStem);$('zipAll').addEventListener('click',downloadZip);
+$('start').addEventListener('click',main);
+$('cancel').addEventListener('click',()=>{if(!working)return;phase('Cancelando…',0);stopWorker?.();});
+window.addEventListener('pagehide',()=>{stopPreview();closeWorker();});
+$('apsDrumOnlyGo')?.addEventListener('click',async()=>{const st=$('apsDrumOnlyStatus'),file=$('apsDrumOnlyFile')?.files?.[0];if(!file){st.textContent='Escolha primeiro um WAV ou MP3 de bateria.';return;}
+ if(file.size>220*1048576){st.textContent='Arquivo grande demais (máximo 220 MB).';return;}
+ try{st.textContent='Salvando a bateria dentro do APS…';await put('aps-drum-separated-v1','pending',{blob:file,name:file.name,source:'usuario'});location.href='./bateria.html?importar=separador#aps-drum-analyzer';}catch(e){st.textContent='Armazenamento indisponível: '+e.message;}});
+// Recebe a pista enviada pelo estúdio (daw.html → Separar pista selecionada)
+(async()=>{if(new URLSearchParams(location.search).get('importar')!=='daw')return;try{const db=await openDB('aps-sep-input-v1','pending');const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite'),st=tx.objectStore('pending'),g=st.get('latest');g.onsuccess=()=>{st.delete('latest');ok(g.result);};g.onerror=()=>fail(g.error);});db.close();if(!item?.blob)return;const f=new File([item.blob],item.name||'pista.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);$('song').files=dt.files;$('song').dispatchEvent(new Event('change',{bubbles:true}));phase('Pista do estúdio carregada: '+f.name+'. Escolha a duração e toque em Separar.',0);}catch(e){phase('Não consegui receber a pista do estúdio: '+e.message,0,true);}})();
+applyLimits();
+window.APS6Stem={pcmToWav,SOURCES,SAMPLE_RATE,SEG,STRIDE,limits:()=>LIMITS,state:()=>({working,hasResult:!!resultBlobs,info:resultInfo,sizes:resultBlobs?.map(b=>b.size)}),blobs:()=>resultBlobs};
