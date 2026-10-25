@@ -89,4 +89,4 @@ $('file').addEventListener('change',ev=>{incoming([...ev.target.files]).catch(e=
 const drop=$('drop');for(const evt of ['dragenter','dragover'])drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.add('over')});for(const evt of ['dragleave','drop'])drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.remove('over')});drop.addEventListener('drop',e=>incoming([...e.dataTransfer.files]).catch(e=>show(e.message,true)));
 $('clear').addEventListener('click',()=>{rows.forEach(r=>URL.revokeObjectURL(r.url));rows.length=0;redraw();show('Lista limpa.')});window.addEventListener('pagehide',()=>rows.forEach(r=>URL.revokeObjectURL(r.url)));
 })();
-</script><script type="module" src="./central-media/media-ui.js?v=short-sync-20261025"></script></body></html>
+</script><script type="module" src="./central-media/media-ui.js?v=wide-sync-preview-20261025"></script></body></html>
