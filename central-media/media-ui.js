@@ -100,8 +100,10 @@ async function synchronize() {
   else {
     $('sync-offset').value = (a.offsetSeconds * 1000).toFixed(2);
     $('sync-drift').disabled = !a.driftDetected; $('sync-drift').checked = false;
-    $('sync-result').textContent = `Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Correlação: ${a.confidence.toFixed(3)}\n${a.points.length} marcadores · Resíduo máximo: ${(a.residualSeconds * 1000).toFixed(1)} ms · Resolução de análise: 5 ms`;
-    $('drift-note').textContent = a.driftDetected ? `Desvio estimado: ${a.driftPpm.toFixed(0)} ppm · ${(a.driftSeconds * 1000).toFixed(1)} ms no final. Ative a correção para compensar.` : 'Nenhum desvio progressivo significativo foi medido.';
+    $('sync-result').textContent = a.shortClip
+      ? `Trecho curto alinhado: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Confiança: ${a.confidence.toFixed(3)} · verificado no início e no fim · resolução 5 ms. Confira também o arquivo exportado.`
+      : `Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Correlação: ${a.confidence.toFixed(3)}\n${a.points.length} marcadores · Resíduo máximo: ${(a.residualSeconds * 1000).toFixed(1)} ms · Resolução de análise: 5 ms`;
+    $('drift-note').textContent = a.shortClip ? 'Trecho curto: não é seguro estimar desvio progressivo; velocidade mantida.' : a.driftDetected ? `Desvio estimado: ${a.driftPpm.toFixed(0)} ppm · ${(a.driftSeconds * 1000).toFixed(1)} ms no final. Ative a correção para compensar.` : 'Nenhum desvio progressivo significativo foi medido.';
     status('Deslocamento aplicado. Confira início, meio e final antes de exportar.');
   }
   drawWave(); syncPlayback(true);
