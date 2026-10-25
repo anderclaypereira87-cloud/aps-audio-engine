@@ -1,5 +1,6 @@
 /** Conventional, deterministic processing shared by preview and export. */
 import { motionAt } from './central-media/advanced/stabilization.js';
+import { frameAt, centerCropAt } from './central-media/advanced/subject-framing.js';
 export const VIDEO_DEFAULTS = Object.freeze({ exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, denoise: 0, sharpness: 0, zoom: 1, x: 0.5, y: 0.5 });
 export const AUDIO_DEFAULTS = Object.freeze({ gain: 0, bass: 0, mid: 0, treble: 0, highpass: 20, lowpass: 20000, gate: false, compressor: false });
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -52,8 +53,16 @@ export function drawVideo(canvas, source, width, height, settings = {}) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const amount = Math.max(0, Math.min(100, Number(settings.stabilization) || 0));
   const plan = settings.motionPlan;
-  const zoom = plan && amount > 0 ? Math.max(settings.zoom || 1, 1 + (plan.cropZoom - 1) * amount / 100) : settings.zoom;
-  const r = cropRectangle(width, height, canvas.width / canvas.height, { ...settings, zoom });
+  const zoom = plan && amount > 0 ? Math.max(settings.zoom || 1, 1 + (plan.cropZoom - 1) * amount / 100) : (settings.zoom ?? 1);
+  let r = cropRectangle(width, height, canvas.width / canvas.height, { ...settings, zoom });
+  if (settings.autoFrame && settings.framingPlan) {
+    const focus = frameAt(settings.framingPlan, settings.videoTime);
+    r = centerCropAt(r, width, height, focus);
+    // Horizontal/vertical sliders remain available as manual overrides even
+    // when the neural detector is guiding the virtual camera.
+    r.x = clamp(r.x + (Number(settings.x ?? 0.5) - 0.5) * (width - r.width), 0, Math.max(0, width - r.width));
+    r.y = clamp(r.y + (Number(settings.y ?? 0.5) - 0.5) * (height - r.height), 0, Math.max(0, height - r.height));
+  }
   if (plan && amount > 0) {
     const shift = motionAt(plan, settings.videoTime, amount);
     r.x = Math.max(0, Math.min(width - r.width, r.x - shift.dx * width / plan.width));
