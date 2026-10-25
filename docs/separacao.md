@@ -7,7 +7,7 @@
 | Motor | `separador-worker.js` | Baixa/armazena o modelo, roda o ONNX Runtime Web (WASM) num Web Worker, bloco a bloco |
 | Núcleo (sem DOM) | `aps-sep-core.js` (novo) | Overlap-add em fluxo, PCM/WAV, ZIP, limites por aparelho, métricas. Usado pelo navegador **e** pelos testes em node |
 | Bateria por peça | `aps-drum-pieces.js` (novo), `bateria.html` | Detecção de ataques das 11 peças, notas fantasmas, revisão manual, MIDI, recriação com samples |
-| Modelo | `models/htdemucs_6s_leve.onnx` (42 MB, servido pelo site) e pesos completos fp16 (136 MB, Hugging Face) | HTDemucs-6s |
+| Modelo | `models/htdemucs_6s_leve_v2.onnx` (42 MB, servido pelo site) e pesos completos fp16 (136 MB, Hugging Face) | HTDemucs-6s |
 
 ### Fluxo do separador
 1. O arquivo é decodificado no navegador e reamostrado para 44,1 kHz estéreo (não altera andamento/BPM nem duração).
@@ -33,7 +33,7 @@
 * **HTDemucs-6s** (Meta / Facebook Research, repositório `facebookresearch/demucs`), **licença MIT**, que cobre o código e os pesos publicados. A licença MIT permite uso comercial, desde que o aviso de copyright acompanhe as cópias (está em `models/LICENCA_MODELO.txt`).
 * **Exportação ONNX**: `StemSplitio/htdemucs-6s-onnx` no Hugging Face, declarada como MIT.
   * Modo **completo**: `htdemucs_6s_fp16weights.onnx` (136 428 532 bytes), baixado do Hugging Face na primeira vez (resposta HTTP 200 verificada em 25/10/2026). Fica hospedado por terceiros: se o arquivo sair do ar, o modo completo para de funcionar. Recomendação: copiar o arquivo para o próprio site antes do lançamento comercial, decisão do dono.
-  * Modo **leve**: `models/htdemucs_6s_leve.onnx` (42 MB), pesos int8 por canal gerados pelo APS (`models/quantizar_pesos_int8.py`, `models/stft_no_grafo.py`), servido pelo próprio site.
+  * Modo **leve**: `models/htdemucs_6s_leve_v2.onnx` (42 MB), pesos int8 por canal gerados pelo APS (`models/quantizar_pesos_int8.py`, `models/stft_no_grafo.py`), servido pelo próprio site.
 * Observação honesta: o HTDemucs foi treinado pela Meta com MUSDB18-HQ e dados internos. A licença dos pesos é MIT, mas para um produto comercial recomenda-se uma revisão jurídica da procedência dos dados de treino.
 * **Isolamento por peça da bateria (operação A)**: não existe, no APS, modelo de licença comercial verificada que separe bumbo, caixa, pratos etc. Modelos de pesquisa (por exemplo, DrumSep) têm licença ou procedência de dados não verificada. **Nenhum foi incluído.** A interface diz que só a bateria inteira é isolada.
 
@@ -93,3 +93,34 @@ python3 tests/analyze_stems.py /tmp/fix/mix_60s.wav /tmp/out/n60 /tmp/fix/ref_60
 node tests/drum-eval.cjs /tmp/fix/drums30.wav /tmp/fix/drums30.json
 ORT_DIR=$ORT_DIR FIX=/tmp/fix OUT=/tmp/e2e node tests/e2e-separador.cjs limits drums nomodel badmodel 10 30 30:mobile 60 cancel
 ```
+
+## v4.1 · Modelo leve v2 (memória menor, mesma saída)
+Medições feitas antes de mudar o modelo (onnxruntime 1.21, 1 thread, bloco de 7,8 s):
+* Os pesos já eram int8 por canal (40 MB). Depois de carregados, ocupam ~180 MB de RSS. **Não eram eles que dominavam o consumo.**
+* O pico de execução era de ~994 MB no nativo. Ele vinha de:
+  1. **Matrizes de atenção** do crosstransformer: a atenção sobre 2 688 tokens gera uma matriz de 8×2688×2688 floats (231 MB), duplicada pelo Softmax.
+  2. Dezenas de tensores de **63 MB** nas camadas externas do encoder/decoder, proporcionais ao bloco de 7,8 s.
+* As matrizes da STFT geradas dentro do grafo (14 tensores de 32 MB) foram testadas como entradas externas, e o pico **não mudou** (1 027 MB). A ideia foi descartada.
+
+Mudança: `models/atencao_em_blocos.py` reescreve as 10 atenções (Q·Kᵀ→Softmax→·V) em blocos de 336 consultas. O resultado é **matematicamente idêntico**: a diferença ficou em 0,0 contra o modelo anterior, e o SNR das pistas é igual até a 2ª casa.
+
+| | leve (v4.0) | leve v2 (v4.1) |
+|---|---|---|
+| Arquivo | 42,46 MB | 42,49 MB |
+| Pico RSS nativo (1 bloco) | 994 MB | 632 MB (−36%) |
+| Navegador, acima da página ociosa (mesma sessão, 10 s) | 1 156 MB | 900 MB (−22%) |
+| Navegador, pico total do Chromium (10 s / 30 s celular) | 1 602 MB | 1 272 a 1 346 MB |
+| Tempo por bloco (nativo / navegador) | 7,1 s / ~16 s | 6,2 s / ~16 s |
+| Qualidade (SNR bateria/baixo/voz) | 15,43 / 7,81 / 10,43 dB | idêntica |
+
+O que foi avaliado e **não** foi adotado:
+* **Quantização mais agressiva** (int4, uint8 de ativações, fp16): o arquivo já é pequeno e o pico vem das ativações. O WASM do ORT não tem kernels fp16 nem int4 para Conv, então isso não reduziria a memória.
+* **Bloco menor**: o grafo exportado tem tamanho fixo (343 980 amostras), e o HTDemucs completa entradas menores até esse tamanho. Para mudar isso seria preciso reexportar em PyTorch e retreinar ou validar, o que **não foi feito**.
+* **Modelo menor com licença comercial**: não encontrei nenhum de 6 pistas verificável. Os de 4 pistas não têm guitarra/piano. Nada foi incluído.
+* **Dividir as convoluções de 63 MB no tempo**: seria a próxima redução possível, mas exige reescrever o grafo com bordas (receptive field). Não foi feito.
+
+### Aparelho de referência: Realme C75 (informado pelo dono)
+Chip Helio G92 Max (2×A75 + 6×A55, Mali-G52 MC2) e 6 ou 8 GB de RAM (a versão não foi confirmada). Android 15, segundo o dono; o de fábrica é o 14. **Nada foi testado no aparelho.**
+* O Chrome no Android informa `deviceMemory` arredondado: um aparelho de 6 GB costuma informar 4. Assim, o APS aplica "leve, até 1 min".
+* Estimativa (**não medida**): o pico da página fica em ~0,9 GB acima da página ociosa, cabendo no caso conservador de 4 GB úteis ao navegador. O tempo esperado é de 3 a 6× o do desktop, ou seja, ~50 a 100 s por bloco de 7,8 s, ou cerca de 8 a 15 min por minuto de música.
+* Os limites de `deviceLimits` **não foram aumentados**: falta medir no celular real.

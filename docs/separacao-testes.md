@@ -40,3 +40,12 @@
 * A importação de 6 pistas de 10 min na DAW não teve a conclusão confirmada.
 * O isolamento neural por peça da bateria (operação A) não existe: falta um modelo com licença comercial.
 * A classificação de peças é heurística e foi medida só em bateria sintética. Em gravações reais, espere mais erros: a revisão manual é obrigatória.
+
+## v4.1 (leve v2, atenção em blocos), 25/10/2026
+* `node tests/core.test.mjs`: 9 de 9 testes ok.
+* Navegador, 10 s: 33 s, 6 WAVs, ZIP íntegro, DAW 6/6, lag 0 e SNR idêntico ao v4.0. Pico do Chromium de 1 272 MB (514 MB com a página ociosa).
+* Navegador, 30 s no modo celular: 81 s, DAW 6/6, lag de −1 amostra (reamostragem) e SNR idêntico. Pico de 1 308 MB.
+* Cancelar: a memória caiu de 1 305 para 636 MB. Modelo corrompido: aparece o erro e nenhuma pista é criada.
+* Na comparação A/B, na mesma sessão, o pico acima da página ociosa foi de 1 156 MB no v4.0 e de 900 MB no v2.
+* A bateria por peça não muda: o modelo não foi alterado, só a ordem dos cálculos.
+* Não foi testado: celular real (Realme C75 ou outro), 1 e 10 min com o v2 (o algoritmo de blocos é o mesmo do v4.0) e o modo completo.

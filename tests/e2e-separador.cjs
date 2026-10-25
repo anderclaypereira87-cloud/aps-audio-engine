@@ -7,17 +7,17 @@ const PORT=Number(process.env.PORT||8799),BASE=`http://127.0.0.1:${PORT}`;const 
 function rssMB(){try{return Math.round(execSync("ps -eo rss=,comm= | grep -i -E 'chrom|headless' || true").toString().split('\n').filter(Boolean).reduce((s,x)=>s+Number(x.trim().split(/\s+/)[0]),0)/1024);}catch{return 0;}}
 async function page(browser,init){const ctx=await browser.newContext({acceptDownloads:true});if(init)await ctx.addInitScript(init);const p=await ctx.newPage();p._errors=[];p.on('pageerror',e=>p._errors.push(String(e)));p.on('console',m=>{if(m.type()==='error')p._errors.push(m.text());});return {ctx,p};}
 async function separate(browser,sec,{quality='studio',cancelAfterMs=0,route=null}={}){
- const {ctx,p}=await page(browser);if(route)await ctx.route('**/htdemucs_6s_leve.onnx',route);
+ const {ctx,p}=await page(browser);if(route)await ctx.route('**/htdemucs_6s_leve*.onnx',route);else if(process.env.MODEL_FILE)await ctx.route('**/htdemucs_6s_leve*.onnx',r=>r.fulfill({status:200,body:fs.readFileSync(process.env.MODEL_FILE),headers:{'content-type':'application/octet-stream'}}));
  await p.goto(BASE+'/separador.html');await p.setInputFiles('#song',path.join(FIX,`mix_${sec}s.wav`));
  await p.check('input[name=apsEngine][value=leve]');await p.selectOption('#duration',String(sec));await p.selectOption('#outputQuality',quality);
- const t0=Date.now();let peak=0;const iv=setInterval(()=>{peak=Math.max(peak,rssMB());},1000);
+ const idleRss=rssMB();const t0=Date.now();let peak=0;const iv=setInterval(()=>{peak=Math.max(peak,rssMB());},1000);
  await p.click('#start');
  if(cancelAfterMs){await p.waitForFunction(()=>/Bloco 1 de/.test(document.getElementById('phase').textContent),null,{timeout:600000}).catch(()=>{});await p.waitForTimeout(cancelAfterMs);const before=rssMB();await p.click('#cancel');await p.waitForTimeout(4000);
   const st=await p.evaluate(()=>({phase:document.getElementById('phase').textContent,state:APS6Stem.state(),start:!document.getElementById('start').disabled}));clearInterval(iv);const after=rssMB();await ctx.close();return {cancel:true,before,after,...st,errors:p._errors};}
  await p.waitForFunction(()=>APS6Stem.state().hasResult||/Não foi possível|Cancel/.test(document.getElementById('phase').textContent),null,{timeout:3600000});
  clearInterval(iv);const wall=(Date.now()-t0)/1000;
  const st=await p.evaluate(()=>({phase:document.getElementById('phase').textContent,check:document.getElementById('resultCheck').textContent,state:APS6Stem.state()}));
- const r={sec,quality,wall,peakBrowserRssMB:peak,...st,errors:p._errors};
+ const r={sec,quality,wall,idleBrowserRssMB:idleRss,peakBrowserRssMB:peak,...st,errors:p._errors};
  if(st.state.hasResult){const dir=path.join(OUT,`web_${sec}s_${quality}`);fs.mkdirSync(dir,{recursive:true});
   for(const id of ['bateria','baixo','outros','voz','guitarra','piano']){const [d]=await Promise.all([p.waitForEvent('download'),p.click(`button[data-download=${id}]`)]);await d.saveAs(path.join(dir,id+'.wav'));}
   const [z]=await Promise.all([p.waitForEvent('download',{timeout:120000}),p.click('#zipAll')]);await z.saveAs(path.join(dir,'stems.zip'));
