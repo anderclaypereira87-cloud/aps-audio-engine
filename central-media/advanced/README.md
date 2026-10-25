@@ -16,8 +16,10 @@ neural nem processamento de arquivos na nuvem.
   fixadas em `pose-scan.js`; consulte `MODEL-EVALUATION.md`.
 - Os marcos do corpo incluem pulsos e mãos. O recorte recebe margem de
   segurança e trajetória suavizada, porém **não detecta todo o baixo, guitarra,
-  bateria ou microfone**. Confira bordas, mão e instrumento, particularmente
-  em 9:16, e use os controles manuais de zoom, horizontal e vertical.
+  bateria ou microfone**. Se a área corporal não couber no recorte, aplica
+  letterbox com barras pretas em vez de amputar as mãos por corte. Confira
+  bordas e instrumento, principalmente em 9:16, e use os controles manuais
+  de zoom, horizontal e vertical.
 - O modo vem desligado. Se não houver modelo, internet, RAM ou detecções
   confiáveis, o APS oferece recorte manual. A exportação executa a mesma
   análise quando a caixa é ativada, mesmo sem análise prévia na interface.
