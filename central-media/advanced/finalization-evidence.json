@@ -1,0 +1,18 @@
+{
+  "branch": "feat/aps-media-finalize",
+  "date": "2026-10-25",
+  "scope": "Optional neural person framing in the existing Central de Midia; no auth or other project changes",
+  "tests_run": {
+    "command": "node --test central-media/tests/sync.test.mjs central-media/tests/advanced.test.mjs central-media/tests/framing.test.mjs",
+    "passed": 20,
+    "failed": 0,
+    "covers": ["sync mapping and drift", "conventional pixel processing", "stabilization feature motion and crop", "pose landmark geometry with safety margin", "detection confidence reject", "time-interpolated smoothed neural framing plan", "manual override and crop bounds"]
+  },
+  "browser_export_attempt": {
+    "command": "APS_TEST_CHROME=/workspace/scratch/a6ddfa49de93/media-deps/chrome/chrome-linux64/chrome APS_FIXTURES=/tmp/aps-advanced-fixtures node central-media/tests/browser.cjs",
+    "executed": false,
+    "reason": "Chrome cannot start in this execution environment: process_singleton_posix.cc socket() failed Operation not permitted (1). The error occurred before any export."
+  },
+  "unverified": ["actual MediaPipe inference and first-run network download in browser", "fresh exported A/V sync within one frame", "H264/AAC and VP9/Opus long 1080p and 4K outputs", "Android and iPhone physical device export", "neural image restoration (not implemented)"],
+  "note": "All neural framing UX is opt-in and manual framing remains available. No claims of completed browser or device validation."
+}
