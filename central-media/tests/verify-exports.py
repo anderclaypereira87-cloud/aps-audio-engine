@@ -13,8 +13,8 @@ def envelope(a):
     n=a.size//8
     return np.sqrt(np.mean(a[:n*8].reshape(-1,8)**2,axis=1))
 report=[]
-for name in ['250ms','1s','silence','advance','mp3','original','no-reference','1080p','drift-590s']:
-    source='long-reference.mp4' if name=='drift-590s' else '1080.mp4' if name=='1080p' else 'reference.mp4'
+for name in ['250ms','1s','silence','advance','mp3','original','no-reference','1080p','stabilization','drift-590s']:
+    source='long-reference.mp4' if name=='drift-590s' else '1080.mp4' if name=='1080p' else 'camera-jitter.mp4' if name=='stabilization' else 'reference.mp4'
     output='export-'+name+'.webm'
     info=probe(output); reference=envelope(pcm(source)); edited=envelope(pcm(output))
     duration=min(reference.size,edited.size)/1000
@@ -30,11 +30,21 @@ for name in ['250ms','1s','silence','advance','mp3','original','no-reference','1
     a=next(s for s in info['streams'] if s['codec_type']=='audio')
     frame_json=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v','-show_frames','-show_entries','frame=best_effort_timestamp_time','-of','json',str(root/output)]))
     times=np.array([float(f['best_effort_timestamp_time']) for f in frame_json['frames']])
-    frame_ms=100 if name=='drift-590s' else 1000/30
+    frame_ms=100 if name=='drift-590s' else 1000/15 if name=='stabilization' else 1000/30
     result={'case':name,'output':output,'duration_seconds':float(info['format']['duration']),'bytes':int(info['format']['size']),'video_codec':v['codec_name'],'audio_codec':a['codec_name'],'width':v['width'],'height':v['height'],'frames':len(times),'first_video_pts':float(times[0]),'last_video_pts':float(times[-1]),'audio_error_ms_start_middle_end':lags,'max_error_ms':max(map(abs,lags)),'one_frame_ms':frame_ms}
     assert result['max_error_ms']<=frame_ms,result
     assert abs(times[0])<=.001,result
-    assert abs(float(info['format']['duration'])-(590 if name=='drift-590s' else 2 if name=='1080p' else 16))<frame_ms/1000+.03,result
+    assert abs(float(info['format']['duration'])-(590 if name=='drift-590s' else 2 if name=='1080p' else 10 if name=='stabilization' else 16))<frame_ms/1000+.03,result
+    if name=='stabilization':
+        def decoded_gray(filename):
+            raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(root/filename),'-vf','scale=160:90','-pix_fmt','gray','-f','rawvideo','-'])
+            return np.frombuffer(raw,dtype=np.uint8).reshape((-1,90,160)).astype(np.float32)
+        original_frames=decoded_gray(source)
+        stabilized_frames=decoded_gray(output)
+        def flicker(frames):
+            return float(np.mean(np.abs(np.diff(frames,axis=0))))
+        result['frame_motion_difference_before']=flicker(original_frames)
+        result['frame_motion_difference_after']=flicker(stabilized_frames)
     report.append(result)
 wav=probe('export-wav.wav');assert wav['streams'][0]['codec_name']=='pcm_s16le'
 muted=probe(next(root.glob('export-mute.*')).name);assert all(s['codec_type']!='audio' for s in muted['streams'])
