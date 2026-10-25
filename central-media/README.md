@@ -1,6 +1,6 @@
 # Central de Mídia — sincronização audiovisual local
 
-Rascunho de desenvolvimento na branch `feat/aps-media-sync`. Sem publicação, merge, novo projeto, banco, API paga ou processamento em nuvem.
+Versão experimental desenvolvida na branch `feat/aps-media-sync` e entregue no PR #5. O proprietário autorizou a integração e publicação no site existente em 25/10/2026 para testes. As limitações de homologação abaixo continuam válidas. Sem novo projeto, banco, API paga ou processamento em nuvem.
 
 ## Base analisada
 
