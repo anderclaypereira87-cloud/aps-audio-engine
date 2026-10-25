@@ -35,7 +35,7 @@ function prefix(a) {
 }
 
 /** Full normalized cross-correlation with overlap/energy checks and ambiguity score. */
-export function correlate(a, b, minLag, maxLag, exclusion = 24) {
+export function correlate(a, b, minLag, maxLag, exclusion = 24, minOverlapRatio = 0.85) {
   let n = 1;
   while (n < a.length + b.length) n *= 2;
   const ar = new Float64Array(n), ai = new Float64Array(n), br = new Float64Array(n), bi = new Float64Array(n);
@@ -46,7 +46,7 @@ export function correlate(a, b, minLag, maxLag, exclusion = 24) {
   }
   fft(ar, ai, true);
   const pa = prefix(a), pb = prefix(b), scores = [];
-  const minOverlap = Math.max(80, Math.ceil(a.length * 0.85));
+  const minOverlap = Math.max(Math.min(80, a.length), Math.ceil(a.length * minOverlapRatio));
   let best = { lag: 0, score: -1, prominence: 0 };
   for (let lag = Math.ceil(minLag); lag <= Math.floor(maxLag); lag++) {
     const a0 = Math.max(0, -lag), b0 = Math.max(0, lag), count = Math.min(a.length - a0, b.length - b0);
@@ -89,10 +89,45 @@ export function transientFeatures(energy) {
   return out;
 }
 
+function localCorrelation(a, b, lag, from, to) {
+  let count = 0, sa = 0, sb = 0, aa = 0, bb = 0, ab = 0;
+  for (let i = from; i < to; i++) {
+    const j = i + lag;
+    if (j < 0 || j >= b.length) continue;
+    const x = a[i], y = b[j];
+    count++; sa += x; sb += y; aa += x * x; bb += y * y; ab += x * y;
+  }
+  if (count < (to - from) * 0.55 || count < 25) return -1;
+  const va = aa - sa * sa / count, vb = bb - sb * sb / count;
+  return va > 1e-7 && vb > 1e-7 ? (ab - sa * sb / count) / Math.sqrt(va * vb) : -1;
+}
+
+/** Short clips lack three independent windows for drift estimation.
+ * Use a conservative full-signal match, verified separately at both ends.
+ */
+function analyzeShortAlignment(a, b, hz, maxOffset, onProgress) {
+  const duration = Math.min(a.length, b.length) / hz;
+  const maxLag = Math.round(Math.min(maxOffset, duration * 0.55) * hz);
+  const peak = correlate(a, b, -maxLag, maxLag, Math.max(15, Math.round(hz * 0.12)), 0.58);
+  onProgress(0.65);
+  const center = Math.floor(a.length / 2);
+  const first = localCorrelation(a, b, peak.lag, 0, center);
+  const last = localCorrelation(a, b, peak.lag, center, a.length);
+  onProgress(1);
+  const accepted = peak.score >= 0.78 && peak.prominence >= 0.075 && first >= 0.55 && last >= 0.55;
+  if (!accepted) return { accepted: false, reason: 'Trecho curto sem marcadores suficientes ou som de referência diferente. Confira se o vídeo tem áudio audível e ajuste manualmente.', points: [], rejected: [], confidence: peak.score, shortClip: true };
+  const offsetSeconds = -peak.lag / hz;
+  return { accepted: true, offsetSeconds, rate: 1, driftDetected: false, driftSeconds: 0, driftPpm: 0,
+    residualSeconds: 0, confidence: Math.min(peak.score, first, last),
+    points: [{ video: duration / 2, external: duration / 2 + peak.lag / hz, score: peak.score, prominence: peak.prominence }],
+    rejected: [], resolutionSeconds: 1 / hz, shortClip: true };
+}
+
 export function analyzeAlignment(reference, external, { hz = ENVELOPE_HZ, maxOffset = 30, onProgress = () => {} } = {}) {
-  if (reference.length < hz * 2 || external.length < hz * 2) throw Error('São necessários pelo menos 2 segundos de áudio legível. Use o ajuste manual.');
+  if (reference.length < hz * 0.75 || external.length < hz * 0.75) throw Error('Trecho inferior a 0,75 segundo: áudio insuficiente para sincronização confiável. Use o ajuste manual.');
   const a = transientFeatures(reference), b = transientFeatures(external);
   const seconds = Math.min(a.length, b.length) / hz;
+  if (seconds < 3.5) return analyzeShortAlignment(a, b, hz, maxOffset, onProgress);
   const windowSize = Math.min(Math.floor(8 * hz), Math.floor(seconds * hz * 0.7));
   const count = seconds > 20 ? 7 : 3, points = [], rejected = [];
   for (let k = 0; k < count; k++) {
