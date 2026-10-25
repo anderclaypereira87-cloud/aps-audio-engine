@@ -31,7 +31,7 @@ function crossings(audio, start, length) {
 for (const rate of [0.9, 0.962, 1.038, 1.1]) test(`WSOLA ±10% keeps the pitch near 440 Hz (rate ${rate})`, async () => {
   const audio = await render(rate);
   const detected = crossings(audio, .4 * SR, 1.0 * SR);
-  assert.ok(Math.abs(detected - 440) <= 12, `tempo ${rate}: got ${detected} Hz`);
+  assert.ok(Math.abs(detected - 440) <= 3, `tempo ${rate}: got ${detected} Hz`);
   assert.ok(audio.every(Number.isFinite));
 });
 test('output begins with expected silence before positive offset', async () => {
