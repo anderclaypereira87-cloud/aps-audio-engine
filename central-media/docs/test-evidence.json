@@ -1,0 +1,269 @@
+{
+  "date": "2026-10-25",
+  "feature_commit": "e17def9e78797aef71b50117706fa6c339278db2",
+  "browser_engine": {
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/135.0.7049.84 Safari/537.36",
+    "secureContext": true,
+    "videoEncoder": "function",
+    "audioEncoder": "function",
+    "offscreen": "function",
+    "audioWorklet": "function"
+  },
+  "capabilities": {
+    "mp4": false,
+    "webm": true
+  },
+  "unit_tests": {
+    "passed": 12,
+    "failed": 0
+  },
+  "browser_cases_passed": [
+    "250ms",
+    "1s",
+    "silence",
+    "advance",
+    "mp3",
+    "original",
+    "mute",
+    "no-reference",
+    "1080p",
+    "drift-590s",
+    "cancel",
+    "wav"
+  ],
+  "export_oracle": "Independent FFmpeg decode + SciPy correlation; RMS envelope at 1 ms resolution; first/middle/last windows",
+  "export_measurements": [
+    {
+      "case": "250ms",
+      "output": "export-250ms.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1405822,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "1s",
+      "output": "export-1s.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1405822,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "silence",
+      "output": "export-silence.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1405822,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "advance",
+      "output": "export-advance.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1405822,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "mp3",
+      "output": "export-mp3.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1411554,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        -1,
+        -1,
+        -1
+      ],
+      "max_error_ms": 1,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "original",
+      "output": "export-original.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1412047,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "no-reference",
+      "output": "export-no-reference.webm",
+      "duration_seconds": 16.02,
+      "bytes": 1405822,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 320,
+      "height": 180,
+      "frames": 480,
+      "first_video_pts": 0.0,
+      "last_video_pts": 15.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "1080p",
+      "output": "export-1080p.webm",
+      "duration_seconds": 2.02,
+      "bytes": 1282306,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 1920,
+      "height": 1080,
+      "frames": 60,
+      "first_video_pts": 0.0,
+      "last_video_pts": 1.967,
+      "audio_error_ms_start_middle_end": [
+        0,
+        0,
+        0
+      ],
+      "max_error_ms": 0,
+      "one_frame_ms": 33.333333333333336
+    },
+    {
+      "case": "drift-590s",
+      "output": "export-drift-590s.webm",
+      "duration_seconds": 590.02,
+      "bytes": 26795676,
+      "video_codec": "vp9",
+      "audio_codec": "opus",
+      "width": 160,
+      "height": 90,
+      "frames": 5900,
+      "first_video_pts": 0.0,
+      "last_video_pts": 589.9,
+      "audio_error_ms_start_middle_end": [
+        -1,
+        0,
+        1
+      ],
+      "max_error_ms": 1,
+      "one_frame_ms": 100
+    }
+  ],
+  "ui": {
+    "offset": "-250.00",
+    "playing": {
+      "video": 0.32,
+      "audio": 0.573293
+    },
+    "videoExport": "APS-video-sincronizado.webm · 1.34 MB · 16.000 s\nLimite estimado por correlação no arquivo exportado: 5.0 ms (inclui resolução de 5 ms) · dentro de 1 quadro (33.3 ms).",
+    "exportPlayback": {
+      "currentTime": 0.10786,
+      "error": null
+    },
+    "mobileNoOverflow": true,
+    "mp3PreviewCalibration": "Atraso do player MP3 calibrado por correlação: -70 ms. Confira também o arquivo exportado.",
+    "mp3Playing": {
+      "video": 0.618996,
+      "audio": 0.860947
+    },
+    "dawTransfer": {
+      "name": "APS-audio-editado.wav",
+      "size": 1536044,
+      "type": "audio/wav",
+      "header": "RIFF"
+    },
+    "androidEmulation": {
+      "ua": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36",
+      "overflow": false
+    }
+  },
+  "page_errors": [],
+  "isolated_memory": {
+    "maximum_single_process_rss_kib": 473504,
+    "scope": "Linux RUSAGE_CHILDREN maximum RSS in isolated 590s export test tree, no base64 extraction, not summed RAM or physical Android memory",
+    "return_code": 0
+  },
+  "source_sha256": {
+    "midia.html": "c76c9780a5526ea7757ac109dc37ceee868a5a7f0ba9b4c38e248b00fbf20d8e",
+    "aps-video-sync.js": "e5b70a018fff4e320ed5dc0b7aea16ac7efbfbdae72cc663979a304566947112",
+    "aps-video-enhance.js": "657cb0ae10cf8477d7a0ad776a01aa3bfde5e0c71d3fc0177cf167694ed23982",
+    "central-media/media-io.js": "80e92111e0ea7807754627a50c7737648c60adc2475635e7ca159bc2f56662de",
+    "central-media/media-ui.js": "afe71b448b57f974e4bde2c8c5d88799d39ddef1b50a34e7ed382c38a06456f9",
+    "central-media/media-worker.js": "8f7e39436e55ed98fd7c25643e947f0ab66aac52fe0b515398e2870cb7da0596",
+    "central-media/audio-preview-worklet.js": "54b716a0cfd6919775c4f8b2436aeeb07eefe4f49d8755331bb167ba95769b0d",
+    "central-media/media.css": "461f542a5e669b7d0e4c4853b56e8909f03494c385006f5a66d1eb53abcf2942"
+  },
+  "not_verified": [
+    "Physical Android and iPhone/iOS",
+    "MP4 with AAC audio",
+    "4K export",
+    "10 minute 1080p/4K export",
+    "GPU/CPU temperature on mobile",
+    "Storage exhaustion and forced OS termination"
+  ]
+}
