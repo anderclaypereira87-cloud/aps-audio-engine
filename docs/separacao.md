@@ -51,7 +51,7 @@ Os testes usam `onnxruntime-node` 1.21.0 e `playwright` 1.64.0, instalados **for
 | 10 s | 2 | 33 s de processamento | 7 s |
 | 30 s | 5 | 82 s | 15 s |
 | 1 min | 10 | 159 s | 29 s |
-| 10 min | 103 | ver `separacao-testes.md` | 306 s, pico de RSS de 637 MB |
+| 10 min | 103 | 1 630 s (~27 min), pico de 3,7 GB no navegador | 306 s, pico de RSS de 637 MB |
 * No navegador são cerca de 16 s por bloco (≈2,7× o tempo real) num núcleo de desktop. Num celular intermediário, a estimativa é de 3 a 10 vezes mais lento (**não medido em aparelho real**).
 * Memória: a soma de todos os processos do Chromium ficou entre 2,3 e 2,5 GB durante a separação (modelo, ORT e a página). O pico mais alto vem do carregamento do modelo, e não da duração.
 * Não há custo de servidor: tudo roda no aparelho do usuário. O site só serve 42 MB, uma vez por aparelho, porque o modelo fica no Cache Storage.
