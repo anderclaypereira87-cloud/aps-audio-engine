@@ -1,5 +1,5 @@
 import { drawVideo, outputDimensions, VIDEO_DEFAULTS, AUDIO_DEFAULTS } from '../aps-video-enhance.js';
-import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js';
+import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js?v=short-sync-20261025';
 import { encodingOptions, removeTemp } from './media-io.js';
 
 const $ = id => document.getElementById(id), video = $('sync-preview'), audio = $('sync-external');
@@ -28,7 +28,7 @@ function job(type, data = {}) {
   const jobTemps = new Set();
   state.busy = true; video.pause(); audio.pause(); readiness(); $('media-progress').value = 0;
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./media-worker.js', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./media-worker.js?v=short-sync-20261025', import.meta.url), { type: 'module' });
     let timeout, settled = false, cancelled = false;
     const finish = (error, result) => {
       if (settled) return; settled = true; clearTimeout(timeout); worker.terminate(); active = null;
