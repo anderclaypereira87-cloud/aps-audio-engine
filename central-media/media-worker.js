@@ -1,5 +1,6 @@
-import { inspectFile, readEnvelope, exportMedia } from './media-io.js';
+import { inspectFile, readEnvelope, exportMedia, openInput } from './media-io.js';
 import { analyzeAlignment } from '../aps-video-sync.js';
+import { scanCameraMotion } from './advanced/motion-scan.js';
 
 let controller;
 const post = data => self.postMessage(data);
@@ -16,6 +17,12 @@ self.onmessage = async ({ data }) => {
   try {
     let result;
     if (data.type === 'inspect') result = await inspectFile(data.file);
+    else if (data.type === 'stabilize') {
+      const input = openInput(data.videoFile);
+      try {
+        result = await scanCameraMotion(input, data.videoInfo, { signal, progress: f => progress({ stage: 'stabilize', fraction: f }) });
+      } finally { input.dispose(); }
+    }
     else if (data.type === 'sync') {
       const reference = await readEnvelope(data.videoFile, { duration: data.videoInfo.duration, base: data.videoInfo.videoStart, signal, progress: f => progress({ stage: 'reference', fraction: f * 0.35 }) });
       const external = await readEnvelope(data.audioFile, { duration: data.audioInfo.duration, signal, progress: f => progress({ stage: 'audio', fraction: 0.35 + f * 0.35 }) });
@@ -23,6 +30,15 @@ self.onmessage = async ({ data }) => {
       result = { alignment, reference, external };
     } else if (data.type === 'export') {
       result = await exportMedia({ ...data.options, signal, progress });
+      progress({ stage: 'validate', fraction: 0 });
+      try {
+        const actual = await inspectFile(result.blob);
+        result.measuredContainer = { mime: actual.mime, videoCodec: actual.videoCodec, audioCodec: actual.audioCodec, durationSeconds: actual.duration,
+          durationDifferenceSeconds: actual.duration - result.duration, width: actual.width || null, height: actual.height || null };
+      } catch (e) {
+        if (signal.aborted) throw e;
+        result.measuredContainer = { unavailable: e.message };
+      }
       if (!data.options.audioOnly && data.reference && data.options.source !== 'mute') {
         progress({ stage: 'verify', fraction: 0 });
         try {

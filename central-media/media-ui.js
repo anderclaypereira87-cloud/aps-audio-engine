@@ -3,17 +3,18 @@ import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js';
 import { encodingOptions, removeTemp } from './media-io.js';
 
 const $ = id => document.getElementById(id), video = $('sync-preview'), audio = $('sync-external');
-const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, nativePreviewShift: 0, nativePreviewReady: true, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
+const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, nativePreviewShift: 0, nativePreviewReady: true, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
 let active = null, graph = null, graphPromise = null, drawing = false, probeId = 0;
 const status = (message, error = false) => { $('media-status').textContent = message; $('media-status').classList.toggle('bad', error); };
 const settings = kind => Object.fromEntries([...document.querySelectorAll(`[data-${kind}]`)].map(el => [el.dataset[kind], el.type === 'checkbox' ? el.checked : Number(el.value)]));
 const offset = () => { const n = Number($('sync-offset').value); if (!Number.isFinite(n) || Math.abs(n) > 600000) throw Error('Informe um deslocamento entre −600000 e 600000 ms.'); return n / 1000; };
 const rate = () => $('sync-drift').checked && state.alignment?.accepted ? state.alignment.rate : 1;
-const stageNames = { reference: 'Lendo referência do vídeo', audio: 'Lendo áudio externo', correlation: 'Comparando transientes e marcadores', export: 'Codificando o arquivo', finalize: 'Finalizando o contêiner', verify: 'Medindo o áudio do arquivo exportado', storage: 'Preparando espaço temporário' };
+const stageNames = { reference: 'Lendo referência do vídeo', audio: 'Lendo áudio externo', correlation: 'Comparando transientes e marcadores', stabilize: 'Rastreando pontos para estabilização convencional', export: 'Codificando o arquivo', finalize: 'Finalizando o contêiner', validate: 'Conferindo contêiner e duração exportados', verify: 'Medindo o áudio do arquivo exportado', storage: 'Preparando espaço temporário' };
 
 function readiness() {
   const valid = !!state.videoInfo?.videoReadable && !state.videoInfo.hdr && ($('sync-source').value !== 'original' || state.videoInfo.audioReadable);
   $('sync-analyze').disabled = state.busy || !state.videoFile || !state.audioFile;
+  $('motion-analyze').disabled = state.busy || !state.videoInfo?.videoReadable;
   $('media-export').disabled = state.busy || !valid || ($('sync-source').value === 'external' && !state.audioInfo?.audioReadable);
   $('media-to-daw').disabled = state.busy || !valid || $('sync-source').value === 'mute' || ($('sync-source').value === 'external' && !state.audioInfo?.audioReadable);
   $('media-controls').disabled = state.busy; $('media-export-controls').disabled = state.busy;
@@ -71,6 +72,7 @@ async function selectFile(kind, file) {
   if (kind === 'audio' && !info.hasAudio) throw Error('O arquivo selecionado não contém uma faixa de áudio.');
   await clearResult(); resetAlignment();
   state[`${kind}File`] = file; state[`${kind}Info`] = info;
+  if (kind === 'video') { state.motionPlan = null; $('motion-result').textContent = 'Estabilização desligada ou ainda não analisada.'; }
   const player = kind === 'video' ? video : audio; player.src = url(kind, file); player.load();
   if (kind === 'audio') {
     state.nativePreviewShift = 0; state.nativePreviewReady = !/\.mp3$/i.test(file.name) && file.type !== 'audio/mpeg';
@@ -98,6 +100,17 @@ async function synchronize() {
     status('Deslocamento aplicado. Confira início, meio e final antes de exportar.');
   }
   drawWave(); syncPlayback(true);
+}
+
+async function scanMotion() {
+  if (!state.videoFile || !state.videoInfo?.videoReadable) throw Error('Selecione primeiro um vídeo decodificável.');
+  const file = state.videoFile;
+  const plan = await job('stabilize', { videoFile: file, videoInfo: state.videoInfo });
+  if (file !== state.videoFile) return;
+  state.motionPlan = plan;
+  $('motion-result').textContent = `${plan.samples} quadros amostrados · ${Math.round(plan.coverage * 100)}% de vetores confiáveis · recorte mínimo estimado ${((plan.requiredZoom - 1) * 100).toFixed(1)}%.${plan.requiredZoom > 1.4 ? ' Movimento excede o recorte seguro; correção parcial nas bordas.' : ''}`;
+  status('Rastreamento convencional analisado. Ajuste a intensidade e compare a imagem.');
+  drawPreview();
 }
 
 /** MP3's native player can trim encoder delay differently from WebCodecs.
@@ -188,7 +201,7 @@ function drawPreview() {
   const factor = Math.min(1, 640 / Math.max(dimensions.width, dimensions.height));
   const w = Math.round(dimensions.width * factor), h = Math.round(dimensions.height * factor);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-  drawVideo(canvas, video, video.videoWidth, video.videoHeight, settings('video'));
+  drawVideo(canvas, video, video.videoWidth, video.videoHeight, { ...settings('video'), motionPlan: state.motionPlan, videoTime: video.currentTime - (state.videoInfo?.videoStart || 0) });
 }
 function animate() {
   if (drawing) return; drawing = true;
@@ -201,7 +214,8 @@ async function capabilities() {
   const id = ++probeId, info = state.videoInfo, dim = outputDimensions(info.width, info.height, $('sync-aspect').value, $('sync-resolution').value);
   const c = await encodingOptions(dim.width, dim.height, $('sync-source').value !== 'mute');
   if (id !== probeId) return;
-  $('media-capabilities').textContent = `${dim.width} × ${dim.height} · MP4: ${c.mp4 ? 'disponível' : 'indisponível'} · WebM: ${c.webm ? 'disponível' : 'indisponível'}. ${$('sync-resolution').value === '4k' ? '4K exige mais memória e tempo.' : ''}`;
+  const memoryMiB = Math.ceil(dim.width * dim.height * 4 * (2 + ((settings('video').denoise || settings('video').sharpness) ? 2 : 0)) / 1048576);
+  $('media-capabilities').textContent = `${dim.width} × ${dim.height} · MP4 H.264/AAC: ${c.mp4 ? 'codificador detectado' : 'indisponível'} · WebM VP9/Opus: ${c.webm ? 'codificador detectado' : 'indisponível'} · reserva de canvases estimada ≥${memoryMiB} MiB (não é medição de RAM). ${$('sync-resolution').value === '4k' ? '4K é ampliação convencional; a exportação precisa ser verificada neste aparelho.' : ''}`;
 }
 
 async function transferToDAW(file) {
@@ -212,7 +226,7 @@ async function transferToDAW(file) {
 }
 
 async function render(audioOnly = false) {
-  const options = { videoFile: state.videoFile, audioFile: state.audioFile, source: $('sync-source').value, offsetSeconds: offset(), rate: rate(), audioSettings: settings('audio'), videoSettings: settings('video'), aspect: $('sync-aspect').value, resolution: $('sync-resolution').value, format: $('sync-format').value, audioOnly };
+  const options = { videoFile: state.videoFile, audioFile: state.audioFile, source: $('sync-source').value, offsetSeconds: offset(), rate: rate(), audioSettings: settings('audio'), videoSettings: { ...settings('video'), motionPlan: state.motionPlan }, aspect: $('sync-aspect').value, resolution: $('sync-resolution').value, format: $('sync-format').value, audioOnly };
   await clearResult();
   const start = performance.now();
   const result = await job('export', { options, reference: state.reference });
@@ -228,7 +242,10 @@ async function render(audioOnly = false) {
     measured = `Limite estimado por correlação no arquivo exportado: ${(worst * 1000).toFixed(1)} ms (inclui resolução de 5 ms) · ${passed ? 'dentro' : 'fora'} de 1 quadro (${(result.minFrameSeconds * 1000).toFixed(1)} ms).`;
     result.verification.estimatedWorstErrorSeconds = worst; result.verification.withinOneFrame = passed;
   }
-  $('media-export-result').textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB · ${result.duration.toFixed(3)} s\n${measured}${result.clipped ? `\nAtenção: ${result.clipped} amostras de canal limitadas. Reduza o volume e exporte novamente.` : ''}`;
+  const measuredContainer = result.measuredContainer?.durationSeconds != null
+    ? `\nContêiner reaberto: ${result.measuredContainer.durationSeconds.toFixed(3)} s · diferença ${(result.measuredContainer.durationDifferenceSeconds * 1000).toFixed(1)} ms · vídeo ${result.measuredContainer.videoCodec || 'nenhum'} · áudio ${result.measuredContainer.audioCodec || 'nenhum'}.`
+    : `\nVerificação da duração exportada indisponível: ${result.measuredContainer?.unavailable || 'sem leitura'}.`;
+  $('media-export-result').textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB · ${result.duration.toFixed(3)} s · ${result.frames} quadros\n${measured}${measuredContainer}\nReserva de canvases estimada ≥${(result.memoryEstimateBytes / 1048576).toFixed(1)} MiB; não mede RAM total.${result.stabilization ? `\nEstabilização convencional: ${Math.round(result.stabilization.coverage * 100)}% de rastreios confiáveis.` : ''}${result.clipped ? `\nAtenção: ${result.clipped} amostras de canal limitadas. Reduza o volume e exporte novamente.` : ''}`;
   state.report = { schema: 'aps-media-report-v1', created: new Date().toISOString(), userAgent: navigator.userAgent, inputs: { video: { name: state.videoFile.name, size: state.videoFile.size, ...state.videoInfo }, audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, ...state.audioInfo } : null }, settings: { ...options, videoFile: undefined, audioFile: undefined }, nativePreview: { calibrated: state.nativePreviewReady, shiftSeconds: state.nativePreviewShift }, alignment: state.alignment, export: { ...result, blob: undefined, tempName: undefined, elapsedSeconds: (performance.now() - start) / 1000 } };
   status(audioOnly ? 'Áudio WAV pronto. Preparando transferência para a DAW…' : 'Arquivo finalizado. Reproduza a exportação abaixo e baixe sua cópia.');
   if (audioOnly) { try { await transferToDAW(file); } catch (e) { throw Error(`Áudio pronto, mas a transferência falhou: ${e.message}. Baixe o WAV e importe na DAW.`); } }
@@ -236,6 +253,7 @@ async function render(audioOnly = false) {
 
 for (const kind of ['video', 'audio']) $(`sync-${kind}`).addEventListener('change', e => { const file = e.target.files[0]; selectFile(kind, file).catch(error); });
 $('sync-analyze').addEventListener('click', () => synchronize().catch(error));
+$('motion-analyze').addEventListener('click', () => scanMotion().catch(error));
 $('sync-reset').addEventListener('click', resetAlignment);
 $('media-cancel').addEventListener('click', () => active?.cancel());
 $('media-export').addEventListener('click', () => render().catch(error));
