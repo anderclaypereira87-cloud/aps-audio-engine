@@ -38,7 +38,7 @@ function start(){end();const steps=STEPS[PAGE].filter(s=>!s.sel||s.tab||find(s))
  ov.addEventListener('keydown',e=>{if(e.key==='Escape')done();if(e.key==='ArrowRight')$('apsTourNext').click();if(e.key==='ArrowLeft')$('apsTourBack').click();});root.addEventListener('resize',show);ov._rs=show;show();$('apsTourNext').focus();}
 function end(){const o=document.getElementById('apsTour');if(o){root.removeEventListener('resize',o._rs);o.remove();}}
 function init(){if(!document.getElementById('apsTourBtn')){const b=document.createElement('button');b.type='button';b.id='apsTourBtn';b.className='aps-tour-btn';b.title='Ajuda: rever o tutorial';b.setAttribute('aria-label','Ajuda: rever o tutorial');b.textContent='?';b.onclick=start;document.body.appendChild(b);}
- let seen=false;try{seen=localStorage.getItem(KEY)==='1';}catch{}// O guia fica disponível pelo botão “?”, sem bloquear automaticamente o primeiro acesso.}
+ /* O guia fica disponível pelo botão “?”, sem bloquear automaticamente o primeiro acesso. */}
 root.APSTour={start,end,steps:()=>STEPS[PAGE].length,reset:()=>{try{localStorage.removeItem(KEY);}catch{}}};
 if(document.readyState==='complete')init();else root.addEventListener('load',init);
 })(window);
