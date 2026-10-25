@@ -3,6 +3,7 @@ import { ENVELOPE_HZ, externalTime } from '../aps-video-sync.js';
 import { AudioProcessor, outputDimensions, drawVideo } from '../aps-video-enhance.js';
 import { scanCameraMotion } from './advanced/motion-scan.js';
 import { scanMusician } from './advanced/pose-scan.js';
+import { PitchPreservingTempo } from './advanced/pitch-preserving-tempo.js';
 
 export const LIMITS = Object.freeze({ seconds: 600, fileBytes: 768 * 1048576, memoryOutputBytes: 96 * 1048576 });
 export const openInput = file => new M.Input({ formats: M.ALL_FORMATS, source: new M.BlobSource(file, { maxCacheSize: 2 * 1048576 }) });
@@ -85,7 +86,7 @@ class PCMReader {
 }
 
 export async function* mappedAudio(file, { duration, offsetSeconds = 0, rate = 1, audioSettings = {}, signal, progress = () => {} }) {
-  if (!Number.isFinite(offsetSeconds) || !Number.isFinite(rate) || Math.abs(offsetSeconds) > 600 || rate < 0.995 || rate > 1.005) throw Error('Deslocamento ou velocidade fora dos limites.');
+  if (!Number.isFinite(offsetSeconds) || !Number.isFinite(rate) || Math.abs(offsetSeconds) > 600 || rate < 0.9 || rate > 1.1) throw Error('Deslocamento ou velocidade fora dos limites de ±10%.');
   const input = openInput(file); let reader;
   try {
     const track = await input.getPrimaryAudioTrack();
@@ -95,24 +96,64 @@ export async function* mappedAudio(file, { duration, offsetSeconds = 0, rate = 1
     const end = await track.computeDuration();
     const processor = new AudioProcessor(sampleRate, channels, audioSettings);
     reader = new PCMReader(track, externalTime(0, offsetSeconds, rate), end);
-    for (let frame = 0; frame < total; frame += block) {
+    const pitchPreserving = Math.abs(rate - 1) > .005;
+    const tempo = pitchPreserving ? new PitchPreservingTempo({ rate, offsetSeconds, sampleRate, channels }) : null;
+    let tempoRemainder = null, tempoRemainderIndex = 0;
+    const readPitchSource = async (startFrame, length) => {
       check(signal);
-      const length = Math.min(block, total - frame), t0 = externalTime(frame / sampleRate, offsetSeconds, rate);
-      const t1 = externalTime((frame + length) / sampleRate, offsetSeconds, rate);
-      const segments = t1 <= 0 || t0 > end ? [] : await reader.window(Math.max(0, t0), Math.min(end, t1), signal);
       const pcm = Array.from({ length: channels }, () => new Float32Array(length));
+      const start = startFrame / sampleRate, finish = (startFrame + length) / sampleRate;
+      if (finish <= 0 || start >= end) return pcm;
+      const segments = await reader.window(Math.max(0, start), Math.min(end, finish), signal);
       let segment = 0;
       for (let i = 0; i < length; i++) {
-        const time = externalTime((frame + i) / sampleRate, offsetSeconds, rate);
+        const time = (startFrame + i) / sampleRate;
+        if (time < 0 || time >= end) continue;
         while (segment < segments.length && segments[segment].timestamp + segments[segment].duration <= time) segment++;
         const current = segments[segment];
-        if (!current || time < current.timestamp || time < 0 || time >= end) continue;
-        const pos = (time - current.timestamp) * current.sampleRate, index = Math.floor(pos), fraction = pos - index;
+        if (!current || time < current.timestamp) continue;
+        const position = (time - current.timestamp) * current.sampleRate;
+        const index = Math.floor(position), fraction = position - index;
         for (let c = 0; c < channels; c++) {
           const data = current.channels[c], next = segments[segment + 1];
           const v0 = data[index] || 0;
           const v1 = index + 1 < data.length ? data[index + 1] : next && Math.abs(next.timestamp - (current.timestamp + current.duration)) < 1 / current.sampleRate ? next.channels[c][0] : v0;
           pcm[c][i] = v0 + (v1 - v0) * fraction;
+        }
+      }
+      return pcm;
+    };
+    for (let frame = 0; frame < total; frame += block) {
+      check(signal);
+      const length = Math.min(block, total - frame), t0 = externalTime(frame / sampleRate, offsetSeconds, rate);
+      const t1 = externalTime((frame + length) / sampleRate, offsetSeconds, rate);
+      const pcm = Array.from({ length: channels }, () => new Float32Array(length));
+      if (pitchPreserving) {
+        for (let i = 0; i < length;) {
+          if (!tempoRemainder) {
+            tempoRemainder = await tempo.next(readPitchSource);
+            tempoRemainderIndex = 0;
+          }
+          const count = Math.min(tempo.hop - tempoRemainderIndex, length - i);
+          for (let c = 0; c < channels; c++) pcm[c].set(tempoRemainder[c].subarray(tempoRemainderIndex, tempoRemainderIndex + count), i);
+          tempoRemainderIndex += count; i += count;
+          if (tempoRemainderIndex >= tempo.hop) tempoRemainder = null;
+        }
+      } else {
+        const segments = t1 <= 0 || t0 > end ? [] : await reader.window(Math.max(0, t0), Math.min(end, t1), signal);
+        let segment = 0;
+        for (let i = 0; i < length; i++) {
+          const time = externalTime((frame + i) / sampleRate, offsetSeconds, rate);
+          while (segment < segments.length && segments[segment].timestamp + segments[segment].duration <= time) segment++;
+          const current = segments[segment];
+          if (!current || time < current.timestamp || time < 0 || time >= end) continue;
+          const pos = (time - current.timestamp) * current.sampleRate, index = Math.floor(pos), fraction = pos - index;
+          for (let c = 0; c < channels; c++) {
+            const data = current.channels[c], next = segments[segment + 1];
+            const v0 = data[index] || 0;
+            const v1 = index + 1 < data.length ? data[index + 1] : next && Math.abs(next.timestamp - (current.timestamp + current.duration)) < 1 / current.sampleRate ? next.channels[c][0] : v0;
+            pcm[c][i] = v0 + (v1 - v0) * fraction;
+          }
         }
       }
       processor.process(pcm);
