@@ -1,5 +1,5 @@
 import { inspectFile, readEnvelope, exportMedia, openInput } from './media-io.js';
-import { analyzeAlignment } from '../aps-video-sync.js?v=short-sync-20261025';
+import { analyzeAlignment } from '../aps-video-sync.js?v=wide-sync-preview-20261025';
 import { scanCameraMotion } from './advanced/motion-scan.js';
 import { scanMusician } from './advanced/pose-scan.js';
 

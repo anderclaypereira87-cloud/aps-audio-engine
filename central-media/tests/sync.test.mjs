@@ -46,6 +46,33 @@ test('short clips without unique audible markers are rejected safely', () => {
   const periodic = Float32Array.from(a, (_, i) => i % 40 < 5 ? 1 : 0);
   assert.equal(analyzeAlignment(periodic, periodic).accepted, false);
 });
+for (const displacement of [55, -65]) test(`wide search matches common music offset by ${displacement} seconds`, () => {
+  const a = reference(180), result = analyzeAlignment(a, shifted(a, displacement));
+  assert.equal(result.accepted, true, JSON.stringify(result));
+  assert.equal(result.wideSearch, true);
+  assert.ok(Math.abs(result.offsetSeconds + displacement) < .02, JSON.stringify(result));
+});
+test('short external excerpt 40 seconds into a long video can be located', () => {
+  const video = reference(90), external = video.slice(40 * 200, 42 * 200);
+  const r = analyzeAlignment(video, external);
+  assert.equal(r.accepted, true, JSON.stringify(r));
+  assert.equal(r.shortClip, true);
+  assert.ok(Math.abs(r.offsetSeconds - 40) <= .005, JSON.stringify(r));
+});
+test('short video is matched against music that begins 35 seconds into external audio', () => {
+  const video = shortReference(2), external = new Float32Array(70 * 200);
+  external.set(video, 35 * 200);
+  const r = analyzeAlignment(video, external);
+  assert.equal(r.accepted, true, JSON.stringify(r));
+  assert.ok(Math.abs(r.offsetSeconds + 35) <= .005, JSON.stringify(r));
+});
+test('seven-second external excerpt is matched deep inside a longer performance', () => {
+  const video = reference(90), external = video.slice(40 * 200, 47 * 200);
+  const r = analyzeAlignment(video, external);
+  assert.equal(r.accepted, true, JSON.stringify(r));
+  assert.equal(r.wideSearch, true);
+  assert.ok(Math.abs(r.offsetSeconds - 40) <= .02, JSON.stringify(r));
+});
 test('590s signal: estimates both clock drift and offset to better than 1/30s', () => {
   const a = reference(590), result = analyzeAlignment(a, shifted(a, 0.25, 1.001));
   assert.ok(result.accepted, result.reason); assert.ok(result.driftDetected);

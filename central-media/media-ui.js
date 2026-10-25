@@ -1,10 +1,10 @@
 import { drawVideo, outputDimensions, VIDEO_DEFAULTS, AUDIO_DEFAULTS } from '../aps-video-enhance.js';
-import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js?v=short-sync-20261025';
+import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js?v=wide-sync-preview-20261025';
 import { encodingOptions, removeTemp } from './media-io.js';
 
 const $ = id => document.getElementById(id), video = $('sync-preview'), audio = $('sync-external');
-const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, framingPlan: null, nativePreviewShift: 0, nativePreviewReady: true, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
-let active = null, graph = null, graphPromise = null, drawing = false, probeId = 0;
+const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, framingPlan: null, nativePreviewShift: 0, nativePreviewReady: true, nativePreviewCalibrated: false, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
+let active = null, graph = null, graphPromise = null, graphUnavailable = false, drawing = false, probeId = 0;
 const status = (message, error = false) => { $('media-status').textContent = message; $('media-status').classList.toggle('bad', error); };
 const settings = kind => Object.fromEntries([...document.querySelectorAll(`[data-${kind}]`)].map(el => [el.dataset[kind], el.type === 'checkbox' ? el.checked : Number(el.value)]));
 const offset = () => { const n = Number($('sync-offset').value); if (!Number.isFinite(n) || Math.abs(n) > 600000) throw Error('Informe um deslocamento entre −600000 e 600000 ms.'); return n / 1000; };
@@ -28,7 +28,7 @@ function job(type, data = {}) {
   const jobTemps = new Set();
   state.busy = true; video.pause(); audio.pause(); readiness(); $('media-progress').value = 0;
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./media-worker.js?v=short-sync-20261025', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./media-worker.js?v=wide-sync-preview-20261025', import.meta.url), { type: 'module' });
     let timeout, settled = false, cancelled = false;
     const finish = (error, result) => {
       if (settled) return; settled = true; clearTimeout(timeout); worker.terminate(); active = null;
@@ -80,8 +80,13 @@ async function selectFile(kind, file) {
   }
   const player = kind === 'video' ? video : audio; player.src = url(kind, file); player.load();
   if (kind === 'audio') {
-    state.nativePreviewShift = 0; state.nativePreviewReady = !/\.mp3$/i.test(file.name) && file.type !== 'audio/mpeg';
-    $('preview-note').textContent = state.nativePreviewReady ? 'A prévia usa o relógio do player. O arquivo final usa timestamps de áudio e vídeo.' : 'MP3: sincronize para calibrar o atraso do codec na prévia. Sem calibração, confira o áudio no arquivo exportado ou use WAV.';
+    const isMp3 = /\.mp3$/i.test(file.name) || file.type === 'audio/mpeg';
+    state.nativePreviewShift = 0;
+    state.nativePreviewReady = true; // Never silence the preview when MP3 calibration fails.
+    state.nativePreviewCalibrated = !isMp3;
+    $('preview-note').textContent = isMp3
+      ? 'MP3: o áudio externo será reproduzido. Sincronize para calibrar o atraso do codec; confira a precisão no arquivo exportado.'
+      : 'A prévia usa o relógio do player. O arquivo final usa timestamps de áudio e vídeo.';
   }
   meta.textContent = `${file.name} · ${info.duration.toFixed(2)} s · ${(file.size / 1048576).toFixed(1)} MB · ${info.mime}`;
   if (kind === 'video' && !info.audioReadable) $('sync-result').textContent = 'Vídeo sem áudio de referência legível. A sincronização automática está indisponível; use o ajuste manual.';
@@ -102,7 +107,7 @@ async function synchronize() {
     $('sync-drift').disabled = !a.driftDetected; $('sync-drift').checked = false;
     $('sync-result').textContent = a.shortClip
       ? `Trecho curto alinhado: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Confiança: ${a.confidence.toFixed(3)} · verificado no início e no fim · resolução 5 ms. Confira também o arquivo exportado.`
-      : `Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Correlação: ${a.confidence.toFixed(3)}\n${a.points.length} marcadores · Resíduo máximo: ${(a.residualSeconds * 1000).toFixed(1)} ms · Resolução de análise: 5 ms`;
+      : `${a.wideSearch ? 'Busca ampliada até 10 minutos · ' : ''}Deslocamento: ${(a.offsetSeconds * 1000).toFixed(1)} ms · Correlação: ${a.confidence.toFixed(3)}\n${a.points.length} marcadores · Resíduo máximo: ${(a.residualSeconds * 1000).toFixed(1)} ms · Resolução de análise: 5 ms`;
     $('drift-note').textContent = a.shortClip ? 'Trecho curto: não é seguro estimar desvio progressivo; velocidade mantida.' : a.driftDetected ? `Desvio estimado: ${a.driftPpm.toFixed(0)} ppm · ${(a.driftSeconds * 1000).toFixed(1)} ms no final. Ative a correção para compensar.` : 'Nenhum desvio progressivo significativo foi medido.';
     status('Deslocamento aplicado. Confira início, meio e final antes de exportar.');
   }
@@ -138,7 +143,7 @@ async function scanPerson() {
 async function calibrateNativePreview() {
   const file = state.audioFile;
   if (!file || (!/\.mp3$/i.test(file.name) && file.type !== 'audio/mpeg')) return;
-  state.nativePreviewReady = false;
+  state.nativePreviewCalibrated = false;
   try {
     const size = Math.min(file.size, 512 * 1024, Math.max(64 * 1024, Math.ceil(file.size * 6 / state.audioInfo.duration)));
     const context = new OfflineAudioContext(1, 1, 24000);
@@ -153,10 +158,14 @@ async function calibrateNativePreview() {
     const peak = correlate(state.external.subarray(0, n), native, -50, 50, 20);
     if (file !== state.audioFile) return;
     if (peak.score < 0.8 || peak.prominence < 0.04) throw Error('Prefixo sem marcadores confiáveis.');
-    state.nativePreviewShift = peak.lag / ENVELOPE_HZ; state.nativePreviewReady = true;
+    state.nativePreviewShift = peak.lag / ENVELOPE_HZ; state.nativePreviewCalibrated = true;
     $('preview-note').textContent = `Atraso do player MP3 calibrado por correlação: ${(state.nativePreviewShift * 1000).toFixed(0)} ms. Confira também o arquivo exportado.`;
   } catch {
-    if (file === state.audioFile) $('preview-note').textContent = 'Não foi possível calibrar o player MP3. O áudio externo da prévia está pausado; confira o arquivo exportado ou selecione WAV. A exportação usa o áudio realmente decodificado.';
+    if (file === state.audioFile) {
+      state.nativePreviewShift = 0;
+      state.nativePreviewReady = true;
+      $('preview-note').textContent = 'Não foi possível calibrar o atraso do player MP3. O áudio externo continua audível na prévia, mas a precisão deve ser conferida no arquivo exportado ou usando WAV.';
+    }
   }
 }
 
@@ -179,17 +188,36 @@ function drawWave() {
 
 async function setupGraph() {
   if (graph) { await graph.ctx.resume(); return; }
+  if (state.videoInfo?.duration < 3.5) {
+    const note = $('preview-note');
+    if (!note.textContent.includes('Clipe curto: prévia direta'))
+      note.textContent += ' Clipe curto: prévia direta para iniciar os dois sons sem demora; os efeitos são aplicados na exportação.';
+    return;
+  }
+  if (graphUnavailable) return; // Native media playback remains available.
   if (!graphPromise) graphPromise = (async () => {
-    const ctx = new AudioContext();
-    if (!ctx.audioWorklet) throw Error('AudioWorklet indisponível: use outro navegador para ouvir os efeitos da edição.');
-    await ctx.audioWorklet.addModule(new URL('./audio-preview-worklet.js', import.meta.url));
-    const dsp = new AudioWorkletNode(ctx, 'aps-media-audio', { outputChannelCount: [2], processorOptions: settings('audio') });
-    const native = ctx.createGain(), edited = ctx.createGain(), ext = ctx.createGain();
-    native.gain.value = edited.gain.value = ext.gain.value = 0;
-    const vs = ctx.createMediaElementSource(video), as = ctx.createMediaElementSource(audio);
-    vs.connect(native).connect(ctx.destination); vs.connect(edited).connect(dsp); as.connect(ext).connect(dsp); dsp.connect(ctx.destination);
-    graph = { ctx, dsp, native, edited, ext }; video.muted = false; audio.muted = false;
-    await ctx.resume();
+    let ctx;
+    try {
+      ctx = new AudioContext();
+      // Begin resuming in the user's gesture, before loading the worklet.
+      const resumed = ctx.resume();
+      if (!ctx.audioWorklet) throw Error('AudioWorklet indisponível');
+      await ctx.audioWorklet.addModule(new URL('./audio-preview-worklet.js', import.meta.url));
+      const dsp = new AudioWorkletNode(ctx, 'aps-media-audio', { outputChannelCount: [2], processorOptions: settings('audio') });
+      const native = ctx.createGain(), edited = ctx.createGain(), ext = ctx.createGain();
+      native.gain.value = edited.gain.value = ext.gain.value = 0;
+      const vs = ctx.createMediaElementSource(video), as = ctx.createMediaElementSource(audio);
+      vs.connect(native).connect(ctx.destination); vs.connect(edited).connect(dsp); as.connect(ext).connect(dsp); dsp.connect(ctx.destination);
+      graph = { ctx, dsp, native, edited, ext }; video.muted = false;
+      await resumed;
+      route();
+    } catch (e) {
+      if (graph) throw e;
+      await ctx?.close().catch(() => {});
+      graphUnavailable = true;
+      route();
+      $('preview-note').textContent = `Reprodução simples ativada neste aparelho: áudio externo audível sem efeitos em tempo real (${e.message}). O arquivo exportado continua aplicando os ajustes.`;
+    }
   })();
   await graphPromise;
 }
@@ -207,11 +235,20 @@ function syncPlayback(force = false) {
   route();
   if (!state.videoInfo) return;
   const desired = externalTime(video.currentTime - state.videoInfo.videoStart, Number($('sync-offset').value) / 1000, rate()) + state.nativePreviewShift;
-  const activeAudio = state.nativePreviewReady && state.listen === 'after' && $('sync-source').value === 'external' && !video.paused && !video.seeking && video.readyState >= 3 && desired >= 0 && desired < (state.audioInfo?.duration || 0);
+  const activeAudio = state.nativePreviewReady && state.listen === 'after' && $('sync-source').value === 'external' && !video.paused && !video.seeking && video.readyState >= 2 && !!state.audioFile;
   audio.playbackRate = rate(); audio.preservesPitch = false;
-  if (!activeAudio) { audio.pause(); return; }
+  if (!activeAudio || desired >= (state.audioInfo?.duration || 0)) { audio.pause(); return; }
+  if (desired < 0) {
+    // Keep the audio element playing silently during positive-offset preroll.
+    // Mobile browsers may block a fresh play() outside the original gesture.
+    audio.muted = true;
+    if (audio.currentTime > 0.02) audio.currentTime = 0;
+    if (audio.paused) audio.play().catch(e => { if (e.name !== 'AbortError') status('Toque em “Conferir edição” para ativar o áudio externo neste celular.', true); });
+    return;
+  }
+  audio.muted = false;
   if (force || Math.abs(audio.currentTime - desired) > 0.035) audio.currentTime = desired;
-  if (audio.paused) audio.play().catch(e => { if (e.name !== 'AbortError') error(Error('Toque em “Conferir edição” para liberar a reprodução do áudio.')); });
+  if (audio.paused) audio.play().catch(e => { if (e.name !== 'AbortError') status('Toque em “Conferir edição” para ativar o áudio externo neste celular.', true); });
 }
 
 function drawPreview() {
@@ -265,7 +302,7 @@ async function render(audioOnly = false) {
     ? `\nContêiner reaberto: ${result.measuredContainer.durationSeconds.toFixed(3)} s · diferença ${(result.measuredContainer.durationDifferenceSeconds * 1000).toFixed(1)} ms · vídeo ${result.measuredContainer.videoCodec || 'nenhum'} · áudio ${result.measuredContainer.audioCodec || 'nenhum'}.`
     : `\nVerificação da duração exportada indisponível: ${result.measuredContainer?.unavailable || 'sem leitura'}.`;
   $('media-export-result').textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB · ${result.duration.toFixed(3)} s · ${result.frames} quadros\n${measured}${measuredContainer}\nReserva de canvases estimada ≥${(result.memoryEstimateBytes / 1048576).toFixed(1)} MiB; não mede RAM total.${result.stabilization ? `\nEstabilização convencional: ${Math.round(result.stabilization.coverage * 100)}% de rastreios confiáveis.` : ''}${result.framing ? `\nEnquadramento neural de pessoa: ${Math.round(result.framing.coverage * 100)}% de detecções; instrumento não detectado.` : ''}${result.clipped ? `\nAtenção: ${result.clipped} amostras de canal limitadas. Reduza o volume e exporte novamente.` : ''}`;
-  state.report = { schema: 'aps-media-report-v1', created: new Date().toISOString(), userAgent: navigator.userAgent, inputs: { video: { name: state.videoFile.name, size: state.videoFile.size, ...state.videoInfo }, audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, ...state.audioInfo } : null }, settings: { ...options, videoFile: undefined, audioFile: undefined }, nativePreview: { calibrated: state.nativePreviewReady, shiftSeconds: state.nativePreviewShift }, alignment: state.alignment, export: { ...result, blob: undefined, tempName: undefined, elapsedSeconds: (performance.now() - start) / 1000 } };
+  state.report = { schema: 'aps-media-report-v1', created: new Date().toISOString(), userAgent: navigator.userAgent, inputs: { video: { name: state.videoFile.name, size: state.videoFile.size, ...state.videoInfo }, audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, ...state.audioInfo } : null }, settings: { ...options, videoFile: undefined, audioFile: undefined }, nativePreview: { calibrated: state.nativePreviewCalibrated, shiftSeconds: state.nativePreviewShift, directPlayback: graphUnavailable }, alignment: state.alignment, export: { ...result, blob: undefined, tempName: undefined, elapsedSeconds: (performance.now() - start) / 1000 } };
   status(audioOnly ? 'Áudio WAV pronto. Preparando transferência para a DAW…' : 'Arquivo finalizado. Reproduza a exportação abaixo e baixe sua cópia.');
   if (audioOnly) { try { await transferToDAW(file); } catch (e) { throw Error(`Áudio pronto, mas a transferência falhou: ${e.message}. Baixe o WAV e importe na DAW.`); } }
 }
@@ -288,8 +325,29 @@ $('media-report').addEventListener('click', () => { if (!state.report) return; c
 for (const el of document.querySelectorAll('[data-video], [data-audio]')) el.addEventListener('input', () => { const out = document.querySelector(`output[for="${el.id}"]`); if (out) out.value = el.value; drawPreview(); graph?.dsp.port.postMessage(settings('audio')); });
 for (const id of ['sync-offset', 'sync-drift', 'sync-source', 'sync-aspect', 'sync-resolution']) $(id).addEventListener('input', () => { syncPlayback(true); drawWave(); drawPreview(); readiness(); capabilities().catch(error); });
 for (const el of document.querySelectorAll('[data-nudge]')) el.addEventListener('click', () => { const n = el.dataset.nudge, amount = n.includes('frame') ? (n[0] === '-' ? -1 : 1) * 1000 / (state.videoInfo?.fps || 30) : Number(n); $('sync-offset').value = Math.max(-600000, Math.min(600000, Number($('sync-offset').value) + amount)).toFixed(2); syncPlayback(true); drawWave(); });
-for (const mode of ['before', 'after']) $(`listen-${mode}`).addEventListener('click', async () => { try { state.listen = mode; await setupGraph(); route(); $('listen-before').setAttribute('aria-pressed', String(mode === 'before')); $('listen-after').setAttribute('aria-pressed', String(mode === 'after')); await video.play(); syncPlayback(true); } catch (e) { error(e); } });
-video.addEventListener('play', () => { setupGraph().then(() => syncPlayback(true)).catch(error); animate(); });
+for (const mode of ['before', 'after']) $(`listen-${mode}`).addEventListener('click', async () => {
+  try {
+    if (video.ended) video.currentTime = 0;
+    state.listen = mode;
+    route();
+    $('listen-before').setAttribute('aria-pressed', String(mode === 'before'));
+    $('listen-after').setAttribute('aria-pressed', String(mode === 'after'));
+    // Start both native media players in the SAME user gesture. Short files
+    // can end before a slow AudioWorklet download/initialization completes.
+    const graphReady = setupGraph();
+    const videoStart = video.play();
+    if (mode === 'after' && $('sync-source').value === 'external' && state.audioFile) {
+      const desired = externalTime(video.currentTime - (state.videoInfo?.videoStart || 0), Number($('sync-offset').value) / 1000, rate()) + state.nativePreviewShift;
+      audio.currentTime = Math.max(0, Math.min(desired, Math.max(0, (state.audioInfo?.duration || 0) - 0.01)));
+      audio.muted = desired < 0;
+      audio.play().catch(e => { if (e.name !== 'AbortError') status('O navegador bloqueou o áudio. Toque novamente em “Conferir edição”.', true); });
+    } else audio.pause();
+    await videoStart;
+    await graphReady;
+    syncPlayback(true);
+  } catch (e) { error(e); }
+});
+video.addEventListener('play', () => { syncPlayback(true); setupGraph().then(() => syncPlayback(true)).catch(error); animate(); });
 for (const event of ['seeked', 'loadeddata']) video.addEventListener(event, () => { drawPreview(); syncPlayback(true); });
 for (const event of ['pause', 'seeking', 'waiting', 'ended']) video.addEventListener(event, () => audio.pause());
 video.addEventListener('playing', () => syncPlayback(true));
