@@ -36,7 +36,7 @@
     <div class="media-grid">
       <div>
         <label class="check-row"><input id="v-autoFrame" data-video="autoFrame" type="checkbox">Enquadramento inteligente da pessoa (IA no aparelho)</label>
-        <p class="fineprint">Modelo MediaPipe Pose Landmarker Lite (float16/1), licença Apache-2.0. Detecta a postura de uma pessoa, incluindo pulsos e mãos, mas NÃO reconhece o contorno do instrumento. Revise o corte antes de exportar.</p>
+        <p class="fineprint">Modelo MediaPipe Pose Landmarker Lite (float16/1), licença Apache-2.0. Detecta uma pessoa, incluindo pulsos e mãos, mas NÃO o contorno do instrumento. Se o corpo não couber no corte, surgirão faixas pretas para preservar a imagem inteira. Revise antes de exportar.</p>
       </div>
       <div><button class="btn" id="frame-analyze" type="button" disabled>Detectar pessoa no vídeo</button>
         <p id="frame-result" class="readout" role="status">Detecção desligada. O recorte continua manual.</p>
