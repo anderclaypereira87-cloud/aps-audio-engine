@@ -24,7 +24,16 @@
     <div class="media-grid">
       <div><label>Exposição (EV)<output for="v-exposure">0</output><input id="v-exposure" data-video="exposure" type="range" min="-2" max="2" step="0.05" value="0"></label><label>Contraste (%)<output for="v-contrast">0</output><input id="v-contrast" data-video="contrast" type="range" min="-50" max="50" value="0"></label><label>Saturação (%)<output for="v-saturation">0</output><input id="v-saturation" data-video="saturation" type="range" min="-100" max="60" value="0"></label><label>Balanço de branco: frio / quente<output for="v-temperature">0</output><input id="v-temperature" data-video="temperature" type="range" min="-60" max="60" value="0"></label><label>Tonalidade: verde / magenta<output for="v-tint">0</output><input id="v-tint" data-video="tint" type="range" min="-50" max="50" value="0"></label></div>
       <div><label>Redução de ruído visual<output for="v-denoise">0</output><input id="v-denoise" data-video="denoise" type="range" min="0" max="60" value="0"></label><label>Nitidez<output for="v-sharpness">0</output><input id="v-sharpness" data-video="sharpness" type="range" min="0" max="60" value="0"></label><label>Zoom do recorte<output for="v-zoom">1</output><input id="v-zoom" data-video="zoom" type="range" min="1" max="3" step="0.01" value="1"></label><label>Enquadramento horizontal<output for="v-x">0.5</output><input id="v-x" data-video="x" type="range" min="0" max="1" step="0.01" value="0.5"></label><label>Enquadramento vertical<output for="v-y">0.5</output><input id="v-y" data-video="y" type="range" min="0" max="1" step="0.01" value="0.5"></label></div>
-    </div><p class="fineprint">Estabilização e rastreamento automático do músico: ainda indisponíveis. O recorte é manual.</p>
+    </div>
+    <div class="media-grid">
+      <div><label for="v-stabilization">Estabilização convencional por rastreamento de pontos (%) <output for="v-stabilization">0</output>
+        <input id="v-stabilization" data-video="stabilization" type="range" min="0" max="100" step="5" value="0"></label>
+        <p class="fineprint">0 = desligado; 100 = suavização total. O algoritmo identifica movimento global em pontos da imagem, suaviza a trajetória e recorta as bordas, sem deformar mãos, cordas ou instrumentos.</p></div>
+      <div><button class="btn" id="motion-analyze" type="button" disabled>Analisar tremor do vídeo</button>
+        <p id="motion-result" class="readout" role="status">Estabilização desligada ou ainda não analisada.</p>
+        <p class="fineprint">Compare o vídeo original (esquerda) e a prévia (direita). Antes de analisar, a prévia permanece sem estabilização. Se optar por exportar com estabilização ativa, a análise ocorrerá automaticamente no processamento.</p></div>
+    </div>
+    <p class="fineprint">Enquadramento automático por detecção de pessoa/músico e melhoria visual por rede neural: indisponíveis nesta etapa. O enquadramento 16:9, 9:16 e 4:5 permanece manual, para evitar cortar mãos e instrumento. Exposição, cor, nitidez, redução de ruído e ampliação 4K são operações convencionais, sem recuperação garantida de detalhes.</p>
   </details>
   <details><summary>4 · Melhorar áudio</summary>
     <p class="sub">Processamento convencional, sem gerar ou substituir a execução. Todos os efeitos começam desligados.</p>
