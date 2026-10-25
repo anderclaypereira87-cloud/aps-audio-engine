@@ -52,35 +52,50 @@ function classify(sentence,track){const s=clean(sentence);const name=clean(track
  if(/baixar volume|menos volume|mais baixo|reduz|diminu/.test(s)){set('gain',clip(track.gain-12,0,150));tags.push('redução de volume');}
  if(/menos grave|grave menor|sem embol|tirar grave|limp.*grave/.test(s)){set('bass',clip(track.bass-3,-12,12));tags.push('graves controlados');}
  if(/grave forte|mais grave|grave present|peso|punch/.test(s)){set('bass',clip(track.bass+3,-12,12));tags.push('reforço de graves');}
- if(/menos agudo|menos brilh|prato suave|sem asperez|menos estriden/.test(s)){set('treble',clip(track.treble-3,-12,12));tags.push('redução de agudos');}
+ if(/menos agudo|menos brilh|prato suave|pratos suaves|sem asperez|menos estriden/.test(s)){set('treble',clip(track.treble-3,-12,12));tags.push('redução de agudos');}
  if(/mais med|m[eé]dios present|definic.*m[eé]di/.test(s)){set('mid',clip(track.mid+3,-12,12));tags.push('definição de médios');}
- if(/seco|sem reverb|sem ambi/.test(s)){set('reverb',0);set('delay',0);tags.push('som seco');}
- if(/reverb|ambi[eê]ncia|espac|sala/.test(s)){set('reverb',clip(track.reverb+8,0,40));tags.push('ambiência discreta');}
+ if(/seco|sem reverb|tirar reverb|remover reverb|sem ambi/.test(s)){set('reverb',0);set('delay',0);tags.push('som seco');}
+ if(!/sem reverb|tirar reverb|remover reverb|sem ambi/.test(s)&&/reverb|ambi[eê]ncia|espac|sala/.test(s)){set('reverb',clip(track.reverb+8,0,40));tags.push('ambiência discreta');}
  if(/compress|control.*din[aâ]mic/.test(s)){set('comp',true);tags.push('compressão dinâmica');}
  if(/sem compres|tirar compres/.test(s)){set('comp',false);tags.push('compressor desligado');}
  if(/esquerd/.test(s)){set('pan',-38);tags.push('pan à esquerda');}
  if(/direit/.test(s)){set('pan',38);tags.push('pan à direita');}
  if(/centro|centraliz/.test(s)){set('pan',0);tags.push('pan central');}
  // Entender alvos por frase: voz, baixo, bateria etc. Evita aplicar descrição de baixo a todos.
- if(!tags.length){if(voice){vals={mid:clip(track.mid+1,-12,12)};tags=['leve presença da voz'];}else if(kick){vals={bass:clip(track.bass+1,-12,12)};tags=['corpo de bumbo'];}else if(bass){vals={mid:clip(track.mid+1,-12,12)};tags=['definição do baixo'];}else if(drum){vals={gain:track.gain};tags=['preservar bateria sem alterações'];}else{vals={gain:track.gain};tags=['sem ajuste necessário'];}}
+ if(!tags.length){vals={};tags=['nenhum ajuste reconhecido nesta pista'];}
  return {vals,tags};
 }
-function sentencesForTrack(text,t,global){const normalized=clean(text);if(!global)return text;
- // Decomposição por palavras-alvo de instrumentos; segmentos independentes isolam os pedidos.
- const pieces=text.split(/[;\n]|,(?=\s*(?:o |a |os |as |quero |voz|baixo|bateria|guitarra|piano|teclado))/i).map(x=>x.trim()).filter(Boolean);
- if(pieces.length<2)return text;
- const kinds={bass:/\bbaix|fretless|contrabaix/i,drum:/bateri|bumbo|caixa|prato|chimbal/i,voice:/voz|vocal|canto/i,guitar:/guitarr|viol[aã]o/i,piano:/piano|teclad/i};
- const k=/bass|baixo|fretless/.test(clean(t.name+' '+t.type))?'bass':isDrum(t)?'drum':/voz|vocal/.test(clean(t.name+' '+t.type))?'voice':/guitarra|violao/.test(clean(t.name+' '+t.type))?'guitar':/piano|teclado/.test(clean(t.name+' '+t.type))?'piano':null;
- return pieces.filter(p=>{const matches=Object.entries(kinds).filter(([,re])=>re.test(p)).map(([key])=>key);return !matches.length||matches.includes(k)}).join('. ')||'Preserve naturalidade';
+function sentencesForTrack(text,t,global){
+ if(!global)return text;
+ const rejoin=String(text||'').replace(/\s+(?:e|mas)\s+(?=(?:o |a |os |as )?(?:baixo|contrabaixo|fretless|voz|vocal|bateria|bumbo|caixa|chimbal|pratos|guitarra|violao|violão|piano|teclado)\b)/gi,'; ');
+ const pieces=rejoin.split(/[;\n]|,(?=\s*(?:o |a |os |as )?(?:voz|baixo|bateria|guitarra|piano|teclado|pratos|chimbal))/i).map(x=>x.trim()).filter(Boolean);
+ const kinds={bass:/\b(?:baixo|contrabaixo|fretless|bass)\b/,drum:/\bbateria\b/,kick:/\b(?:bumbo|kick)\b/,snare:/\b(?:caixa|snare)\b/,cymbal:/\b(?:pratos?|chimbal|crash|ride|splash|hi.hat)\b/,voice:/\b(?:voz|vocal|canto)\b/,guitar:/\b(?:guitarra|violao)\b/,piano:/\b(?:piano|teclado)\b/};
+ const n=clean(t.name+' '+t.type);
+ const target=/bass|baixo|fretless/.test(n)?'bass':isDrum(t)?(/bumbo|kick/.test(n)?'kick':/caixa|snare/.test(n)?'snare':/chimbal|prato|crash|ride|splash|hat/.test(n)?'cymbal':'drum'):/voz|vocal/.test(n)?'voice':/guitarra|violao/.test(n)?'guitar':/piano|teclado/.test(n)?'piano':null;
+ return pieces.filter(p=>{const normalized=clean(p),matches=Object.entries(kinds).filter(([,re])=>re.test(normalized)).map(([key])=>key);return !matches.length||matches.includes(target)||(matches.includes('drum')&&isDrum(t))}).join('. ');
 }
-function preview(){const text=$('apsMixRequest').value.trim();if(text.length<5){say('Escreva como deseja o som. Exemplo: "baixo aveludado e presente, voz clara, pratos suaves".','error');return;}
- const tracks=all(),isGlobal=$('apsMixTarget').value==='all';const chosen=isGlobal?tracks:tracks.filter(t=>t.id===$('apsMixTarget').value);
+function preview(){
+ const text=$('apsMixRequest').value.trim();
+ if(text.length<5){say('Escreva como deseja o som. Exemplo: "baixo aveludado e presente, voz clara, pratos suaves".','error');return;}
+ const tracks=all(),isGlobal=$('apsMixTarget').value==='all',chosen=isGlobal?tracks:tracks.filter(t=>t.id===$('apsMixTarget').value);
  if(!chosen.length){say('Ainda não há pistas disponíveis. Importe áudio primeiro.','error');return;}
- const needCloud=/separ(a|e)|isol(ar|e)|transcri|partitura|afinar|autotune|melodyne|harmoni|masteriz.*\bia\b|identific.*acord/.test(clean(text));
- const target=chosen.map(t=>{const {vals,tags}=classify(sentencesForTrack(text,t,isGlobal),t);if($('apsMixFlavor').value==='strong'&&vals.gain!==undefined){vals.gain=clip(vals.gain+5,0,150);tags.push('presença reforçada');}return {id:t.id,name:t.name,values:vals,tags};});
- pending=target;lastPrompt=text;
- $('apsMixApply').disabled=false;
- say('Prévia dos ajustes — nada foi alterado ainda:\n'+target.map(t=>'• '+t.name+': '+t.tags.join(', ')).join('\n')+'\n\n'+(needCloud?'Atenção: separação, identificação harmônica e afinador neural não estão conectados à IA avançada; esses pedidos não serão executados.\n\n':'')+'Confirme em “Aplicar ao áudio”. As gravações originais e seus ataques permanecem intactos.');
+ const advanced=[
+  ['quantização ou correção do tempo',/quantiz|corrig.*tempo|alinhar notas/],
+  ['afinação das notas',/afina|autotune|melodyne/],
+  ['separação neural de instrumentos',/separar|isol(ar|amento)|stems/],
+  ['criação de pads, harmonia ou MIDI',/criar.*pad|adicionar.*pad|gerar.*midi|criar.*acord|harmoni.*novo/],
+  ['partitura ou transcrição',/partitura|transcri/],
+  ['sincronização audiovisual',/sincroniz.*video|video.*sincroniz/]
+ ].filter(([,rx])=>rx.test(clean(text))).map(([name])=>name);
+ const target=chosen.map(t=>{const scoped=sentencesForTrack(text,t,isGlobal);if(!scoped.trim())return null;
+  const {vals,tags}=classify(scoped,t);if(!Object.keys(vals).length)return null;
+  if($('apsMixFlavor').value==='strong'&&vals.gain!==undefined){vals.gain=clip(vals.gain+5,0,150);tags.push('presença reforçada');}
+  return {id:t.id,name:t.name,values:vals,tags};
+ }).filter(Boolean);
+ pending=target.length?target:null;lastPrompt=text;$('apsMixApply').disabled=!pending;
+ const warning=advanced.length?'Este assistente ainda não executa: '+advanced.join(', ')+'. Use os módulos específicos quando disponíveis.\n\n':'';
+ if(!target.length){say('Nenhum ajuste de mixagem executável foi reconhecido; nada será alterado.\n\n'+warning+'Experimente: "baixo aveludado", "voz mais clara", "pratos suaves" ou "menos reverb".','error');return;}
+ say('Prévia de mixagem local — nada foi alterado ainda:\n'+target.map(t=>'• '+t.name+': '+t.tags.join(', ')).join('\n')+'\n\n'+warning+'Esta versão interpreta comandos por regras de engenharia de áudio, não por um modelo de linguagem. Confirme em “Aplicar ao áudio”. As notas e a execução originais permanecem intactas.');
 }
 function apply(){if(!pending?.length){say('Analise um pedido antes de aplicar.');return;}try{undo=bridge.update(pending.map(({id,values})=>({id,values})));pending=null;$('apsMixApply').disabled=true;$('apsMixUndo').disabled=!undo?.length;render();say('Ajustes aplicados ao motor da DAW. Agora reproduza ou exporte a mixagem WAV. Você pode desfazer.\nPedido: '+lastPrompt,'ok');}catch(e){say('Não foi possível aplicar: '+e.message,'error');}}
 function revert(){if(!undo?.length)return;try{bridge.update(undo);undo=null;$('apsMixUndo').disabled=true;render();say('Ajustes desfeitos. Os valores dos canais voltaram ao estado anterior.','ok');}catch(e){say(e.message,'error');}}
