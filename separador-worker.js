@@ -10,7 +10,7 @@ export const MODELS={
  // Pesos completos fp16 hospedados no Hugging Face (StemSplitio/htdemucs-6s-onnx, licença MIT).
  completo:{url:'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx',mb:136,label:'Completo'},
  // Pesos int8 por canal, gerados pelo APS (models/quantizar_pesos_int8.py), servidos pelo próprio site.
- leve:{url:new URL('./models/htdemucs_6s_leve_v3.onnx',self.location).href,mb:42,label:'Leve'}
+ leve:{url:new URL('./models/htdemucs_6s_leve_v3.onnx',self.location).href,mb:37,label:'Leve'}
 };
 const MODEL_CACHE='aps-models-v1';
 let cancelled=false;
