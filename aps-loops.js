@@ -71,6 +71,40 @@ function ui(){const host=document.getElementById('apsLoopsPanel'),B=root.APSMixB
  host.addEventListener('dragstart',e=>{const c=e.target.closest('.aps-lp-card');if(c)e.dataTransfer.setData('text/aps-loop',c.dataset.id);});
  const drop=document.getElementById('tracks')||document.querySelector('.tracks')||document.querySelector('.layout > main > section.panel');
  if(drop){drop.addEventListener('dragover',e=>{if([...e.dataTransfer.types].includes('text/aps-loop'))e.preventDefault();});drop.addEventListener('drop',e=>{const id=e.dataTransfer.getData('text/aps-loop');if(!id)return;e.preventDefault();e.stopPropagation();try{add(id);}catch(err){$('apsLpInfo').textContent=err.message;}});}
- $('apsLpGenre').onchange=()=>{stopPrev();list();};$('apsLpBpm').onclick=()=>{B.setBpm(GENRES[$('apsLpGenre').value].bpm);info();};list();}
+ 
+ $('apsLpGenre').onchange=()=>{stopPrev();list();};$('apsLpBpm').onclick=()=>{B.setBpm(GENRES[$('apsLpGenre').value].bpm);info();};list();
+ const own=document.createElement('section');own.className='aps-lp';own.innerHTML='<h3>🎙 Loops reais do músico</h3><p class="sub">Importe gravações reais em WAV ou MP3, sem envio à nuvem. BPM e duração originais são preservados (sem time-stretch automático).</p><input id="apsLpOwnFiles" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac" multiple aria-label="Importar loops reais" style="max-width:100%"><p id="apsLpOwnNotice" class="sub">Até 6 arquivos por vez, com até 25 MB cada. A lista funciona nesta sessão.</p><div id="apsLpOwnList" class="aps-lp-list"></div>';host.append(own);
+ let ownCount=0;const notice=$('apsLpOwnNotice'),listOwn=$('apsLpOwnList');
+ $('apsLpOwnFiles').addEventListener('change',async event=>{
+  const files=Array.from(event.target.files||[]).slice(0,6);
+  if(!files.length)return;
+  notice.textContent='Importando '+files.length+' gravação(ões) localmente…';
+  const errs=[];let successes=0;
+  try{pctx=pctx||new (root.AudioContext||root.webkitAudioContext)();
+   for(const file of files){
+    if(ownCount>=24){errs.push('limite de 24 gravações');break;}
+    if(file.size>25*1024*1024){errs.push(file.name+': arquivo muito grande');continue;}
+    try{
+     const decoded=await pctx.decodeAudioData(await file.arrayBuffer());
+     if(!decoded.duration)throw Error('arquivo sem áudio');
+     const kind=/baixo|bass|fretless/i.test(file.name)?'bass':/bateria|drum|bumbo|caixa|chimbal|snare|kick|perc/i.test(file.name)?'drums':'flat';
+     const card=document.createElement('div');card.className='aps-lp-card';
+     const title=document.createElement('b');title.textContent=file.name+' · '+decoded.duration.toFixed(1)+' s';
+     const preview=document.createElement('button');preview.type='button';preview.textContent='▶';preview.setAttribute('aria-label','Ouvir '+file.name);
+     const insert=document.createElement('button');insert.type='button';insert.className='accent';insert.textContent='+ Adicionar';
+     preview.addEventListener('click',async()=>{
+      const playing=preview.textContent==='■';stopPrev();listOwn.querySelectorAll('button[data-own-play]').forEach(b=>b.textContent='▶');
+      if(playing)return;
+      await pctx.resume();const node=pctx.createBufferSource();node.buffer=decoded;node.loop=true;node.connect(pctx.destination);node.start();prev=node;preview.textContent='■';
+     });preview.dataset.ownPlay='1';
+     insert.addEventListener('click',()=>{const at=B.position();B.addTrack('Loop real · '+file.name,decoded,kind,at);notice.textContent='✅ '+file.name+' adicionado na posição '+at.toFixed(1)+' s, sem mudar o ritmo.';});
+     card.append(title,preview,insert);listOwn.append(card);successes++;ownCount++;
+    }catch(err){errs.push(file.name+': '+(err.message||'não foi possível decodificar'));}
+   }
+  }catch(err){errs.push(err.message||'áudio não suportado neste navegador');}
+  notice.textContent=successes+' arquivo(s) carregado(s). '+(errs.length?'Falhas: '+errs.join('; '):'Use ▶ para ouvir e + para adicionar à pista.');
+  event.target.value='';
+ });
+}
 if(typeof document!=='undefined'){if(document.readyState==='complete')ui();else root.addEventListener('load',ui);}
 })(window);
