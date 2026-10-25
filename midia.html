@@ -33,7 +33,17 @@
         <p id="motion-result" class="readout" role="status">Estabilização desligada ou ainda não analisada.</p>
         <p class="fineprint">Compare o vídeo original (esquerda) e a prévia (direita). Antes de analisar, a prévia permanece sem estabilização. Se optar por exportar com estabilização ativa, a análise ocorrerá automaticamente no processamento.</p></div>
     </div>
-    <p class="fineprint">Enquadramento automático por detecção de pessoa/músico e melhoria visual por rede neural: indisponíveis nesta etapa. O enquadramento 16:9, 9:16 e 4:5 permanece manual, para evitar cortar mãos e instrumento. Exposição, cor, nitidez, redução de ruído e ampliação 4K são operações convencionais, sem recuperação garantida de detalhes.</p>
+    <div class="media-grid">
+      <div>
+        <label class="check-row"><input id="v-autoFrame" data-video="autoFrame" type="checkbox">Enquadramento inteligente da pessoa (IA no aparelho)</label>
+        <p class="fineprint">Modelo MediaPipe Pose Landmarker Lite (float16/1), licença Apache-2.0. Detecta a postura de uma pessoa, incluindo pulsos e mãos, mas NÃO reconhece o contorno do instrumento. Revise o corte antes de exportar.</p>
+      </div>
+      <div><button class="btn" id="frame-analyze" type="button" disabled>Detectar pessoa no vídeo</button>
+        <p id="frame-result" class="readout" role="status">Detecção desligada. O recorte continua manual.</p>
+        <p class="fineprint">O modelo será baixado de fontes públicas quando ativado, exige internet na primeira execução e pode não funcionar em aparelhos com pouca memória. Nenhum vídeo é enviado a esses servidores.</p>
+      </div>
+    </div>
+    <p class="fineprint">Enquadramento 16:9, 9:16 ou 4:5 com ajuste horizontal, vertical e zoom manual. A detecção de pessoa é opcional. Exposição, cor, nitidez, redução de ruído e ampliação 4K são operações convencionais, sem recuperação garantida de detalhes. Restauração neural de imagem ainda indisponível.</p>
   </details>
   <details><summary>4 · Melhorar áudio</summary>
     <p class="sub">Processamento convencional, sem gerar ou substituir a execução. Todos os efeitos começam desligados.</p>
