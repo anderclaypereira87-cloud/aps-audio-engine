@@ -52,6 +52,19 @@ exportação corrigida foi produzida ou verificada. A resolução da análise de
 chroma é 150 ms. A meta de ≤1 quadro depende de um teste independente do
 arquivo exportado, em início, meio e fim.
 
+### Ensaio offline de correção temporal com material real
+
+Decodificou-se uma cópia PCM mono/8 kHz dos arquivos reais e executou-se o
+mesmo algoritmo de WSOLA com janela/hop redimensionados à taxa do ensaio,
+em **memória**, sem sobrescrever nem publicar arquivos. A saída teve a mesma
+duração PCM do vídeo, **126,108 s**. Repetindo a análise musical, foram
+identificados 12 trechos concordantes, `rate = 1` e `offsetSeconds = 0`
+**na resolução de 150 ms**, confiança mediana **0,921**.
+
+Isso valida a direção do mapeamento e a capacidade de compensar o desvio
+acentuado no núcleo WSOLA. **Não** é prova de exportação MP4/WebM a 48 kHz,
+nem prova de precisão quadro a quadro ou ausência de artefatos audíveis.
+
 ## Pendências antes da publicação de produção
 
 1. Exportar uma amostra real em MP4/AAC e WebM/Opus e medir quadro a quadro,
