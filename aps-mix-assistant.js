@@ -52,7 +52,7 @@ function classify(sentence,track){const s=clean(sentence);const name=clean(track
  if(/baixar volume|menos volume|mais baixo|reduz|diminu/.test(s)){set('gain',clip(track.gain-12,0,150));tags.push('redução de volume');}
  if(/menos grave|grave menor|sem embol|tirar grave|limp.*grave/.test(s)){set('bass',clip(track.bass-3,-12,12));tags.push('graves controlados');}
  if(/grave forte|mais grave|grave present|peso|punch/.test(s)){set('bass',clip(track.bass+3,-12,12));tags.push('reforço de graves');}
- if(/menos agudo|menos brilh|prato suave|pratos suaves|sem asperez|menos estriden/.test(s)){set('treble',clip(track.treble-3,-12,12));tags.push('redução de agudos');}
+ if(/menos agudo|menos brilh|prato suave|pratos suaves|chimbal suave|chimbal delicad|hat suave|sem asperez|menos estriden/.test(s)){set('treble',clip(track.treble-3,-12,12));tags.push('redução de agudos');}
  if(/mais med|m[eé]dios present|definic.*m[eé]di/.test(s)){set('mid',clip(track.mid+3,-12,12));tags.push('definição de médios');}
  if(/seco|sem reverb|tirar reverb|remover reverb|sem ambi/.test(s)){set('reverb',0);set('delay',0);tags.push('som seco');}
  if(!/sem reverb|tirar reverb|remover reverb|sem ambi/.test(s)&&/reverb|ambi[eê]ncia|espac|sala/.test(s)){set('reverb',clip(track.reverb+8,0,40));tags.push('ambiência discreta');}
@@ -69,10 +69,10 @@ function sentencesForTrack(text,t,global){
  if(!global)return text;
  const rejoin=String(text||'').replace(/\s+(?:e|mas)\s+(?=(?:o |a |os |as )?(?:baixo|contrabaixo|fretless|voz|vocal|bateria|bumbo|caixa|chimbal|pratos|guitarra|violao|violão|piano|teclado)\b)/gi,'; ');
  const pieces=rejoin.split(/[;\n]|,(?=\s*(?:o |a |os |as )?(?:voz|baixo|bateria|guitarra|piano|teclado|pratos|chimbal))/i).map(x=>x.trim()).filter(Boolean);
- const kinds={bass:/\b(?:baixo|contrabaixo|fretless|bass)\b/,drum:/\bbateria\b/,kick:/\b(?:bumbo|kick)\b/,snare:/\b(?:caixa|snare)\b/,cymbal:/\b(?:pratos?|chimbal|crash|ride|splash|hi.hat)\b/,voice:/\b(?:voz|vocal|canto)\b/,guitar:/\b(?:guitarra|violao)\b/,piano:/\b(?:piano|teclado)\b/};
+ const kinds={bass:/\b(?:baixo|contrabaixo|fretless|bass)\b/,drum:/\bbateria\b/,kick:/\b(?:bumbo|kick)\b/,snare:/\b(?:caixa|snare)\b/,cymbal:/\b(?:pratos?|crash|ride|splash)\b/,hat:/\b(?:chimbal|hi.hat)\b/,voice:/\b(?:voz|vocal|canto)\b/,guitar:/\b(?:guitarra|violao)\b/,piano:/\b(?:piano|teclado)\b/};
  const n=clean(t.name+' '+t.type);
- const target=/bass|baixo|fretless/.test(n)?'bass':isDrum(t)?(/bumbo|kick/.test(n)?'kick':/caixa|snare/.test(n)?'snare':/chimbal|prato|crash|ride|splash|hat/.test(n)?'cymbal':'drum'):/voz|vocal/.test(n)?'voice':/guitarra|violao/.test(n)?'guitar':/piano|teclado/.test(n)?'piano':null;
- return pieces.filter(p=>{const normalized=clean(p),matches=Object.entries(kinds).filter(([,re])=>re.test(normalized)).map(([key])=>key);return !matches.length||matches.includes(target)||(matches.includes('drum')&&isDrum(t))}).join('. ');
+ const target=/bass|baixo|fretless/.test(n)?'bass':isDrum(t)?(/bumbo|kick/.test(n)?'kick':/caixa|snare/.test(n)?'snare':/chimbal|hi.hat|hat/.test(n)?'hat':/prato|crash|ride|splash/.test(n)?'cymbal':'drum'):/voz|vocal/.test(n)?'voice':/guitarra|violao/.test(n)?'guitar':/piano|teclado/.test(n)?'piano':null;
+ return pieces.filter(p=>{const normalized=clean(p),matches=Object.entries(kinds).filter(([,re])=>re.test(normalized)).map(([key])=>key);return !matches.length||matches.includes(target)||(matches.includes('cymbal')&&target==='hat')||(matches.includes('drum')&&isDrum(t))}).join('. ');
 }
 function preview(){
  const text=$('apsMixRequest').value.trim();
