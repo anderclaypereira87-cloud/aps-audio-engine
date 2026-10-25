@@ -34,6 +34,29 @@ ff(['-i',root/'offset-250ms.wav','-c:a','libmp3lame','-b:a','128k',root/'offset-
 video('reference.wav','reference.mp4','320x180',30,16)
 video('reference.wav','no-reference.mp4','320x180',30,16,False)
 video('reference.wav','1080.mp4','1920x1080',30,2)
+# Motion-tracking fixture: the camera shakes while a fixed, textured scene
+# remains stationary in world coordinates. Encoded as actual H.264/AAC.
+def jitter_video():
+    w,h,fps,seconds=320,180,15,10
+    random=np.random.default_rng(604)
+    colors=random.integers(30,220,(27,45,3),dtype=np.uint8)
+    texture=np.repeat(np.repeat(colors,8,axis=0),8,axis=1)
+    cmd=['ffmpeg','-hide_banner','-loglevel','error','-y','-f','rawvideo',
+         '-pixel_format','rgb24','-video_size',f'{w}x{h}','-framerate',str(fps),
+         '-i','pipe:0','-i',str(root/'reference.wav'),'-map','0:v','-map','1:a',
+         '-t',str(seconds),'-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p',
+         '-c:a','aac','-b:a','128k',str(root/'camera-jitter.mp4')]
+    process=subprocess.Popen(cmd,stdin=subprocess.PIPE)
+    try:
+        for frame in range(fps*seconds):
+            x=10+round(4*np.sin(frame*.18)+2*np.sin(frame*.10))
+            y=10+round(3*np.cos(frame*.13)+2*np.sin(frame*.22))
+            process.stdin.write(texture[y:y+h,x:x+w].tobytes())
+        process.stdin.close()
+        if process.wait(): raise RuntimeError('Falha ao gerar vídeo de tremor sintético.')
+    finally:
+        if process.poll() is None: process.kill()
+jitter_video()
 long=signal(590); save('long-reference.wav',long); save('drift-1000ppm.wav',warp(long,.25,1.001))
 video('long-reference.wav','long-reference.mp4','160x90',10,590)
 print(root)
