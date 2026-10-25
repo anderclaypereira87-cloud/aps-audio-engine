@@ -177,7 +177,17 @@
       results.hidden = false;
       download.href = lastUrl;
       download.download = file.name;
-      status('Vídeo pronto (' + (file.size / 1048576).toFixed(1) + ' MB). Pista de áudio gravada separadamente em WAV.');
+      try {
+        const {verifyRecording} = await import('./central-media/recording/verify-recording.js');
+        const check = await verifyRecording(file);
+        status('Vídeo pronto (' + (file.size / 1048576).toFixed(1) + ' MB). ' +
+          'Arquivo com vídeo ' + check.videoCodec + ' e áudio ' + check.audioCodec +
+          '; início das faixas difere ' + check.startDifferenceMs.toFixed(1) +
+          ' ms. Confira o som e o alinhamento na DAW.');
+      } catch (verifyError) {
+        status('Vídeo salvo para download, mas não foi possível conferir as duas faixas: ' +
+          verifyError.message + '. Ouça o arquivo antes de compartilhar.', true);
+      }
       return {file, offset: startOffset, startedAt};
     } catch (e) {
       status('O vídeo não foi salvo: ' + (e?.message || e) + '. A pista WAV continua independente.', true);
