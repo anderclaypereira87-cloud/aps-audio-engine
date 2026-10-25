@@ -1,0 +1,31 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS · Nova senha</title><meta name="robots" content="noindex"><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0b0e17;color:#f2e9d8;font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center}main{width:min(430px,calc(100% - 30px));padding:26px;border:1px solid #8a7147;border-radius:18px;background:#192031}h1{color:#e7c383}label{display:block;margin:14px 0 5px}input{width:100%;font:inherit;padding:12px;color:#fff;background:#0e1320;border:1px solid #576273;border-radius:8px}button{width:100%;font:inherit;font-weight:800;background:#e2bc76;color:#1c1e23;padding:13px;margin:17px 0;border:0;border-radius:9px;cursor:pointer}button:disabled{opacity:.5}a{color:#e7c383}#status{color:#f2d7a4}</style></head>
+<body><main><h1>Crie uma nova senha</h1><form id="form"><label for="password">Nova senha (mínimo 8 caracteres)</label><input id="password" type="password" minlength="8" autocomplete="new-password" required><label for="confirm">Repita a senha</label><input id="confirm" type="password" minlength="8" autocomplete="new-password" required><button id="save" disabled>Salvar nova senha</button></form><p id="status" role="status">Verificando seu link...</p><a href="./login.html">Voltar ao login</a></main>
+<script src="./auth-config.js"></script><script src="./aps-pay.js"></script><script src="./aps-auth.js"></script>
+<script>
+(async function(){
+  const status=document.getElementById('status'),save=document.getElementById('save');
+  let sb;
+  try{
+    sb=await APSAccount.client();
+    const {data,error}=await sb.auth.getSession();
+    if(error) throw error;
+    if(!data.session) throw new Error('O link expirou ou já foi utilizado. Peça outro pelo login.');
+    history.replaceState(null,'',location.pathname);
+    save.disabled=false;status.textContent='Informe sua nova senha.';
+  }catch(e){status.textContent=e.message;}
+  document.getElementById('form').onsubmit=async e=>{
+    e.preventDefault();
+    const pass=document.getElementById('password').value;
+    if(pass!==document.getElementById('confirm').value){status.textContent='As senhas estão diferentes.';return;}
+    if(pass.length<8){status.textContent='Use pelo menos 8 caracteres.';return;}
+    save.disabled=true;
+    try{
+      const {error}=await sb.auth.updateUser({password:pass});
+      if(error) throw error;
+      await sb.auth.signOut();
+      status.textContent='Senha atualizada. Entre novamente com sua nova senha.';
+      document.getElementById('form').hidden=true;
+    }catch(e){status.textContent='Não foi possível trocar a senha: '+e.message;save.disabled=false;}
+  };
+})();
+</script></body></html>

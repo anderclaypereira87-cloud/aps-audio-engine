@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>APS · Administração de perfis</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0e17;color:#f2ece3;font:15px/1.5 system-ui,sans-serif}main{max-width:1100px;margin:18px auto;padding:18px}h1{color:#eac781}a{color:#eac781}p{color:#bfc6d0}.table{overflow-x:auto;border:1px solid #5a4c36;border-radius:13px;background:#171d2b}table{border-collapse:collapse;width:100%;min-width:700px}th,td{border-bottom:1px solid #3c4151;padding:11px;text-align:left}th{color:#edcb8b}select,button{padding:9px;border:1px solid #666;background:#212838;color:#f2dfbd;border-radius:8px;font:inherit}button{background:#e3bf77;color:#151923;font-weight:750;cursor:pointer}button:disabled{opacity:.5}#status{color:#eac781}</style></head>
+<body><main><a href="./conta.html">← Minha conta</a><h1>Gestão de usuários APS</h1><p>Área exclusiva do administrador. As alterações são autorizadas no banco pelo RLS. Planos deste cadastro não alteram cobranças no Asaas ou o Worker de pagamentos.</p><p id="status" role="status">Verificando suas permissões...</p><div id="list" class="table" hidden><table><thead><tr><th>Nome</th><th>E-mail</th><th>Data</th><th>Função</th><th>Plano</th><th>Ação</th></tr></thead><tbody id="rows"></tbody></table></div></main>
+<script src="./auth-config.js"></script><script src="./aps-pay.js"></script><script src="./aps-auth.js"></script>
+<script>
+(async function(){
+  const el=id=>document.getElementById(id),status=el('status');
+  try{
+    const {sb,user}=await APSAccount.current();
+    if(!user){location.replace('./login.html?next=conta.html');return;}
+    const me=await APSAccount.profile(sb,user);
+    if(me.role!=='admin'){status.textContent='Acesso negado. Esta área pertence à administração.';return;}
+    const {data,error}=await sb.from('profiles').select('id,full_name,email,role,plan_tier,created_at').order('created_at',{ascending:false});
+    if(error) throw error;
+    const options=(value,items)=>{const select=document.createElement('select');items.forEach(([key,label])=>{const option=new Option(label,key);select.add(option);});select.value=value;return select;};
+    for(const profile of data){
+      const row=document.createElement('tr'),td=value=>{const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);return cell;};
+      td(profile.full_name||'—');td(profile.email||'—');td(new Date(profile.created_at).toLocaleDateString('pt-BR'));
+      const role=options(profile.role,[['musician','Músico'],['admin','Admin']]),plan=options(profile.plan_tier,[['free_trial','Teste gratuito'],['free','Gratuito'],['pro','Pro'],['estudio','Estúdio']]);
+      td('').appendChild(role);td('').appendChild(plan);
+      const btn=document.createElement('button');btn.textContent='Salvar';td('').appendChild(btn);
+      btn.onclick=async()=>{
+        if(profile.id===user.id && role.value!=='admin' && !confirm('Isso removerá seu próprio acesso administrativo. Continuar?'))return;
+        btn.disabled=true;status.textContent='Salvando perfil...';
+        try{
+          const {error:updateError}=await sb.from('profiles').update({role:role.value,plan_tier:plan.value}).eq('id',profile.id);
+          if(updateError)throw updateError;
+          status.textContent='Perfil salvo com sucesso.';
+          if(profile.id===user.id && role.value!=='admin')location.replace('./conta.html');
+        }catch(e){status.textContent='Erro ao salvar: '+e.message;}finally{btn.disabled=false;}
+      };
+      el('rows').appendChild(row);
+    }
+    el('list').hidden=false;status.textContent=(data.length||0)+' perfil(is) encontrado(s).';
+  }catch(e){status.textContent='Não foi possível carregar: '+e.message;}
+})();
+</script></body></html>

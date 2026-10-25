@@ -1,0 +1,23 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS · Confirmando acesso</title><meta name="robots" content="noindex"><style>body{margin:0;background:#0b0e17;color:#f2e9d8;font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}main{max-width:500px;padding:28px;border:1px solid #8a7147;border-radius:18px;background:#192031}h1{color:#e7c383}a{color:#e7c383}</style></head><body><main><h1>Conectando ao APS</h1><p id="status" role="status">Validando seu acesso...</p><p><a href="./login.html">Voltar ao login</a></p></main>
+<script src="./auth-config.js"></script><script src="./aps-pay.js"></script><script src="./aps-auth.js"></script>
+<script>
+(async function(){
+  const status=document.getElementById('status');
+  try{
+    const query=new URLSearchParams(location.search);
+    const hash=new URLSearchParams(location.hash.slice(1));
+    const oauthError=query.get('error_description')||hash.get('error_description');
+    if(oauthError) throw new Error(oauthError);
+    const sb=await APSAccount.client();
+    const {data,error}=await sb.auth.getSession();
+    if(error) throw error;
+    if(!data.session) throw new Error('A confirmação não criou uma sessão. Tente entrar novamente.');
+    const {data:verified,error:verificationError}=await sb.auth.getUser();
+    if(verificationError || !verified.user) throw verificationError || new Error('Não foi possível validar o usuário.');
+    const next=APSAccount.next(sessionStorage.getItem('aps_auth_next'));
+    sessionStorage.removeItem('aps_auth_next');
+    history.replaceState(null,'',location.pathname);
+    location.replace(next);
+  }catch(e){history.replaceState(null,'',location.pathname);status.textContent='Falha na confirmação: '+e.message;}
+})();
+</script></body></html>
