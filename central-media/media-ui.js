@@ -94,6 +94,17 @@ async function selectFile(kind, file) {
   readiness(); drawPreview(); await capabilities();
 }
 
+// The live recorder hands over a local File through the existing import path.
+export async function importRecording(file) {
+  if (state.busy) throw Error('Aguarde a operação atual do editor ou cancele antes de abrir a gravação.');
+  await selectFile('video', file);
+  $('sync-source').value = 'original';
+  $('sync-result').textContent = 'Gravação de câmera e áudio no mesmo arquivo. Áudio original selecionado; escolha áudio externo apenas se desejar substituir.';
+  readiness(); syncPlayback(true); await capabilities();
+}
+
+document.addEventListener('aps-recording-preview', () => { video.pause(); audio.pause(); });
+
 async function synchronize() {
   if (!state.videoInfo?.audioReadable) throw Error('O vídeo não possui áudio de referência legível. Ajuste manualmente pelos controles em milissegundos.');
   if (!state.audioInfo?.audioReadable) throw Error('O codec do áudio externo é ilegível neste aparelho. Use uma cópia WAV ou MP3.');

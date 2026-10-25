@@ -1,0 +1,57 @@
+{
+  "cases": [
+    {
+      "name": "desktop",
+      "container": ".webm",
+      "verification": "3.21 s · vídeo vp8 · áudio opus\nArquivo reaberto: imagem decodificada, áudio decodificado. Diferença entre os inícios das faixas: 31.0 ms.\nReproduza e confira a imagem e o som no início, meio e final.\nA medição dos timestamps não verifica o sincronismo da execução musical.",
+      "importSource": "original",
+      "liveTracksStopped": true
+    },
+    {
+      "name": "editor retains imported recording after recorder discard",
+      "passed": true
+    },
+    {
+      "name": "Android profile, Chromium emulation",
+      "webmMemoryFallback": true,
+      "verification": "1.70 s · vídeo vp8 · áudio opus\nArquivo reaberto: imagem decodificada, áudio decodificado. Diferença entre os inícios das faixas: 16.0 ms.\nReproduza e confira a imagem e o som no início, meio e final.\nA medição dos timestamps não verifica o sincronismo da execução musical."
+    },
+    {
+      "name": "iPhone profile, Chromium emulation",
+      "selectionByDeviceId": true,
+      "cancelDiscards": true
+    },
+    {
+      "name": "permission-denied",
+      "message": "Permissão bloqueada. Libere câmera e microfone nas configurações do navegador e toque em ativar novamente."
+    },
+    {
+      "name": "unsupported",
+      "message": "Este navegador não oferece gravação MP4/WebM com câmera e áudio. Use um navegador atualizado."
+    },
+    {
+      "name": "late permission grant after turn off",
+      "tracksStopped": true
+    },
+    {
+      "name": "simulated OPFS quota failure",
+      "originalNotOffered": true,
+      "tracksStopped": true
+    },
+    {
+      "name": "simulated lifecycle: ended",
+      "message": "Câmera ou áudio desconectado, ou permissão revogada. Original pronto. Confira a reprodução e baixe sua cópia."
+    },
+    {
+      "name": "simulated lifecycle: mute",
+      "message": "O navegador suspendeu uma das entradas. A captura foi encerrada. Original pronto. Confira a reprodução e baixe sua cópia."
+    },
+    {
+      "name": "simulated lifecycle: hidden",
+      "message": "Captura encerrada porque a tela foi ocultada. Original pronto. Confira a reprodução e baixe sua cópia."
+    }
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "mobile": "Chromium viewport/user-agent emulation only; no physical Android or iPhone"
+}
