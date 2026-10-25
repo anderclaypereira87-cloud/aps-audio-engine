@@ -77,6 +77,7 @@ async function run(page, config) {
       { name: 'mp3', audio: 'offset-250ms.mp3' }, { name: 'original', source: 'original' }, { name: 'mute', source: 'mute' },
       { name: 'no-reference', video: 'no-reference.mp4' },
       { name: '1080p', video: '1080.mp4', resolution: '1080', videoSettings: { exposure: .15, sharpness: 5, denoise: 5 } },
+      { name: 'stabilization', video: 'camera-jitter.mp4', videoSettings: { stabilization: 80 } },
       { name: 'drift-590s', video: 'long-reference.mp4', audio: 'drift-1000ppm.wav' },
       { name: 'cancel', video: 'long-reference.mp4', audio: 'drift-1000ppm.wav', cancel: true },
       { name: 'wav', audioOnly: true, audioSettings: { gain: -3, highpass: 40 } },
@@ -89,6 +90,11 @@ async function run(page, config) {
         if (c.name !== '1080p' && c.name !== 'no-reference') assert.ok(r.alignment.accepted, JSON.stringify(r.alignment));
         if (r.base64) { const name = `export-${c.name}.${r.exported.result.extension}`; await fs.writeFile(path.join(fixtures, name), Buffer.from(r.base64, 'base64')); r.file = name; delete r.base64; }
         assert.ok(r.exported.result.bytes > 1000);
+        if (c.name === 'stabilization') {
+          assert.equal(r.exported.result.stabilization?.kind, 'conventional-translation');
+          assert.ok(r.exported.result.stabilization.coverage >= .35, JSON.stringify(r.exported.result.stabilization));
+          assert.ok(Math.abs(r.exported.result.measuredContainer.durationDifferenceSeconds) < 1 / 15 + .025);
+        }
       }
       r.case = c.name; r.elapsedSeconds = (Date.now() - started) / 1000;
       results.cases.push(r); console.log(c.name, JSON.stringify({ elapsed: r.elapsedSeconds, offset: r.alignment?.offsetSeconds, rate: r.alignment?.rate, type: r.exported?.type, frames: r.exported?.result?.frames, bytes: r.exported?.result?.bytes }));
