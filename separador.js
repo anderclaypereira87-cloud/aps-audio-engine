@@ -1,6 +1,6 @@
 // APS Audio Engine v4.0 · Separador de 6 pistas (HTDemucs-6s ONNX, no aparelho).
 // Regras: nenhuma pista é sintetizada; erro aparece na tela; Cancelar encerra o worker e libera a memória.
-import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits} from './aps-sep-core.js?v=400';
+import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits,MAX_SECONDS,estimateSeconds} from './aps-sep-core.js?v=410';
 const $=id=>document.getElementById(id);
 let working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
 
@@ -15,16 +15,25 @@ async function showModelCache(){try{const c=await caches.open('aps-models-v1');c
 function applyLimits(){
  const d=deviceInfo();LIMITS=deviceLimits(d);const el=$('deviceCheck');
  const desc='Memória: '+(d.deviceMemory?('~'+d.deviceMemory+' GB'):'não informada')+' · Processadores: '+(d.cores||'?')+' · Threads WASM: '+(d.wasmThreads?'sim':'não (1 núcleo)')+' · WebGPU: '+(d.webgpu?'presente (não usado ainda)':'não');
- el.className='aps-devcheck'+(LIMITS.local&&LIMITS.maxSeconds>=180?'':' weak');
+ el.className='aps-devcheck'+(LIMITS.local&&LIMITS.recommendedSeconds>=180?'':' weak');
  el.textContent=(LIMITS.local?'':'⛔ ')+LIMITS.reason+' ('+desc+')';
  for(const r of document.querySelectorAll('input[name="apsEngine"]')){const ok=LIMITS.engines.includes(r.value);r.disabled=!ok;r.closest('label').style.opacity=ok?1:.45;}
  if(!LIMITS.engines.includes(engine())){const f=document.querySelector('input[name="apsEngine"]:not(:disabled)');if(f)f.checked=true;}
- for(const o of $('duration').options){o.disabled=Number(o.value)>LIMITS.maxSeconds;}
+ for(const o of $('duration').options){const v=Number(o.value);o.disabled=v>LIMITS.maxSeconds;o.textContent=o.textContent.replace(/ ⚠.*$/,'')+(v>LIMITS.recommendedSeconds&&!o.disabled?' ⚠ acima do recomendado':'');}
+ if(Number($('duration').value)>LIMITS.recommendedSeconds)$('duration').value=String([...$('duration').options].map(o=>Number(o.value)).filter(v=>v<=LIMITS.recommendedSeconds).pop()||10);
  if(Number($('duration').value)>LIMITS.maxSeconds){const ok=[...$('duration').options].filter(o=>!o.disabled).pop();if(ok)$('duration').value=ok.value;}
  $('start').disabled=!LIMITS.local;
  if(!LIMITS.local)phase('Este aparelho não tem memória suficiente para o modelo de separação. Use um computador, ou importe uma bateria já separada abaixo. Nenhuma pista será inventada.',0,true);
- showModelCache();
+ showModelCache();showEstimate();
 }
+function fmtMin(s){s=Math.round(s);return s<90?s+' s':Math.round(s/60)+' min';}
+function showEstimate(){const sec=Number($('duration').value),[a,b]=estimateSeconds(sec,deviceInfo().mobile),el=$('apsEstimate');if(!el)return;
+ el.textContent='⏱ Tempo estimado de processamento para '+fmtMin(sec)+' de música: ~'+fmtMin(a)+' a '+fmtMin(b)+(deviceInfo().mobile?' (estimativa para celular, NÃO medida em aparelho real; pode ser mais).':' (medido em computador de 8 núcleos; o seu pode variar).')+' Deixe a tela ligada e o APS aberto até terminar.'+(sec>LIMITS.recommendedSeconds?' ⚠ Acima do recomendado para este aparelho: pode travar ou ficar sem memória.':'');}
+$('duration').addEventListener('change',showEstimate);
+// Mostra a duração da música e explica o corte de até 5 min.
+async function songDuration(file){return new Promise(ok=>{const a=document.createElement('audio'),u=URL.createObjectURL(file);a.preload='metadata';a.onloadedmetadata=()=>{URL.revokeObjectURL(u);ok(a.duration)};a.onerror=()=>{URL.revokeObjectURL(u);ok(null)};a.src=u;});}
+$('song').addEventListener('change',async()=>{const f=$('song').files[0],el=$('apsSongInfo');if(!f||!el)return;const d=await songDuration(f);if(!d||!isFinite(d)){el.textContent='';return;}
+ el.textContent=d>MAX_SECONDS?'Esta música tem '+fmtMin(d)+'. O APS separa no máximo 5 min por vez: escolha em "Começar em" o ponto inicial; será usado só o trecho de até 5 min a partir dali, sem mudar andamento nem alinhamento. Para o resto, separe outro trecho depois.':'Duração da música: '+fmtMin(d)+'.';});
 function stopPreview(){try{player?.stop();}catch{}player=null;}
 async function preview(i){stopPreview();const u=URL.createObjectURL(resultBlobs[i]);const a=new Audio(u);player={stop:()=>{a.pause();URL.revokeObjectURL(u);}};a.onended=()=>{if(player){URL.revokeObjectURL(u);player=null;}};await a.play();}
 function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
@@ -45,7 +54,7 @@ function closeWorker(){if(activeWorker){try{activeWorker.postMessage({type:'canc
 function runWorker(audio,durationSec){
  return new Promise((resolve,reject)=>{
   let settled=false,etaStart=0;const chunks=Array.from({length:6},()=>[]);
-  const worker=new Worker('./separador-worker.js?v=400',{type:'module'});activeWorker=worker;const started=Date.now();
+  const worker=new Worker('./separador-worker.js?v=410',{type:'module'});activeWorker=worker;const started=Date.now();
   const steps=blockCount(audio[0].length);
   // limite de tempo proporcional: 4 min por bloco no pior caso (celular lento), mínimo 10 min
   const maxMs=Math.max(10,steps*4)*60000;
@@ -67,7 +76,7 @@ async function decodeInput(file){
  phase('Decodificando o áudio…',2);context=context||new (window.AudioContext||window.webkitAudioContext)();
  const raw=await context.decodeAudioData(await file.arrayBuffer());const from=Math.max(0,Number($('from').value)||0),selection=Number($('duration').value);
  if(from>=raw.duration)throw Error('O início do trecho ultrapassa a duração da música ('+raw.duration.toFixed(1)+' s).');
- const time=Math.min(selection,raw.duration-from),offset=Math.floor(from*raw.sampleRate),width=Math.round(time*raw.sampleRate);if(width<=0)throw Error('Áudio vazio');
+ const time=Math.min(selection,MAX_SECONDS,raw.duration-from),offset=Math.floor(from*raw.sampleRate),width=Math.round(time*raw.sampleRate);if(width<=0)throw Error('Áudio vazio');
  const clip=context.createBuffer(Math.min(raw.numberOfChannels,2),width,raw.sampleRate);for(let ch=0;ch<clip.numberOfChannels;ch++)clip.copyToChannel(raw.getChannelData(ch).subarray(offset,offset+width),ch);
  // O modelo trabalha a 44,1 kHz estéreo. Reamostrar não muda andamento (BPM) nem duração.
  const off=new OfflineAudioContext(2,Math.round(time*SAMPLE_RATE),SAMPLE_RATE);const src=off.createBufferSource();src.buffer=clip;src.connect(off.destination);src.start();const res=await off.startRendering();
@@ -77,14 +86,17 @@ async function main(){
  if(working)return;const file=$('song').files[0];if(!file){phase('Escolha um áudio primeiro.',0,true);return;}
  if(!LIMITS.local){phase(LIMITS.reason,0,true);return;}
  if(file.size>220*1048576){phase('Arquivo acima de 220 MB. Recorte ou converta para MP3 antes.',0,true);return;}
- if(Number($('duration').value)>LIMITS.maxSeconds){phase('Duração acima do limite deste aparelho ('+LIMITS.maxSeconds+' s).',0,true);return;}
+ const sel=Number($('duration').value);
+ if(!(sel>0)||sel>LIMITS.maxSeconds){phase('Duração acima do máximo do APS (5 min por separação). Escolha um trecho menor.',0,true);return;}
+ if(sel>LIMITS.recommendedSeconds){const [a,b]=estimateSeconds(sel,deviceInfo().mobile);if(!confirm('Atenção: '+fmtMin(sel)+' está acima do recomendado para este aparelho ('+fmtMin(LIMITS.recommendedSeconds)+'). Tempo estimado: ~'+fmtMin(a)+' a '+fmtMin(b)+' (estimativa, sem garantia). Pode travar ou faltar memória; nenhuma pista falsa será criada. Mantenha a tela ligada. Continuar?'))return;}
  working=true;$('eta').textContent='';$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;resultInfo=null;
+ let lock=null;try{lock=await navigator.wakeLock?.request('screen');}catch{}
  try{const mix=await decodeInput(file);const dur=mix[0].length/SAMPLE_RATE;
   phase('Trecho de '+dur.toFixed(1)+' s pronto ('+blockCount(mix[0].length)+' blocos). Carregando o motor…',3);
   const out=await runWorker(mix,dur);resultBlobs=out.blobs;resultInfo=out.info;
   phase('Separação concluída. Ouça e baixe as 6 pistas geradas pelo modelo.',100);showResult();}
  catch(e){phase((e.cancelled?'':'Não foi possível concluir: ')+(e?.message||e)+(e.cancelled?'':' Nenhuma pista foi criada. Tente um trecho menor ou o modo leve.'),0,true);console.error(e);}
- finally{closeWorker();showModelCache();working=false;$('start').disabled=!LIMITS.local;$('cancel').disabled=true;}
+ finally{try{await lock?.release();}catch{}closeWorker();showModelCache();working=false;$('start').disabled=!LIMITS.local;$('cancel').disabled=true;}
 }
 function openDB(name,store){return new Promise((ok,fail)=>{if(!window.indexedDB)return fail(Error('Armazenamento local indisponível.'));const r=indexedDB.open(name,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(store))r.result.createObjectStore(store);};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});}
 async function put(name,store,value){const db=await openDB(name,store);try{await new Promise((ok,fail)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value,'latest');tx.oncomplete=ok;tx.onerror=()=>fail(tx.error||Error('Armazenamento insuficiente.'));tx.onabort=()=>fail(tx.error||Error('Transferência cancelada.'));});}finally{db.close();}}

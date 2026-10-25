@@ -49,3 +49,9 @@
 * Na comparação A/B, na mesma sessão, o pico acima da página ociosa foi de 1 156 MB no v4.0 e de 900 MB no v2.
 * A bateria por peça não muda: o modelo não foi alterado, só a ordem dos cálculos.
 * Não foi testado: celular real (Realme C75 ou outro), 1 e 10 min com o v2 (o algoritmo de blocos é o mesmo do v4.0) e o modo completo.
+## v4.1 · Teto de 5 min (25/10/2026)
+* `node tests/core.test.mjs`: 9 de 9 testes ok. O teste de limites confere que o teto é 300 s em todas as combinações e que o recomendado é 30 ou 60 s no celular.
+* Navegador, limites: com 1 GB, bloqueado. Android com 2 GB: recomendado 30 s, opções até 300 s. Desktop com 8 GB: até 300 s. A opção de 600 s não existe mais.
+* Navegador, música de 10 min (`longo`): aparece o aviso "Esta música tem 10 min… trecho de até 5 min". Uma duração forjada de 600 s foi recusada. O trecho de 590 a 600 s foi separado com 10,000 s de saída, e a soma das pistas bate com o trecho original (18,6 dB, o que confirma o alinhamento).
+* Navegador, 10 s: 34 s, ZIP íntegro, 6 pistas na DAW, lag 0 e 17,85 dB (igual ao anterior).
+* Não testado: uma separação completa de 5 min com este código (em v4.0, 10 min funcionaram no desktop) e qualquer teste em celular real.
