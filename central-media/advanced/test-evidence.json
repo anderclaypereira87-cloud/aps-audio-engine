@@ -1,0 +1,41 @@
+{
+  "branch": "feat/aps-media-advanced",
+  "date": "2026-10-25",
+  "status": "draft-not-merged-not-published",
+  "executed": {
+    "node_command": "node --test central-media/tests/sync.test.mjs central-media/tests/advanced.test.mjs",
+    "node_tests": 17,
+    "node_passed": 17,
+    "node_failed": 0,
+    "node_scope": [
+      "known audio offsets, timebase and drift",
+      "conventional pixel/audio processing",
+      "real patch movement estimation in synthetic greyscale video frames",
+      "outlier resistance to moving foreground",
+      "camera path smoothing, interpolation and intensity",
+      "whole-frame crop without deformation"
+    ],
+    "static": ["node --check on modified JavaScript modules", "git diff --check"],
+    "synthetic_input": {
+      "generated": true,
+      "filename": "camera-jitter.mp4",
+      "codec_video": "h264",
+      "codec_audio": "aac",
+      "resolution": "320x180",
+      "duration_seconds": 10,
+      "file_bytes": 725461,
+      "verified_by": "ffprobe on input file, not an exported APS file"
+    }
+  },
+  "not_executed": {
+    "playwright_browser_suite": "Could not install Chromium browser: Playwright downloaded a 0 MiB/corrupted zip (End of central directory record signature not found). The updated tests are committed for execution in a supported environment.",
+    "advanced_browser_exports": ["mp4-h264-aac", "webm-vp9-opus", "long-1080p", "4k"],
+    "one_frame_export_alignment": "Only existing PR #5 results were available. This branch has not yet verified alignment on a newly exported file.",
+    "actual_process_memory": "Only estimates for canvas buffers are implemented; no device RSS measurement.",
+    "physical_android": "not available",
+    "physical_iphone": "not available",
+    "person_or_musician_detection": "not implemented; manual framing remains available",
+    "neural_visual_enhancement": "not implemented; only conventional filters are labeled as available"
+  },
+  "caution": "Passing Node tests does not establish output media quality, timing, codec compatibility, handheld memory usage or one-frame sync for this branch."
+}
