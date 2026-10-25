@@ -6,10 +6,10 @@ const ROOT=path.resolve(__dirname,'..'),FIX=process.env.FIX,OUT=process.env.OUT;
 const PORT=Number(process.env.PORT||8799),BASE=`http://127.0.0.1:${PORT}`;const results={};
 function rssMB(){try{return Math.round(execSync("ps -eo rss=,comm= | grep -i -E 'chrom|headless' || true").toString().split('\n').filter(Boolean).reduce((s,x)=>s+Number(x.trim().split(/\s+/)[0]),0)/1024);}catch{return 0;}}
 async function page(browser,init){const ctx=await browser.newContext({acceptDownloads:true});if(init)await ctx.addInitScript(init);const p=await ctx.newPage();p._errors=[];p.on('pageerror',e=>p._errors.push(String(e)));p.on('console',m=>{if(m.type()==='error')p._errors.push(m.text());});return {ctx,p};}
-async function separate(browser,sec,{quality='studio',cancelAfterMs=0,route=null,file=null,from=0}={}){
+async function separate(browser,sec,{quality='studio',cancelAfterMs=0,route=null,file=null,from=0,gpu=false,gpuRoute=null}={}){
  const {ctx,p}=await page(browser);if(route)await ctx.route('**/htdemucs_6s_leve*.onnx',route);else if(process.env.MODEL_FILE)await ctx.route('**/htdemucs_6s_leve*.onnx',r=>r.fulfill({status:200,body:fs.readFileSync(process.env.MODEL_FILE),headers:{'content-type':'application/octet-stream'}}));
  await p.goto(BASE+'/separador.html');await p.setInputFiles('#song',path.join(FIX,file||`mix_${sec}s.wav`));if(from)await p.fill('#from',String(from));p.on('dialog',d=>d.accept());
- await p.check('input[name=apsEngine][value=leve]');await p.selectOption('#duration',String(sec));await p.selectOption('#outputQuality',quality);
+ await p.check('input[name=apsEngine][value=leve]');if(gpu)await p.check('#apsWebgpu');if(gpuRoute)await ctx.route('**/ort.webgpu.min.mjs',gpuRoute);await p.selectOption('#duration',String(sec));await p.selectOption('#outputQuality',quality);
  const idleRss=rssMB();const t0=Date.now();let peak=0;const iv=setInterval(()=>{peak=Math.max(peak,rssMB());},1000);
  await p.click('#start');
  if(cancelAfterMs){await p.waitForFunction(()=>/Bloco 1 de/.test(document.getElementById('phase').textContent),null,{timeout:600000}).catch(()=>{});await p.waitForTimeout(cancelAfterMs);const before=rssMB();await p.click('#cancel');await p.waitForTimeout(4000);
@@ -46,7 +46,7 @@ async function drums(browser){
  const [d]=await Promise.all([p.waitForEvent('download'),p.click('#apsExportMidi')]);const f=path.join(OUT,'bateria.mid');await d.saveAs(f);r.midiHeader=fs.readFileSync(f).subarray(0,4).toString();r.midiBytes=fs.statSync(f).size;r.errors=p._errors;await ctx.close();return r;}
 (async()=>{
  const srv=spawn('python3',['-m','http.server',String(PORT),'--bind','127.0.0.1'],{cwd:ROOT,stdio:'ignore'});await new Promise(r=>setTimeout(r,1200));
- const browser=await chromium.launch();const cases=process.argv.slice(2);
+ const browser=await chromium.launch({args:['--enable-unsafe-webgpu']});const cases=process.argv.slice(2);
  try{for(const c of cases){const t=Date.now();console.error('caso',c);
   if(c==='limits')results.limits=await limits(browser);
   else if(c==='drums')results.drums=await drums(browser);
@@ -55,6 +55,8 @@ async function drums(browser){
    await p.evaluate(()=>{const o=document.createElement('option');o.value='600';document.getElementById('duration').append(o);document.getElementById('duration').value='600';});await p.click('#start');await p.waitForTimeout(500);
    const forged=await p.textContent('#phase');await ctx.close();
    const tail=await separate(browser,10,{file:'mix_600s.wav',from:590});results.longo={info,opts,forged,tail};}
+  else if(c==='gpu10')results.gpu10=await separate(browser,10,{gpu:true});
+  else if(c==='gpufalha')results.gpufalha=await separate(browser,10,{gpu:true,gpuRoute:r=>r.fulfill({status:404,body:'x'})});
   else if(c==='cancel')results.cancel=await separate(browser,60,{cancelAfterMs:3000});
   else if(c==='badmodel')results.badmodel=await separate(browser,10,{route:r=>r.fulfill({status:200,body:Buffer.alloc(2048)})});
   else if(c==='nomodel')results.nomodel=await separate(browser,10,{route:r=>r.abort()});

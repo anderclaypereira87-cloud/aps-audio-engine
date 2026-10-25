@@ -3,12 +3,14 @@
 import {SEG,StreamOLA,PcmWriter} from './aps-sep-core.js?v=400';
 const ORT_VER='1.21.0';
 const ORT_URL=`https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VER}/dist/ort.min.mjs`;
+// WebGPU (experimental): o ORT 1.21 aborta neste grafo; o 1.30 funciona com o modelo leve v3 (sem float64).
+const GPU_VER='1.30.0',GPU_URL=`https://cdn.jsdelivr.net/npm/onnxruntime-web@${GPU_VER}/dist/ort.webgpu.min.mjs`,GPU_WASM=`https://cdn.jsdelivr.net/npm/onnxruntime-web@${GPU_VER}/dist/`;
 const WASM_URL=`https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VER}/dist/`;
 export const MODELS={
  // Pesos completos fp16 hospedados no Hugging Face (StemSplitio/htdemucs-6s-onnx, licença MIT).
  completo:{url:'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx',mb:136,label:'Completo'},
  // Pesos int8 por canal, gerados pelo APS (models/quantizar_pesos_int8.py), servidos pelo próprio site.
- leve:{url:new URL('./models/htdemucs_6s_leve_v2.onnx',self.location).href,mb:42,label:'Leve'}
+ leve:{url:new URL('./models/htdemucs_6s_leve_v3.onnx',self.location).href,mb:37,label:'Leve'}
 };
 const MODEL_CACHE='aps-models-v1';
 let cancelled=false;
@@ -40,11 +42,25 @@ async function makeSession(ort,engine,threads){
   phase('Tentando de novo em modo de compatibilidade (sem SIMD)…',17);ort.env.wasm.simd=false;return await ort.InferenceSession.create(bytes,opts);
  }finally{bytes=null;}
 }
-async function separate({left,right,quality,engine,threads}){
- const total=left.length;if(!total)throw Error('Áudio vazio.');
+async function gpuSession(engine){
+ if(engine!=='leve')throw Error('WebGPU só está disponível no modo leve.');
+ if(!self.navigator?.gpu)throw Error('WebGPU indisponível neste navegador.');
+ const adapter=await navigator.gpu.requestAdapter();if(!adapter)throw Error('Nenhuma GPU WebGPU disponível.');
+ const ort=await import(GPU_URL);ort.env.wasm.wasmPaths=GPU_WASM;ort.env.wasm.numThreads=1;
+ let bytes=await modelBytes(engine);phase('Preparando o modelo na GPU (WebGPU, experimental)…',16);
+ try{return {ort,session:await ort.InferenceSession.create(bytes,{executionProviders:['webgpu'],graphOptimizationLevel:'disabled',enableMemPattern:false,enableCpuMemArena:false}),label:'WebGPU ('+((adapter.info&&(adapter.info.vendor+' '+adapter.info.architecture).trim())||'GPU')+')'};}finally{bytes=null;}
+}
+async function wasmSession(engine,threads){
  phase('Baixando a biblioteca ONNX Runtime Web '+ORT_VER+'…',3);
  let ort;try{ort=await import(ORT_URL);}catch(e){throw Error('Não consegui carregar o ONNX Runtime ('+e.message+').');}
- const session=await makeSession(ort,engine,threads);
+ return {ort,session:await makeSession(ort,engine,threads),label:'WASM (CPU, 1 thread)'};
+}
+async function separate({left,right,quality,engine,threads,backend='wasm'}){
+ const total=left.length;if(!total)throw Error('Áudio vazio.');
+ let ctx=null,fellBack=null;
+ if(backend==='webgpu'){try{ctx=await gpuSession(engine);}catch(e){fellBack=String(e?.message||e);phase('WebGPU falhou ('+fellBack.slice(0,120)+'). Usando WASM…',5);}}
+ if(!ctx)ctx=await wasmSession(engine,threads);
+ let {ort,session}=ctx;self.postMessage({type:'backend',label:ctx.label,fellBack});
  const ola=new StreamOLA(total),steps=ola.steps,buf=new Float32Array(2*SEG);
  const writers=Array.from({length:6},()=>new PcmWriter(quality!=='studio'));
  const t0=performance.now();let sigE=0,resE=0;
@@ -54,9 +70,12 @@ async function separate({left,right,quality,engine,threads}){
   ola.input(left,right,buf);
   const tin=new ort.Tensor('float32',buf,[1,2,SEG]);let pred;
   try{pred=await session.run({mix:tin});}
-  catch(e){throw Error(/memory|alloc|OOM|RangeError/i.test(String(e))?'Memória insuficiente durante o bloco '+(n+1)+'. Tente um trecho menor ou o modo leve.':'Falha do modelo no bloco '+(n+1)+': '+e.message);}
+  catch(e){
+   if(ctx.label.startsWith('WebGPU')&&!cancelled){ // fallback automático: refaz este bloco em WASM
+    fellBack=String(e?.message||e);try{await session.release();}catch{}phase('WebGPU falhou no bloco '+(n+1)+'. Continuando em WASM…',20);
+    ctx=await wasmSession(engine,threads);({ort,session}=ctx);self.postMessage({type:'backend',label:ctx.label,fellBack});n--;continue;}throw Error(/memory|alloc|OOM|RangeError/i.test(String(e))?'Memória insuficiente durante o bloco '+(n+1)+'. Tente um trecho menor ou o modo leve.':'Falha do modelo no bloco '+(n+1)+': '+e.message);}
   finally{try{tin.dispose?.();}catch{}}
-  const data=pred.stems?.data;
+  const data=pred.stems?.location&&pred.stems.location!=='cpu'?await pred.stems.getData():pred.stems?.data;
   if(!data||data.length!==6*2*SEG){try{pred.stems?.dispose?.();}catch{}throw Error('Resposta do modelo com formato inesperado. Nenhuma pista foi criada.');}
   for(let i=0;i<data.length;i+=4099)if(!Number.isFinite(data[i]))throw Error('O modelo devolveu valores inválidos (NaN) no bloco '+(n+1)+'.');
   const out=ola.push(data);try{pred.stems?.dispose?.();}catch{}
@@ -70,7 +89,7 @@ async function separate({left,right,quality,engine,threads}){
  }
  try{await session.release();}catch{}
  const w=writers[0];
- self.postMessage({type:'done',rate:w.rate,channels:w.channels,frames:w.frames,inputFrames:total,sumSnrDb:10*Math.log10((sigE+1e-12)/(resE+1e-12)),seconds:(performance.now()-t0)/1000});
+ self.postMessage({type:'done',rate:w.rate,channels:w.channels,frames:w.frames,inputFrames:total,backend:ctx.label,fellBack,sumSnrDb:10*Math.log10((sigE+1e-12)/(resE+1e-12)),seconds:(performance.now()-t0)/1000});
 }
 self.onmessage=async event=>{
  const d=event.data;

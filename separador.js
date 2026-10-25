@@ -1,8 +1,8 @@
 // APS Audio Engine v4.0 · Separador de 6 pistas (HTDemucs-6s ONNX, no aparelho).
 // Regras: nenhuma pista é sintetizada; erro aparece na tela; Cancelar encerra o worker e libera a memória.
-import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits,MAX_SECONDS,estimateSeconds} from './aps-sep-core.js?v=410';
+import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits,MAX_SECONDS,estimateSeconds} from './aps-sep-core.js?v=420';
 const $=id=>document.getElementById(id);
-let working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
+let backendLabel='',working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
 
 function phase(msg,percent,error=false){const el=$('phase');el.textContent=msg;el.classList.toggle('err',!!error);if(percent!==undefined){$('bar').style.width=percent+'%';document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));}}
 export function deviceInfo(){
@@ -47,14 +47,14 @@ function showResult(){
   const dl=document.createElement('button');dl.textContent='↓ WAV';dl.dataset.download=s.id;dl.addEventListener('click',()=>download(resultBlobs[i],prefix()+'_'+s.id+'.wav'));
   actions.append(listen,dl);card.append(title,note,actions);box.append(card);});
  const dIn=resultInfo.inputFrames/SAMPLE_RATE,dOut=resultInfo.frames/resultInfo.rate;
- $('resultCheck').textContent='Verificação automática: duração de entrada '+dIn.toFixed(3)+' s · duração de cada pista '+dOut.toFixed(3)+' s (diferença '+Math.abs(dIn-dOut).toFixed(3)+' s). Todas começam no mesmo instante (amostra 0). Soma das 6 pistas × original: '+resultInfo.sumSnrDb.toFixed(1)+' dB de semelhança (quanto maior, menos áudio perdido; não mede a qualidade de cada pista). Tempo de processamento: '+resultInfo.seconds.toFixed(0)+' s.';
+ $('resultCheck').textContent='Verificação automática: duração de entrada '+dIn.toFixed(3)+' s · duração de cada pista '+dOut.toFixed(3)+' s (diferença '+Math.abs(dIn-dOut).toFixed(3)+' s). Todas começam no mesmo instante (amostra 0). Soma das 6 pistas × original: '+resultInfo.sumSnrDb.toFixed(1)+' dB de semelhança (quanto maior, menos áudio perdido; não mede a qualidade de cada pista). Tempo de processamento: '+resultInfo.seconds.toFixed(0)+' s. Motor: '+(resultInfo.backend||'WASM')+(resultInfo.fellBack?' (WebGPU falhou e o APS trocou para WASM automaticamente)':'')+'.';
  $('resultsPanel').hidden=false;$('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function closeWorker(){if(activeWorker){try{activeWorker.postMessage({type:'cancel'});}catch{}activeWorker.terminate();activeWorker=null;}if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}}
 function runWorker(audio,durationSec){
  return new Promise((resolve,reject)=>{
   let settled=false,etaStart=0;const chunks=Array.from({length:6},()=>[]);
-  const worker=new Worker('./separador-worker.js?v=410',{type:'module'});activeWorker=worker;const started=Date.now();
+  const worker=new Worker('./separador-worker.js?v=420',{type:'module'});activeWorker=worker;const started=Date.now();
   const steps=blockCount(audio[0].length);
   // limite de tempo proporcional: 4 min por bloco no pior caso (celular lento), mínimo 10 min
   const maxMs=Math.max(10,steps*4)*60000;
@@ -64,12 +64,13 @@ function runWorker(audio,durationSec){
    if(Date.now()-started>maxMs)finish(Error('Tempo limite atingido ('+Math.round(maxMs/60000)+' min). O aparelho não concluiu o modelo; a gravação original não foi alterada.'));},1000);
   worker.onmessage=evt=>{if(settled)return;const d=evt.data;
    if(d.type==='phase'){phase(d.message,d.percent);if(d.block){if(d.block===1)etaStart=Date.now()-d.blockSeconds*1000;const per=(Date.now()-etaStart)/d.block,left=Math.round(per*(d.steps-d.block)/1000);$('eta').textContent=d.block<d.steps?`Tempo estimado restante: ~${Math.floor(left/60)}m ${String(left%60).padStart(2,'0')}s`:'';}}
+   else if(d.type==='backend'){backendLabel=d.label;const el=$('apsBackend');if(el)el.textContent='Motor em uso: '+d.label+(d.fellBack?' · WebGPU falhou ('+d.fellBack.slice(0,140)+'), troca automática para WASM.':'');}
    else if(d.type==='chunk')d.parts.forEach((p,i)=>chunks[i].push(new Blob([p])));
    else if(d.type==='done'){const h=wavHeader(d.frames,d.rate,d.channels);finish(null,{blobs:chunks.map(parts=>new Blob([h,...parts],{type:'audio/wav'})),info:d});}
    else if(d.type==='error')finish(Error(d.message||'Erro desconhecido do motor.'));};
   worker.onerror=evt=>finish(Error('O motor falhou ao iniciar: '+(evt.message||'erro de execução')+'. Seu navegador pode não suportar Web Workers de módulo.'));
   worker.onmessageerror=()=>finish(Error('Falha ao receber as pistas processadas.'));
-  try{worker.postMessage({type:'separate',engine:engine(),quality:$('outputQuality').value,threads:LIMITS.threads,left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}catch(err){finish(err);}
+  try{worker.postMessage({type:'separate',engine:engine(),quality:$('outputQuality').value,threads:LIMITS.threads,backend:$('apsWebgpu')?.checked?'webgpu':'wasm',left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}catch(err){finish(err);}
  });
 }
 async function decodeInput(file){
@@ -131,3 +132,8 @@ $('apsDrumOnlyGo')?.addEventListener('click',async()=>{const st=$('apsDrumOnlySt
 (async()=>{if(new URLSearchParams(location.search).get('importar')!=='daw')return;try{const db=await openDB('aps-sep-input-v1','pending');const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite'),st=tx.objectStore('pending'),g=st.get('latest');g.onsuccess=()=>{st.delete('latest');ok(g.result);};g.onerror=()=>fail(g.error);});db.close();if(!item?.blob)return;const f=new File([item.blob],item.name||'pista.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);$('song').files=dt.files;$('song').dispatchEvent(new Event('change',{bubbles:true}));phase('Pista do estúdio carregada: '+f.name+'. Escolha a duração e toque em Separar.',0);}catch(e){phase('Não consegui receber a pista do estúdio: '+e.message,0,true);}})();
 applyLimits();
 window.APS6Stem={pcmToWav,SOURCES,SAMPLE_RATE,SEG,STRIDE,limits:()=>LIMITS,state:()=>({working,hasResult:!!resultBlobs,info:resultInfo,sizes:resultBlobs?.map(b=>b.size)}),blobs:()=>resultBlobs};
+
+// WebGPU experimental (opcional, desligado por padrão). Em qualquer erro o worker volta sozinho para WASM.
+(()=>{const host=$('outputQuality')?.closest('.formgrid');if(!host||$('apsWebgpu'))return;const box=document.createElement('label');box.className='field';box.style.gridColumn='1/-1';
+ const ok=!!navigator.gpu;box.innerHTML='<span><input type="checkbox" id="apsWebgpu"'+(ok?'':' disabled')+'> ⚡ Tentar acelerar com a GPU (WebGPU, experimental, só modo leve)</span><small class="notice">'+(ok?'Desligado por padrão: ainda não medido em celular real. Se a GPU falhar, o APS continua em WASM automaticamente, sem perder o trecho.':'Este navegador não oferece WebGPU; o APS usa WASM.')+'</small><small id="apsBackend" class="notice" role="status"></small>';host.after(box);
+ $('apsWebgpu')?.addEventListener('change',e=>{if(e.target.checked){const l=document.querySelector('input[name=apsEngine][value=leve]');if(l)l.checked=true;}});})();
