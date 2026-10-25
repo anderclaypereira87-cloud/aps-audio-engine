@@ -85,13 +85,20 @@ export async function zipBlobs(files,onProgress){
 
 // Limites por aparelho. Valores medidos/estimados documentados em docs/separacao.md.
 // Retorna {local, engines, maxSeconds, reason}. "local:false" = o aparelho não deve rodar o modelo.
+// Teto absoluto do APS: 5 min (300 s) de música por separação, em qualquer aparelho.
+export const MAX_SECONDS=300;
+// Estimativa de tempo de processamento (segundos de processamento por segundo de música).
+// Desktop: medido (~2,7× em CPU x86 de 8 núcleos, WASM 1 thread). Celular: ESTIMATIVA não medida (8–15 min por min).
+export function estimateSeconds(sec,mobile){return mobile?[sec*8,sec*15]:[sec*2,sec*4];}
+// Retorna {local, engines, maxSeconds (teto permitido), recommendedSeconds (acima disso: aviso forte e confirmação), reason}.
 export function deviceLimits({deviceMemory=null,cores=null,mobile=false,wasmThreads=false,webgpu=false}={}){
- const mem=deviceMemory;let maxSeconds,engines,local=true,reason;
- if(mem!==null&&mem<2){local=false;engines=[];maxSeconds=0;reason='Memória informada abaixo de 2 GB: o modelo (~1,2 GB em uso) não cabe com segurança neste aparelho.';}
- else if(mem!==null&&mem<4||(mobile&&mem===null)){engines=['leve'];maxSeconds=mobile?30:60;reason='Pouca memória (ou memória não informada no celular): só modo leve, até '+(mobile?30:60)+' s.';}
- else if(mem!==null&&mem<8||mobile){engines=['leve'];maxSeconds=mobile?60:180;reason='Memória intermediária: modo leve, até '+(mobile?'1 min':'3 min')+'.';}
- else {engines=['leve','completo'];maxSeconds=600;reason='Aparelho com 8 GB ou mais (ou desktop sem informação): até 10 min; pode demorar muito.';}
- return {local,engines,maxSeconds,reason,threads:wasmThreads?Math.min(4,cores||1):1,webgpu};
+ const mem=deviceMemory;let rec,engines,local=true,reason;
+ if(mem!==null&&mem<2){return {local:false,engines:[],maxSeconds:0,recommendedSeconds:0,reason:'Memória informada abaixo de 2 GB: o modelo (~1 GB em uso) não cabe com segurança neste aparelho.',threads:1,webgpu};}
+ if(mem!==null&&mem<4||(mobile&&mem===null)){engines=['leve'];rec=mobile?30:60;reason='Pouca memória (ou não informada no celular): recomendado até '+(mobile?'30 s':'1 min')+'.';}
+ else if(mem!==null&&mem<8||mobile){engines=['leve'];rec=mobile?60:180;reason='Memória intermediária: recomendado até '+(mobile?'1 min':'3 min')+'.';}
+ else {engines=['leve','completo'];rec=MAX_SECONDS;reason='Aparelho com 8 GB ou mais: até 5 min.';}
+ reason+=' Máximo do APS: 5 min'+(rec<MAX_SECONDS?' (acima do recomendado, você decide após o aviso de tempo).':'.');
+ return {local,engines,maxSeconds:MAX_SECONDS,recommendedSeconds:rec,reason,threads:wasmThreads?Math.min(4,cores||1):1,webgpu};
 }
 
 // Métricas para testes e para a tela (não alteram áudio).

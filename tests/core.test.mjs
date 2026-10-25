@@ -11,7 +11,7 @@ for(const total of [1000,SEG,SEG+1,3*SEG+12345,44100*61+7]){
 }
 t('PcmWriter mono 22k mantém duração (ímpar)',()=>{const w=new PcmWriter(true);let bytes=0;for(const n of [257985,257985,1001])bytes+=w.write(new Float32Array(n),new Float32Array(n)).byteLength;bytes+=w.flush().byteLength;assert.equal(w.frames,Math.ceil((257985*2+1001)/2));assert.equal(bytes,w.frames*2);});
 t('crc32',()=>assert.equal(crc32(new TextEncoder().encode('123456789')),0xCBF43926));
-t('limites',()=>{assert.equal(deviceLimits({deviceMemory:1}).local,false);assert.equal(deviceLimits({deviceMemory:2,mobile:true}).maxSeconds,30);assert.deepEqual(deviceLimits({deviceMemory:8}).engines,['leve','completo']);});
+t('limites (teto 5 min)',()=>{assert.equal(deviceLimits({deviceMemory:1}).local,false);const c=deviceLimits({deviceMemory:4,mobile:true});assert.equal(c.maxSeconds,300);assert.equal(c.recommendedSeconds,60);assert.equal(deviceLimits({deviceMemory:2,mobile:true}).recommendedSeconds,30);for(const m of [2,4,8,null])for(const mob of [true,false])assert.ok(deviceLimits({deviceMemory:m,mobile:mob}).maxSeconds<=300);assert.deepEqual(deviceLimits({deviceMemory:8}).engines,['leve','completo']);});
 const files=[{name:'a.wav',blob:new Blob([wavHeader(0,44100,2)])},{name:'b.wav',blob:new Blob([new Uint8Array(100000).fill(7)])}];
 const z=await zipBlobs(files);fs.writeFileSync('/tmp/aps-core-test.zip',Buffer.from(await z.arrayBuffer()));
 t('zip válido (python zipfile.testzip)',()=>assert.match(execSync(`python3 -c "import zipfile;z=zipfile.ZipFile('/tmp/aps-core-test.zip');print(z.testzip(),z.namelist())"`).toString(),/None \['a.wav', 'b.wav'\]/));

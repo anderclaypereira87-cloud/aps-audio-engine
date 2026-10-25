@@ -124,3 +124,9 @@ Chip Helio G92 Max (2×A75 + 6×A55, Mali-G52 MC2) e 6 ou 8 GB de RAM (a versão
 * O Chrome no Android informa `deviceMemory` arredondado: um aparelho de 6 GB costuma informar 4. Assim, o APS aplica "leve, até 1 min".
 * Estimativa (**não medida**): o pico da página fica em ~0,9 GB acima da página ociosa, cabendo no caso conservador de 4 GB úteis ao navegador. O tempo esperado é de 3 a 6× o do desktop, ou seja, ~50 a 100 s por bloco de 7,8 s, ou cerca de 8 a 15 min por minuto de música.
 * Os limites de `deviceLimits` **não foram aumentados**: falta medir no celular real.
+## v4.1 · Teto de 5 minutos por separação (pedido do dono)
+* `MAX_SECONDS=300` em `aps-sep-core.js`: nenhum aparelho separa mais de 5 min por vez. A opção de 10 min foi removida.
+* `deviceLimits` agora devolve `maxSeconds` (o teto, 300 s) e `recommendedSeconds`, que é o antigo limite por aparelho: 30 s ou 1 min no celular, 1 a 3 min no computador intermediário e 5 min com 8 GB. Acima do recomendado, a duração aparece marcada com "⚠" e o APS pede confirmação, mostrando o tempo estimado. **O usuário decide.** Com menos de 2 GB de memória o botão continua bloqueado.
+* Estimativa de tempo na tela: computador ~2 a 4× a duração da música (medido em desktop de 8 núcleos). Celular ~8 a 15 min por minuto de música, **estimativa não medida**. A referência é o Realme C75 (Helio G92 Max, 6 ou 8 GB; Android 15, segundo o dono), que deve receber "recomendado 1 min, máximo 5 min com aviso".
+* Música maior que 5 min: a tela informa a duração e explica que só será usado o trecho de até 5 min a partir de "Começar em". O corte é feito por amostra, sem mudar andamento nem alinhamento. Valores forjados acima de 300 s são recusados.
+* Tela ligada: o APS usa a Wake Lock API durante o processamento (quando o navegador suporta) e avisa para deixar a tela ligada e o APS aberto.
