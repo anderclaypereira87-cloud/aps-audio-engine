@@ -1,6 +1,7 @@
 import * as M from './vendor/mediabunny-1.62.1.mjs';
 import { ENVELOPE_HZ, externalTime } from '../aps-video-sync.js';
 import { AudioProcessor, outputDimensions, drawVideo } from '../aps-video-enhance.js';
+import { scanCameraMotion } from './advanced/motion-scan.js';
 
 export const LIMITS = Object.freeze({ seconds: 600, fileBytes: 768 * 1048576, memoryOutputBytes: 96 * 1048576 });
 export const openInput = file => new M.Input({ formats: M.ALL_FORMATS, source: new M.BlobSource(file, { maxCacheSize: 2 * 1048576 }) });
@@ -16,7 +17,7 @@ export async function inspectFile(file) {
     const duration = video ? await video.computeDuration() - start : await input.computeDuration();
     if (!Number.isFinite(duration) || duration <= 0) throw Error('Não foi possível ler a duração.');
     if (duration > LIMITS.seconds + 0.05) throw Error('Duração maior que 10 minutos. Recorte uma cópia antes de editar.');
-    const result = { duration, videoStart: start, hasVideo: !!video, hasAudio: !!audio, audioReadable: !!audio && await audio.canDecode(), videoReadable: !!video && await video.canDecode(), mime: await input.getMimeType(), audioCodec: audio?.codec || null, hdr: false };
+    const result = { duration, videoStart: start, hasVideo: !!video, hasAudio: !!audio, audioReadable: !!audio && await audio.canDecode(), videoReadable: !!video && await video.canDecode(), mime: await input.getMimeType(), videoCodec: video?.codec || null, audioCodec: audio?.codec || null, hdr: false };
     if (video) {
       result.width = await video.getDisplayWidth(); result.height = await video.getDisplayHeight();
       result.hdr = await video.hasHighDynamicRange();
@@ -165,6 +166,17 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
     if (!info.hasVideo || !info.videoReadable) throw Error('O codec de vídeo não pode ser decodificado neste aparelho.');
     if (info.hdr) throw Error('Esta versão processa vídeo SDR. Converta uma cópia do vídeo HDR antes de corrigir a cor.');
     const dim = outputDimensions(info.width, info.height, aspect, resolution);
+    let motionPlan = videoSettings.motionPlan || null;
+    if (!audioOnly && Number(videoSettings.stabilization) > 0 && !motionPlan) {
+      const scanInput = openInput(videoFile);
+      try {
+        progress({ stage: 'stabilize', fraction: 0 });
+        motionPlan = await scanCameraMotion(scanInput, info, {
+          signal, progress: f => progress({ stage: 'stabilize', fraction: Math.min(0.2, f * 0.2) }),
+        });
+      } finally { scanInput.dispose(); }
+    }
+    check(signal);
     const chosenAudio = source === 'external' ? audioFile : source === 'original' ? videoFile : null;
     if (source === 'external' && !audioFile) throw Error('Selecione o arquivo de áudio externo.');
     const supported = await encodingOptions(dim.width, dim.height, !!chosenAudio);
@@ -173,7 +185,12 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
       if (!supported[format]) throw Error(`Codificação ${format.toUpperCase()} indisponível nesta resolução. Experimente WebM ou outro navegador.`);
     }
     const bitrate = resolution === '4k' ? 24e6 : Math.max(800000, dim.width * dim.height * 4);
-    target = await makeTarget(info.duration * (audioOnly ? 1536000 : bitrate + 192000) / 8 * 1.2, progress);
+    const memoryEstimateBytes = dim.width * dim.height * 4 * (2 + ((videoSettings.denoise || videoSettings.sharpness) ? 2 : 0));
+    const storage = await navigator.storage?.estimate?.().catch(() => null);
+    const estimatedOutputBytes = info.duration * (audioOnly ? 1536000 : bitrate + 192000) / 8 * 1.2;
+    if (storage?.quota && Number.isFinite(storage.usage) && storage.quota - storage.usage < estimatedOutputBytes)
+      throw Error('Espaço temporário estimado insuficiente. Escolha resolução menor, libere espaço ou edite um trecho mais curto.');
+    target = await makeTarget(estimatedOutputBytes, progress);
     const outputFormat = audioOnly ? new M.WavOutputFormat() : format === 'mp4' ? new M.Mp4OutputFormat({ fastStart: 'fragmented' }) : new M.WebMOutputFormat();
     output = new M.Output({ format: outputFormat, target: target.target });
     const canvas = !audioOnly ? new OffscreenCanvas(dim.width, dim.height) : null;
@@ -200,10 +217,10 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
         check(signal);
         const timestamp = Math.max(0, frame.timestamp - info.videoStart), duration = Math.min(frame.duration, info.duration - timestamp);
         if (duration <= 0) continue;
-        drawVideo(canvas, frame.canvas, frame.canvas.width, frame.canvas.height, videoSettings);
+        drawVideo(canvas, frame.canvas, frame.canvas.width, frame.canvas.height, { ...videoSettings, motionPlan, videoTime: timestamp });
         await videoSource.add(timestamp, duration);
         await audioUntil(timestamp + duration); frames++; minFrame = Math.min(minFrame, duration);
-        progress({ stage: 'export', fraction: Math.min(0.98, (timestamp + duration) / info.duration * 0.98), frames });
+        progress({ stage: 'export', fraction: Math.min(0.98, 0.2 + (timestamp + duration) / info.duration * 0.78), frames });
       }
       if (!frames) throw Error('Nenhum quadro de vídeo foi decodificado.');
       videoSource.close();
@@ -213,7 +230,9 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
     await audioUntil(info.duration + 1); check(signal);
     progress({ stage: 'finalize', fraction: 0.99 }); await output.finalize(); check(signal);
     const blob = await target.blob();
-    return { blob, tempName: target.tempName, mime: audioOnly ? 'audio/wav' : `video/${format}`, extension: audioOnly ? 'wav' : format, width: dim.width, height: dim.height, duration: info.duration, frames, minFrameSeconds: Number.isFinite(minFrame) ? minFrame : null, bytes: blob.size, clipped, peak };
+    return { blob, tempName: target.tempName, mime: audioOnly ? 'audio/wav' : `video/${format}`, extension: audioOnly ? 'wav' : format, width: dim.width, height: dim.height, duration: info.duration, frames, minFrameSeconds: Number.isFinite(minFrame) ? minFrame : null, bytes: blob.size, clipped, peak,
+      memoryEstimateBytes, memoryMeasurement: 'estimated-canvas-buffers-not-process-RSS', storageQuotaBytes: storage?.quota ?? null, storageAvailableBytes: Number.isFinite(storage?.usage) ? storage.quota - storage.usage : null,
+      stabilization: motionPlan ? { kind: motionPlan.kind, samples: motionPlan.samples, coverage: motionPlan.coverage, requiredZoom: motionPlan.requiredZoom, applied: Number(videoSettings.stabilization) } : null };
   } catch (e) {
     await output?.cancel().catch(() => {}); await target?.cleanup(); throw e;
   } finally { await audioIter?.return(); await videoIter?.return(); input.dispose(); }
