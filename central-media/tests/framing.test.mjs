@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { regionFromPose, makeFramingPlan, frameAt, centerCropAt } from '../advanced/subject-framing.js';
+import { regionFromPose, makeFramingPlan, frameAt, centerCropAt, needsSafeContain } from '../advanced/subject-framing.js';
 import { drawVideo, cropRectangle } from '../../aps-video-enhance.js';
 
 function body(cx = 0.5) {
@@ -32,7 +32,7 @@ test('framing needs actual person detections and creates a smoothed time-based p
 });
 
 test('automatic crop is bounded, time-dependent, and manual adjustments work', () => {
-  const plan = makeFramingPlan([0, 1, 2].map(t => ({ t, region: regionFromPose(body(t === 0 ? 0.25 : 0.7)) })));
+  const plan = { points: [0, 1, 2].map(t => ({ t, x: t === 0 ? .25 : .7, y: .5, left: (t === 0 ? .25 : .7) - .08, right: (t === 0 ? .25 : .7) + .08, top: .3, bottom: .7 })) };
   const canvasCalls = [];
   const canvas = { width: 100, height: 150, getContext() { return { drawImage(_s, ...rect) { canvasCalls.push(rect); } }; } };
   drawVideo(canvas, {}, 1920, 1080, { autoFrame: true, framingPlan: plan, videoTime: 0, x: 0.5, y: 0.5 });
@@ -48,4 +48,20 @@ test('automatic crop is bounded, time-dependent, and manual adjustments work', (
   const bounded = centerCropAt(rect, 1920, 1080, { x: 5, y: -5 });
   assert.equal(bounded.x, 1920 - rect.width);
   assert.equal(bounded.y, 0);
+});
+
+test('too-narrow format uses letterbox rather than cutting detected hands', () => {
+  const region = regionFromPose(body(.5));
+  const rect = cropRectangle(1920, 1080, 9 / 16);
+  assert.equal(needsSafeContain(rect, 1920, 1080, region), true);
+  const events = [];
+  const canvas = { width: 108, height: 192, getContext() { return {
+    fillRect(...args) { events.push(['fill', ...args]); },
+    drawImage(_source, ...args) { events.push(['draw', ...args]); },
+  }; } };
+  drawVideo(canvas, {}, 1920, 1080, { autoFrame: true, framingPlan: { points: [{ t: 0, ...region }] }, videoTime: 0 });
+  assert.equal(events[0][0], 'fill');
+  assert.deepEqual(events[1].slice(0, 5), ['draw', 0, 0, 1920, 1080]);
+  const [,, , , , dx, dy, dw, dh] = events[1];
+  assert.ok(dx >= 0 && dy >= 0 && dw <= canvas.width && dh <= canvas.height);
 });
