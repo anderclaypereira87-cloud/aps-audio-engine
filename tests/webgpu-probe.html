@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>APS · sonda WebGPU</title><pre id="o"></pre>
+<script type="module">
+// Sonda de teste (não é página do app): roda 1 bloco do modelo leve v2 em WASM e em WebGPU e compara.
+const Q=new URLSearchParams(location.search),V=Q.get('v')||'1.21.0',o=document.getElementById('o'),log=s=>{o.textContent+=s+'\n';console.log(s);};
+const ort=await import(`https://cdn.jsdelivr.net/npm/onnxruntime-web@${V}/dist/ort.webgpu.min.mjs`);
+ort.env.wasm.wasmPaths=`https://cdn.jsdelivr.net/npm/onnxruntime-web@${V}/dist/`;ort.env.wasm.numThreads=1;
+const model=new Uint8Array(await (await fetch(Q.get('m')||'../models/htdemucs_6s_leve_v2.onnx')).arrayBuffer());
+const SEG=343980,x=new Float32Array(2*SEG);let s=7;for(let i=0;i<x.length;i++){s=(s*1103515245+12345)>>>0;x[i]=Math.sin(i*0.031)*.3+((s/4294967296)-.5)*.2;}
+async function run(ep){const t0=performance.now();const sess=await ort.InferenceSession.create(model,{executionProviders:[ep],graphOptimizationLevel:Q.get('opt')||'disabled',enableMemPattern:false,enableCpuMemArena:false,logSeverityLevel:Number(new URLSearchParams(location.search).get('log')||3)});
+ const tl=performance.now();if(Q.get('norun')){await sess.release();return {load:(tl-t0)/1000,run:0,d:new Float32Array(0)};}const r=await sess.run({mix:new ort.Tensor('float32',x.slice(),[1,2,SEG])});const out=r.stems||r[Object.keys(r)[0]];const d=await out.getData?.()||out.data;const t=performance.now();await sess.release();return {load:(tl-t0)/1000,run:(t-tl)/1000,d:Float32Array.from(d)};}
+window.result={};
+for(const ep of (new URLSearchParams(location.search).get('ep')||'wasm,webgpu').split(',')){
+ try{const r=await run(ep);window.result[ep]=r;let nan=0;for(const v of r.d)if(!Number.isFinite(v))nan++;log(ep+': carregar '+r.load.toFixed(1)+' s, bloco '+r.run.toFixed(1)+' s, NaN '+nan);}
+ catch(e){window.result[ep]={error:String(e?.message||e)};log(ep+': ERRO '+(e?.message||e));}}
+const a=window.result.wasm?.d,b=window.result.webgpu?.d;
+if(a&&b){let n=0,e=0,m=0;for(let i=0;i<a.length;i++){n+=a[i]*a[i];const d=a[i]-b[i];e+=d*d;m=Math.max(m,Math.abs(d));}window.result.snr=10*Math.log10(n/e);window.result.maxdiff=m;log('WebGPU × WASM: SNR '+window.result.snr.toFixed(1)+' dB, diferença máx '+m.toExponential(2));}
+window.done=true;
+</script>

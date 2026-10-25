@@ -55,3 +55,11 @@
 * Navegador, música de 10 min (`longo`): aparece o aviso "Esta música tem 10 min… trecho de até 5 min". Uma duração forjada de 600 s foi recusada. O trecho de 590 a 600 s foi separado com 10,000 s de saída, e a soma das pistas bate com o trecho original (18,6 dB, o que confirma o alinhamento).
 * Navegador, 10 s: 34 s, ZIP íntegro, 6 pistas na DAW, lag 0 e 17,85 dB (igual ao anterior).
 * Não testado: uma separação completa de 5 min com este código (em v4.0, 10 min funcionaram no desktop) e qualquer teste em celular real.
+
+## v4.2 · WebGPU (25/10/2026, SwiftShader, sem GPU real)
+* `node tests/core.test.mjs`: 9 de 9 testes ok.
+* e2e de 10 s em WASM (padrão): 33 s, 6 pistas na DAW, lag 0, SNR igual ao anterior.
+* e2e de 10 s com WebGPU (`gpu10`): o motor em uso foi "WebGPU (google swiftshader)", em 508 s. Pistas iguais ao WASM (bateria 15,43, baixo 7,81, voz 10,43 dB), lag 0, 6 pistas na DAW. Pico de 2,1 GB.
+* Fallback (`gpufalha`, biblioteca WebGPU bloqueada): troca automática para WASM, concluído em 35 s, com resultado idêntico.
+* Sonda `tests/webgpu-probe.html`: compara 1 bloco entre WASM e WebGPU (parâmetros `v`, `ep`, `m`, `opt`, `norun`, `log`).
+* Não testado: GPU real, celular real (Realme C75) e o fallback no meio de um bloco com GPU real.
