@@ -4,9 +4,9 @@
   "scope": "Optional neural person framing in the existing Central de Midia; no auth or other project changes",
   "tests_run": {
     "command": "node --test central-media/tests/sync.test.mjs central-media/tests/advanced.test.mjs central-media/tests/framing.test.mjs",
-    "passed": 20,
+    "passed": 21,
     "failed": 0,
-    "covers": ["sync mapping and drift", "conventional pixel processing", "stabilization feature motion and crop", "pose landmark geometry with safety margin", "detection confidence reject", "time-interpolated smoothed neural framing plan", "manual override and crop bounds"]
+    "covers": ["sync mapping and drift", "conventional pixel processing", "stabilization feature motion and crop", "pose landmark geometry with safety margin", "detection confidence reject", "time-interpolated smoothed neural framing plan", "manual override and crop bounds", "safe letterboxing if detected person will not fit output ratio"]
   },
   "browser_export_attempt": {
     "command": "APS_TEST_CHROME=/workspace/scratch/a6ddfa49de93/media-deps/chrome/chrome-linux64/chrome APS_FIXTURES=/tmp/aps-advanced-fixtures node central-media/tests/browser.cjs",
