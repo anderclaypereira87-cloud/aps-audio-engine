@@ -3,18 +3,19 @@ import { externalTime, correlate, ENVELOPE_HZ } from '../aps-video-sync.js';
 import { encodingOptions, removeTemp } from './media-io.js';
 
 const $ = id => document.getElementById(id), video = $('sync-preview'), audio = $('sync-external');
-const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, nativePreviewShift: 0, nativePreviewReady: true, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
+const state = { videoFile: null, audioFile: null, videoInfo: null, audioInfo: null, alignment: null, reference: null, external: null, motionPlan: null, framingPlan: null, nativePreviewShift: 0, nativePreviewReady: true, listen: 'after', busy: false, urls: {}, temps: new Set(), report: null };
 let active = null, graph = null, graphPromise = null, drawing = false, probeId = 0;
 const status = (message, error = false) => { $('media-status').textContent = message; $('media-status').classList.toggle('bad', error); };
 const settings = kind => Object.fromEntries([...document.querySelectorAll(`[data-${kind}]`)].map(el => [el.dataset[kind], el.type === 'checkbox' ? el.checked : Number(el.value)]));
 const offset = () => { const n = Number($('sync-offset').value); if (!Number.isFinite(n) || Math.abs(n) > 600000) throw Error('Informe um deslocamento entre −600000 e 600000 ms.'); return n / 1000; };
 const rate = () => $('sync-drift').checked && state.alignment?.accepted ? state.alignment.rate : 1;
-const stageNames = { reference: 'Lendo referência do vídeo', audio: 'Lendo áudio externo', correlation: 'Comparando transientes e marcadores', stabilize: 'Rastreando pontos para estabilização convencional', export: 'Codificando o arquivo', finalize: 'Finalizando o contêiner', validate: 'Conferindo contêiner e duração exportados', verify: 'Medindo o áudio do arquivo exportado', storage: 'Preparando espaço temporário' };
+const stageNames = { reference: 'Lendo referência do vídeo', audio: 'Lendo áudio externo', correlation: 'Comparando transientes e marcadores', stabilize: 'Rastreando pontos para estabilização convencional', framing: 'Detectando postura do músico com modelo neural', export: 'Codificando o arquivo', finalize: 'Finalizando o contêiner', validate: 'Conferindo contêiner e duração exportados', verify: 'Medindo o áudio do arquivo exportado', storage: 'Preparando espaço temporário' };
 
 function readiness() {
   const valid = !!state.videoInfo?.videoReadable && !state.videoInfo.hdr && ($('sync-source').value !== 'original' || state.videoInfo.audioReadable);
   $('sync-analyze').disabled = state.busy || !state.videoFile || !state.audioFile;
   $('motion-analyze').disabled = state.busy || !state.videoInfo?.videoReadable;
+  $('frame-analyze').disabled = state.busy || !state.videoInfo?.videoReadable;
   $('media-export').disabled = state.busy || !valid || ($('sync-source').value === 'external' && !state.audioInfo?.audioReadable);
   $('media-to-daw').disabled = state.busy || !valid || $('sync-source').value === 'mute' || ($('sync-source').value === 'external' && !state.audioInfo?.audioReadable);
   $('media-controls').disabled = state.busy; $('media-export-controls').disabled = state.busy;
@@ -72,7 +73,11 @@ async function selectFile(kind, file) {
   if (kind === 'audio' && !info.hasAudio) throw Error('O arquivo selecionado não contém uma faixa de áudio.');
   await clearResult(); resetAlignment();
   state[`${kind}File`] = file; state[`${kind}Info`] = info;
-  if (kind === 'video') { state.motionPlan = null; $('motion-result').textContent = 'Estabilização desligada ou ainda não analisada.'; }
+  if (kind === 'video') {
+    state.motionPlan = null; $('motion-result').textContent = 'Estabilização desligada ou ainda não analisada.';
+    state.framingPlan = null; $('v-autoFrame').checked = false;
+    $('frame-result').textContent = 'Detecção desligada. O recorte continua manual.';
+  }
   const player = kind === 'video' ? video : audio; player.src = url(kind, file); player.load();
   if (kind === 'audio') {
     state.nativePreviewShift = 0; state.nativePreviewReady = !/\.mp3$/i.test(file.name) && file.type !== 'audio/mpeg';
@@ -110,6 +115,18 @@ async function scanMotion() {
   state.motionPlan = plan;
   $('motion-result').textContent = `${plan.samples} quadros amostrados · ${Math.round(plan.coverage * 100)}% de vetores confiáveis · recorte mínimo estimado ${((plan.requiredZoom - 1) * 100).toFixed(1)}%.${plan.requiredZoom > 1.4 ? ' Movimento excede o recorte seguro; correção parcial nas bordas.' : ''}`;
   status('Rastreamento convencional analisado. Ajuste a intensidade e compare a imagem.');
+  drawPreview();
+}
+
+async function scanPerson() {
+  if (!state.videoFile || !state.videoInfo?.videoReadable) throw Error('Selecione primeiro um vídeo decodificável.');
+  const file = state.videoFile;
+  const plan = await job('frame', { videoFile: file, videoInfo: state.videoInfo });
+  if (file !== state.videoFile) return;
+  state.framingPlan = plan;
+  $('v-autoFrame').checked = true;
+  $('frame-result').textContent = `Pessoa detectada em ${Math.round(plan.coverage * 100)}% das ${plan.samples} amostras · ${plan.model}, modelo ${plan.version} · licença ${plan.modelLicense}. O instrumento não é detectado: revise as mãos e ajuste o zoom.`;
+  status('Detecção neural concluída. Compare os formatos e ajuste manualmente quando necessário.');
   drawPreview();
 }
 
@@ -201,7 +218,7 @@ function drawPreview() {
   const factor = Math.min(1, 640 / Math.max(dimensions.width, dimensions.height));
   const w = Math.round(dimensions.width * factor), h = Math.round(dimensions.height * factor);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-  drawVideo(canvas, video, video.videoWidth, video.videoHeight, { ...settings('video'), motionPlan: state.motionPlan, videoTime: video.currentTime - (state.videoInfo?.videoStart || 0) });
+  drawVideo(canvas, video, video.videoWidth, video.videoHeight, { ...settings('video'), motionPlan: state.motionPlan, framingPlan: state.framingPlan, videoTime: video.currentTime - (state.videoInfo?.videoStart || 0) });
 }
 function animate() {
   if (drawing) return; drawing = true;
@@ -226,7 +243,7 @@ async function transferToDAW(file) {
 }
 
 async function render(audioOnly = false) {
-  const options = { videoFile: state.videoFile, audioFile: state.audioFile, source: $('sync-source').value, offsetSeconds: offset(), rate: rate(), audioSettings: settings('audio'), videoSettings: { ...settings('video'), motionPlan: state.motionPlan }, aspect: $('sync-aspect').value, resolution: $('sync-resolution').value, format: $('sync-format').value, audioOnly };
+  const options = { videoFile: state.videoFile, audioFile: state.audioFile, source: $('sync-source').value, offsetSeconds: offset(), rate: rate(), audioSettings: settings('audio'), videoSettings: { ...settings('video'), motionPlan: state.motionPlan, framingPlan: state.framingPlan }, aspect: $('sync-aspect').value, resolution: $('sync-resolution').value, format: $('sync-format').value, audioOnly };
   await clearResult();
   const start = performance.now();
   const result = await job('export', { options, reference: state.reference });
@@ -245,7 +262,7 @@ async function render(audioOnly = false) {
   const measuredContainer = result.measuredContainer?.durationSeconds != null
     ? `\nContêiner reaberto: ${result.measuredContainer.durationSeconds.toFixed(3)} s · diferença ${(result.measuredContainer.durationDifferenceSeconds * 1000).toFixed(1)} ms · vídeo ${result.measuredContainer.videoCodec || 'nenhum'} · áudio ${result.measuredContainer.audioCodec || 'nenhum'}.`
     : `\nVerificação da duração exportada indisponível: ${result.measuredContainer?.unavailable || 'sem leitura'}.`;
-  $('media-export-result').textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB · ${result.duration.toFixed(3)} s · ${result.frames} quadros\n${measured}${measuredContainer}\nReserva de canvases estimada ≥${(result.memoryEstimateBytes / 1048576).toFixed(1)} MiB; não mede RAM total.${result.stabilization ? `\nEstabilização convencional: ${Math.round(result.stabilization.coverage * 100)}% de rastreios confiáveis.` : ''}${result.clipped ? `\nAtenção: ${result.clipped} amostras de canal limitadas. Reduza o volume e exporte novamente.` : ''}`;
+  $('media-export-result').textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB · ${result.duration.toFixed(3)} s · ${result.frames} quadros\n${measured}${measuredContainer}\nReserva de canvases estimada ≥${(result.memoryEstimateBytes / 1048576).toFixed(1)} MiB; não mede RAM total.${result.stabilization ? `\nEstabilização convencional: ${Math.round(result.stabilization.coverage * 100)}% de rastreios confiáveis.` : ''}${result.framing ? `\nEnquadramento neural de pessoa: ${Math.round(result.framing.coverage * 100)}% de detecções; instrumento não detectado.` : ''}${result.clipped ? `\nAtenção: ${result.clipped} amostras de canal limitadas. Reduza o volume e exporte novamente.` : ''}`;
   state.report = { schema: 'aps-media-report-v1', created: new Date().toISOString(), userAgent: navigator.userAgent, inputs: { video: { name: state.videoFile.name, size: state.videoFile.size, ...state.videoInfo }, audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, ...state.audioInfo } : null }, settings: { ...options, videoFile: undefined, audioFile: undefined }, nativePreview: { calibrated: state.nativePreviewReady, shiftSeconds: state.nativePreviewShift }, alignment: state.alignment, export: { ...result, blob: undefined, tempName: undefined, elapsedSeconds: (performance.now() - start) / 1000 } };
   status(audioOnly ? 'Áudio WAV pronto. Preparando transferência para a DAW…' : 'Arquivo finalizado. Reproduza a exportação abaixo e baixe sua cópia.');
   if (audioOnly) { try { await transferToDAW(file); } catch (e) { throw Error(`Áudio pronto, mas a transferência falhou: ${e.message}. Baixe o WAV e importe na DAW.`); } }
@@ -254,6 +271,13 @@ async function render(audioOnly = false) {
 for (const kind of ['video', 'audio']) $(`sync-${kind}`).addEventListener('change', e => { const file = e.target.files[0]; selectFile(kind, file).catch(error); });
 $('sync-analyze').addEventListener('click', () => synchronize().catch(error));
 $('motion-analyze').addEventListener('click', () => scanMotion().catch(error));
+$('frame-analyze').addEventListener('click', () => scanPerson().catch(error));
+$('v-autoFrame').addEventListener('change', () => {
+  if ($('v-autoFrame').checked && !state.framingPlan) {
+    $('frame-result').textContent = 'Para ativar a prévia, clique em “Detectar pessoa no vídeo”. A exportação fará a análise se necessário.';
+  }
+  drawPreview();
+});
 $('sync-reset').addEventListener('click', resetAlignment);
 $('media-cancel').addEventListener('click', () => active?.cancel());
 $('media-export').addEventListener('click', () => render().catch(error));

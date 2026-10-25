@@ -1,8 +1,31 @@
 # APS Central de Mídia — etapa avançada (branch de desenvolvimento)
 
-Esta pasta contém **estabilização convencional por rastreamento de pontos**.
-Não contém modelo de IA, rede neural, detector de pessoa/músico, upscaler
-neural nem processamento na nuvem.
+Esta pasta contém **estabilização convencional por rastreamento de pontos** e
+**enquadramento opcional de uma pessoa por MediaPipe Pose Landmarker Lite**.
+O primeiro é convencional; o segundo executa inferência neural no navegador,
+quando suportado. Não há detector do contorno de instrumentos, upscaler
+neural nem processamento de arquivos na nuvem.
+
+## Enquadramento neural opcional (experimental)
+
+- Clique **Detectar pessoa no vídeo** para buscar um único corpo em amostras
+  de até 1 quadro/segundo. O Worker baixa, quando necessário, o runtime
+  `@mediapipe/tasks-vision@1.1.1` de jsDelivr e os pesos `Pose Landmarker
+  Lite float16/1` do repositório público Google.
+- Model card do BlazePose GHUM: Apache-2.0. URLs e identificação estão
+  fixadas em `pose-scan.js`; consulte `MODEL-EVALUATION.md`.
+- Os marcos do corpo incluem pulsos e mãos. O recorte recebe margem de
+  segurança e trajetória suavizada, porém **não detecta todo o baixo, guitarra,
+  bateria ou microfone**. Se a área corporal não couber no recorte, aplica
+  letterbox com barras pretas em vez de amputar as mãos por corte. Confira
+  bordas e instrumento, principalmente em 9:16, e use os controles manuais
+  de zoom, horizontal e vertical.
+- O modo vem desligado. Se não houver modelo, internet, RAM ou detecções
+  confiáveis, o APS oferece recorte manual. A exportação executa a mesma
+  análise quando a caixa é ativada, mesmo sem análise prévia na interface.
+- A inferência real, os pesos e o uso em Android/iOS físicos ainda precisam
+  de homologação; o código está marcado **experimental** e sem garantia de
+  desempenho móvel. Um teste de lógica não valida o modelo no aparelho.
 
 ## Arquitetura
 
@@ -49,7 +72,7 @@ original e não gera análise adicional.
 ## Testes
 
 ```bash
-node --test central-media/tests/sync.test.mjs central-media/tests/advanced.test.mjs
+node --test central-media/tests/sync.test.mjs central-media/tests/advanced.test.mjs central-media/tests/framing.test.mjs
 python3 central-media/tests/make-fixtures.py /tmp/aps-media-fixtures
 APS_TEST_CHROME=/caminho/para/chrome APS_FIXTURES=/tmp/aps-media-fixtures node central-media/tests/browser.cjs
 python3 central-media/tests/verify-exports.py /tmp/aps-media-fixtures
@@ -84,5 +107,6 @@ navegador e RAM (se mensurável):
 6. Cancelar durante o rastreamento e novamente durante o render; conferir
    limpeza do arquivo temporário, originais intactos e controles reativados.
 7. Repetir com MP3/VBR, áudio adiantado/atrasado e drift; testar enviar WAV
-   para DAW. Deixar o recurso de pessoa e IA visual indisponível até
-   validação de modelo/versão/licença/pesos e limites de aparelho.
+   para DAW. Verificar a detecção de pessoa ativada e desligada, os pontos de
+   perda de rastreamento, o recorte com baixo/violão e o ajuste manual.
+   Não anunciar melhoria neural da imagem: ela não está implementada.

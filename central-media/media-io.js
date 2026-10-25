@@ -2,6 +2,7 @@ import * as M from './vendor/mediabunny-1.62.1.mjs';
 import { ENVELOPE_HZ, externalTime } from '../aps-video-sync.js';
 import { AudioProcessor, outputDimensions, drawVideo } from '../aps-video-enhance.js';
 import { scanCameraMotion } from './advanced/motion-scan.js';
+import { scanMusician } from './advanced/pose-scan.js';
 
 export const LIMITS = Object.freeze({ seconds: 600, fileBytes: 768 * 1048576, memoryOutputBytes: 96 * 1048576 });
 export const openInput = file => new M.Input({ formats: M.ALL_FORMATS, source: new M.BlobSource(file, { maxCacheSize: 2 * 1048576 }) });
@@ -176,6 +177,14 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
         });
       } finally { scanInput.dispose(); }
     }
+    let framingPlan = videoSettings.framingPlan || null;
+    if (!audioOnly && videoSettings.autoFrame && !framingPlan) {
+      const scanInput = openInput(videoFile);
+      try {
+        progress({ stage: 'framing', fraction: 0 });
+        framingPlan = await scanMusician(scanInput, info, { signal, progress: f => progress({ stage: 'framing', fraction: f }) });
+      } finally { scanInput.dispose(); }
+    }
     check(signal);
     const chosenAudio = source === 'external' ? audioFile : source === 'original' ? videoFile : null;
     if (source === 'external' && !audioFile) throw Error('Selecione o arquivo de áudio externo.');
@@ -217,7 +226,7 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
         check(signal);
         const timestamp = Math.max(0, frame.timestamp - info.videoStart), duration = Math.min(frame.duration, info.duration - timestamp);
         if (duration <= 0) continue;
-        drawVideo(canvas, frame.canvas, frame.canvas.width, frame.canvas.height, { ...videoSettings, motionPlan, videoTime: timestamp });
+        drawVideo(canvas, frame.canvas, frame.canvas.width, frame.canvas.height, { ...videoSettings, motionPlan, framingPlan, videoTime: timestamp });
         await videoSource.add(timestamp, duration);
         await audioUntil(timestamp + duration); frames++; minFrame = Math.min(minFrame, duration);
         progress({ stage: 'export', fraction: Math.min(0.98, 0.2 + (timestamp + duration) / info.duration * 0.78), frames });
@@ -232,7 +241,8 @@ export async function exportMedia({ videoFile, audioFile, source = 'external', o
     const blob = await target.blob();
     return { blob, tempName: target.tempName, mime: audioOnly ? 'audio/wav' : `video/${format}`, extension: audioOnly ? 'wav' : format, width: dim.width, height: dim.height, duration: info.duration, frames, minFrameSeconds: Number.isFinite(minFrame) ? minFrame : null, bytes: blob.size, clipped, peak,
       memoryEstimateBytes, memoryMeasurement: 'estimated-canvas-buffers-not-process-RSS', storageQuotaBytes: storage?.quota ?? null, storageAvailableBytes: Number.isFinite(storage?.usage) ? storage.quota - storage.usage : null,
-      stabilization: motionPlan ? { kind: motionPlan.kind, samples: motionPlan.samples, coverage: motionPlan.coverage, requiredZoom: motionPlan.requiredZoom, applied: Number(videoSettings.stabilization) } : null };
+      stabilization: motionPlan ? { kind: motionPlan.kind, samples: motionPlan.samples, coverage: motionPlan.coverage, requiredZoom: motionPlan.requiredZoom, applied: Number(videoSettings.stabilization) } : null,
+      framing: videoSettings.autoFrame && framingPlan ? { kind: framingPlan.kind, model: framingPlan.model, version: framingPlan.version, modelLicense: framingPlan.modelLicense, coverage: framingPlan.coverage, samples: framingPlan.samples, note: framingPlan.note } : null };
   } catch (e) {
     await output?.cancel().catch(() => {}); await target?.cleanup(); throw e;
   } finally { await audioIter?.return(); await videoIter?.return(); input.dispose(); }

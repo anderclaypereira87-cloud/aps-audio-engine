@@ -1,5 +1,6 @@
 /** Conventional, deterministic processing shared by preview and export. */
 import { motionAt } from './central-media/advanced/stabilization.js';
+import { frameAt, centerCropAt, needsSafeContain } from './central-media/advanced/subject-framing.js';
 export const VIDEO_DEFAULTS = Object.freeze({ exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, denoise: 0, sharpness: 0, zoom: 1, x: 0.5, y: 0.5 });
 export const AUDIO_DEFAULTS = Object.freeze({ gain: 0, bass: 0, mid: 0, treble: 0, highpass: 20, lowpass: 20000, gate: false, compressor: false });
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -52,14 +53,32 @@ export function drawVideo(canvas, source, width, height, settings = {}) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const amount = Math.max(0, Math.min(100, Number(settings.stabilization) || 0));
   const plan = settings.motionPlan;
-  const zoom = plan && amount > 0 ? Math.max(settings.zoom || 1, 1 + (plan.cropZoom - 1) * amount / 100) : settings.zoom;
-  const r = cropRectangle(width, height, canvas.width / canvas.height, { ...settings, zoom });
-  if (plan && amount > 0) {
+  const zoom = plan && amount > 0 ? Math.max(settings.zoom || 1, 1 + (plan.cropZoom - 1) * amount / 100) : (settings.zoom ?? 1);
+  let r = cropRectangle(width, height, canvas.width / canvas.height, { ...settings, zoom });
+  let contain = false;
+  if (settings.autoFrame && settings.framingPlan) {
+    const focus = frameAt(settings.framingPlan, settings.videoTime);
+    contain = needsSafeContain(r, width, height, focus);
+    if (!contain) {
+      r = centerCropAt(r, width, height, focus);
+      // Sliders remain manual offsets with the neural detector active.
+      r.x = clamp(r.x + (Number(settings.x ?? 0.5) - 0.5) * (width - r.width), 0, Math.max(0, width - r.width));
+      r.y = clamp(r.y + (Number(settings.y ?? 0.5) - 0.5) * (height - r.height), 0, Math.max(0, height - r.height));
+    }
+  }
+  if (!contain && plan && amount > 0) {
     const shift = motionAt(plan, settings.videoTime, amount);
     r.x = Math.max(0, Math.min(width - r.width, r.x - shift.dx * width / plan.width));
     r.y = Math.max(0, Math.min(height - r.height, r.y - shift.dy * height / plan.height));
   }
-  ctx.drawImage(source, r.x, r.y, r.width, r.height, 0, 0, canvas.width, canvas.height);
+  if (contain) {
+    // Black bars are intentional: a narrow portrait crop would lose visible
+    // body parts. Never stretch the image or distort the musician's fingers.
+    ctx.fillStyle = '#080b10';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / width, canvas.height / height);
+    ctx.drawImage(source, 0, 0, width, height, (canvas.width - width * scale) / 2, (canvas.height - height * scale) / 2, width * scale, height * scale);
+  } else ctx.drawImage(source, r.x, r.y, r.width, r.height, 0, 0, canvas.width, canvas.height);
   const s = { ...VIDEO_DEFAULTS, ...settings };
   if (s.exposure || s.contrast || s.saturation || s.temperature || s.tint || s.denoise || s.sharpness) {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
