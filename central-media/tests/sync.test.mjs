@@ -18,6 +18,34 @@ for (const delay of [0.25, 1, -0.25, 3]) test(`known offset ${delay}s, including
   assert.ok(result.accepted, result.reason); assert.ok(Math.abs(result.offsetSeconds + delay) <= 0.005);
   assert.equal(result.rate, 1); assert.ok(result.points.length >= 3);
 });
+
+function shortReference(seconds = 2) {
+  const a = new Float32Array(Math.round(seconds * 200)); let seed = 42;
+  for (let i = 0; i < a.length; i++) {
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    // A short live recording contains multiple independent attacks.
+    a[i] = Math.max(0, (seed / 2 ** 32 - 0.6)) * .05;
+    for (const t of [0.11, 0.32, 0.61, 0.91, 1.19, 1.51, 1.75, 2.15, 2.55])
+      if (i >= t * 200 && i < t * 200 + 10) a[i] += .8 * Math.exp(-(i - t * 200) / 5);
+  }
+  return a;
+}
+for (const seconds of [0.95, 1.85, 2.03, 3.1]) for (const delay of [-0.2, 0, 0.2])
+  test(`short clip ${seconds}s resolves ${delay}s offset without guessing drift`, () => {
+    const a = shortReference(seconds), b = shifted(a, delay);
+    const result = analyzeAlignment(a, b);
+    assert.equal(result.accepted, true, JSON.stringify(result));
+    assert.ok(Math.abs(result.offsetSeconds + delay) <= .005, JSON.stringify(result));
+    assert.equal(result.rate, 1);
+    assert.equal(result.shortClip, true);
+  });
+test('short clips without unique audible markers are rejected safely', () => {
+  const a = shortReference(2);
+  assert.equal(analyzeAlignment(new Float32Array(a.length), a).accepted, false);
+  assert.equal(analyzeAlignment(a, shortReference(2).reverse()).accepted, false);
+  const periodic = Float32Array.from(a, (_, i) => i % 40 < 5 ? 1 : 0);
+  assert.equal(analyzeAlignment(periodic, periodic).accepted, false);
+});
 test('590s signal: estimates both clock drift and offset to better than 1/30s', () => {
   const a = reference(590), result = analyzeAlignment(a, shifted(a, 0.25, 1.001));
   assert.ok(result.accepted, result.reason); assert.ok(result.driftDetected);
