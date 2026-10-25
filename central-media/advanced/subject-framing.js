@@ -51,7 +51,8 @@ export function frameAt(plan, time) {
   while (lo < hi) { const m = (lo + hi) >> 1; if (points[m].t < t) lo = m + 1; else hi = m; }
   const b = points[lo], a = points[Math.max(0, lo - 1)];
   const f = b.t > a.t ? (t - a.t) / (b.t - a.t) : 0;
-  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+  const keys = ['x', 'y', 'left', 'top', 'right', 'bottom'];
+  return Object.fromEntries(keys.map(key => [key, a[key] + (b[key] - a[key]) * f]));
 }
 
 export function centerCropAt(rect, width, height, focus) {
@@ -59,4 +60,11 @@ export function centerCropAt(rect, width, height, focus) {
   return { ...rect,
     x: clamp(focus.x * width - rect.width / 2, 0, Math.max(0, width - rect.width)),
     y: clamp(focus.y * height - rect.height / 2, 0, Math.max(0, height - rect.height)) };
+}
+
+/** Avoid cropping visible hands/body when the desired ratio is too narrow. */
+export function needsSafeContain(rect, width, height, focus) {
+  if (!focus || !Number.isFinite(focus.left) || !Number.isFinite(focus.right)) return false;
+  return (focus.right - focus.left) * width > rect.width * 0.95 ||
+    (focus.bottom - focus.top) * height > rect.height * 0.95;
 }
