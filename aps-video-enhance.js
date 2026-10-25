@@ -1,4 +1,5 @@
 /** Conventional, deterministic processing shared by preview and export. */
+import { motionAt } from './central-media/advanced/stabilization.js';
 export const VIDEO_DEFAULTS = Object.freeze({ exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, denoise: 0, sharpness: 0, zoom: 1, x: 0.5, y: 0.5 });
 export const AUDIO_DEFAULTS = Object.freeze({ gain: 0, bass: 0, mid: 0, treble: 0, highpass: 20, lowpass: 20000, gate: false, compressor: false });
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -49,7 +50,15 @@ export function processPixels(data, width, height, settings = {}, scratch = null
 const scratchByCanvas = new WeakMap();
 export function drawVideo(canvas, source, width, height, settings = {}) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const r = cropRectangle(width, height, canvas.width / canvas.height, settings);
+  const amount = Math.max(0, Math.min(100, Number(settings.stabilization) || 0));
+  const plan = settings.motionPlan;
+  const zoom = plan && amount > 0 ? Math.max(settings.zoom || 1, 1 + (plan.cropZoom - 1) * amount / 100) : settings.zoom;
+  const r = cropRectangle(width, height, canvas.width / canvas.height, { ...settings, zoom });
+  if (plan && amount > 0) {
+    const shift = motionAt(plan, settings.videoTime, amount);
+    r.x = Math.max(0, Math.min(width - r.width, r.x - shift.dx * width / plan.width));
+    r.y = Math.max(0, Math.min(height - r.height, r.y - shift.dy * height / plan.height));
+  }
   ctx.drawImage(source, r.x, r.y, r.width, r.height, 0, 0, canvas.width, canvas.height);
   const s = { ...VIDEO_DEFAULTS, ...settings };
   if (s.exposure || s.contrast || s.saturation || s.temperature || s.tint || s.denoise || s.sharpness) {
