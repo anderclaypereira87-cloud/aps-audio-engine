@@ -1,8 +1,11 @@
-// APS Audio Engine v4.0 · Separador de 6 pistas (HTDemucs-6s ONNX, no aparelho).
+// APS Audio Engine v4.2 · Separador de 6 pistas (local HTDemucs ou nuvem StemConsole).
 // Regras: nenhuma pista é sintetizada; erro aparece na tela; Cancelar encerra o worker e libera a memória.
 import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,deviceLimits,MAX_SECONDS,estimateSeconds} from './aps-sep-core.js?v=420';
 const $=id=>document.getElementById(id);
 let backendLabel='',working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
+
+// Chave padrão do StemConsole (pode ser sobrescrita pelo campo seguro)
+const DEFAULT_STEMCONSOLE_KEY='sc_live_qhfUakGoAeELErZBncHc7Qxlz_VIOhTyPkvuO_8OrXE';
 
 function phase(msg,percent,error=false){const el=$('phase');el.textContent=msg;el.classList.toggle('err',!!error);if(percent!==undefined){$('bar').style.width=percent+'%';document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));}}
 export function deviceInfo(){
@@ -17,15 +20,22 @@ function applyLimits(){
  const desc='Memória: '+(d.deviceMemory?('~'+d.deviceMemory+' GB'):'não informada')+' · Processadores: '+(d.cores||'?')+' · Threads WASM: '+(d.wasmThreads?'sim':'não (1 núcleo)')+' · WebGPU: '+(d.webgpu?'presente (não usado ainda)':'não');
  el.className='aps-devcheck'+(LIMITS.local&&LIMITS.recommendedSeconds>=180?'':' weak');
  el.textContent=(LIMITS.local?'':'⛔ ')+LIMITS.reason+' ('+desc+')';
- for(const r of document.querySelectorAll('input[name="apsEngine"]')){const ok=LIMITS.engines.includes(r.value);r.disabled=!ok;r.closest('label').style.opacity=ok?1:.45;}
- if(!LIMITS.engines.includes(engine())){const f=document.querySelector('input[name="apsEngine"]:not(:disabled)');if(f)f.checked=true;}
+ for(const r of document.querySelectorAll('input[name="apsEngine"]')){if(r.value==='nuvem'){r.disabled=false;r.closest('label').style.opacity=1;continue;}const ok=LIMITS.engines.includes(r.value);r.disabled=!ok;r.closest('label').style.opacity=ok?1:.45;}
+ if(!LIMITS.engines.includes(engine())&&engine()!=='nuvem'){const f=document.querySelector('input[name="apsEngine"]:not(:disabled)');if(f)f.checked=true;}
  for(const o of $('duration').options){const v=Number(o.value);o.disabled=v>LIMITS.maxSeconds;o.textContent=o.textContent.replace(/ ⚠.*$/,'')+(v>LIMITS.recommendedSeconds&&!o.disabled?' ⚠ acima do recomendado':'');}
  if(Number($('duration').value)>LIMITS.recommendedSeconds)$('duration').value=String([...$('duration').options].map(o=>Number(o.value)).filter(v=>v<=LIMITS.recommendedSeconds).pop()||10);
  if(Number($('duration').value)>LIMITS.maxSeconds){const ok=[...$('duration').options].filter(o=>!o.disabled).pop();if(ok)$('duration').value=ok.value;}
- $('start').disabled=!LIMITS.local;
- if(!LIMITS.local)phase('Este aparelho não tem memória suficiente para o modelo de separação. Use um computador, ou importe uma bateria já separada abaixo. Nenhuma pista será inventada.',0,true);
- showModelCache();showEstimate();
+ $('start').disabled=false; // nuvem always available
+ if(!LIMITS.local&&engine()!=='nuvem')phase('Este aparelho não tem memória suficiente para o modelo local. Use o modo nuvem ou importe uma bateria já separada. Nenhuma pista será inventada.',0,true);
+ showModelCache();showEstimate();updateCloudUI();
 }
+function updateCloudUI(){
+ const box=$('apsCloudKeyBox'),key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;
+ if(engine()==='nuvem'){box.style.display='block';$('apsStemConsoleKey').value=key;$('apsEngNuvemStatus').textContent='✔ chave configurada';}
+ else box.style.display='none';
+}
+document.querySelectorAll('input[name="apsEngine"]').forEach(r=>r.addEventListener('change',updateCloudUI));
+$('apsSaveKey')?.addEventListener('click',()=>{const k=$('apsStemConsoleKey').value.trim();if(k){localStorage.setItem('aps_stemconsole_key',k);phase('Chave salva com sucesso neste navegador.',undefined,false);$('apsEngNuvemStatus').textContent='✔ chave salva';}else{localStorage.removeItem('aps_stemconsole_key');phase('Chave removida.',undefined,false);}});
 function fmtMin(s){s=Math.round(s);return s<90?s+' s':Math.round(s/60)+' min';}
 function showEstimate(){const sec=Number($('duration').value),[a,b]=estimateSeconds(sec,deviceInfo().mobile),el=$('apsEstimate');if(!el)return;
  el.textContent='⏱ Tempo estimado de processamento para '+fmtMin(sec)+' de música: ~'+fmtMin(a)+' a '+fmtMin(b)+(deviceInfo().mobile?' (estimativa para celular, NÃO medida em aparelho real; pode ser mais).':' (medido em computador de 8 núcleos; o seu pode variar).')+' Deixe a tela ligada e o APS aberto até terminar.'+(sec>LIMITS.recommendedSeconds?' ⚠ Acima do recomendado para este aparelho: pode travar ou ficar sem memória.':'');}
@@ -56,7 +66,6 @@ function runWorker(audio,durationSec){
   let settled=false,etaStart=0;const chunks=Array.from({length:6},()=>[]);
   const worker=new Worker('./separador-worker.js?v=420',{type:'module'});activeWorker=worker;const started=Date.now();
   const steps=blockCount(audio[0].length);
-  // limite de tempo proporcional: 4 min por bloco no pior caso (celular lento), mínimo 10 min
   const maxMs=Math.max(10,steps*4)*60000;
   const finish=(err,out)=>{if(settled)return;settled=true;stopWorker=null;closeWorker();if(err){chunks.length=0;reject(err);}else resolve(out);};
   stopWorker=()=>finish(Object.assign(Error('Cancelado pelo usuário. O processamento foi encerrado e a memória liberada.'),{cancelled:true}));
@@ -73,35 +82,69 @@ function runWorker(audio,durationSec){
   try{worker.postMessage({type:'separate',engine:engine(),quality:$('outputQuality').value,threads:LIMITS.threads,backend:$('apsWebgpu')?.checked?'webgpu':'wasm',left:audio[0],right:audio[1]},[audio[0].buffer,audio[1].buffer]);}catch(err){finish(err);}
  });
 }
+async function runCloud(file){
+ const key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;if(!key)throw Error('Coloque sua API key do StemConsole no campo acima e clique em Salvar chave.');
+ phase('Enviando áudio para a nuvem (StemConsole)…',10);
+ const form=new FormData();form.append('file',file);form.append('model','full');
+ const res=await fetch('https://stemconsole.ai/api/v1/splits',{method:'POST',headers:{Authorization:'Bearer '+key},body:form});
+ if(!res.ok){const err=await res.json().catch(()=>({}));throw Error(err.message||err.error||'Erro ao criar job na nuvem (verifique a chave e o plano).');}
+ const job=await res.json();const id=job.id;if(!id)throw Error('Resposta inválida da API.');
+ phase('Processando na nuvem… aguarde',30);
+ let status='queued',tries=0;const maxTries=120;
+ while(status!=='done'&&tries<maxTries){
+  await new Promise(r=>setTimeout(r,5000));tries++;
+  const st=await fetch('https://stemconsole.ai/api/v1/splits/'+id,{headers:{Authorization:'Bearer '+key}});
+  if(!st.ok)throw Error('Falha ao consultar status.');
+  const data=await st.json();status=data.status;
+  phase('Status: '+status+' ('+tries+' tentativas)',30+Math.min(60,tries));
+  if(status==='failed')throw Error(data.message||'Separação falhou na nuvem.');
+ }
+ if(status!=='done')throw Error('Tempo limite na nuvem. Tente novamente.');
+ const final=await (await fetch('https://stemconsole.ai/api/v1/splits/'+id,{headers:{Authorization:'Bearer '+key}})).json();
+ const stems=final.stems||[];if(stems.length<6)throw Error('Menos de 6 stems retornados.');
+ phase('Baixando as 6 pistas…',90);
+ const blobs=[];const order=['drums','bass','other','vocals','guitar','piano'];
+ for(const name of order){
+  const s=stems.find(x=>x.name===name);if(!s||!s.mp3_url)throw Error('Stem '+name+' não encontrado.');
+  const audioRes=await fetch(s.mp3_url);if(!audioRes.ok)throw Error('Falha ao baixar '+name);
+  blobs.push(await audioRes.blob());
+ }
+ return {blobs,info:{backend:'StemConsole (nuvem)',frames:0,rate:44100,channels:2,seconds:0,sumSnrDb:0,inputFrames:0}};
+}
 async function decodeInput(file){
  phase('Decodificando o áudio…',2);context=context||new (window.AudioContext||window.webkitAudioContext)();
  const raw=await context.decodeAudioData(await file.arrayBuffer());const from=Math.max(0,Number($('from').value)||0),selection=Number($('duration').value);
  if(from>=raw.duration)throw Error('O início do trecho ultrapassa a duração da música ('+raw.duration.toFixed(1)+' s).');
  const time=Math.min(selection,MAX_SECONDS,raw.duration-from),offset=Math.floor(from*raw.sampleRate),width=Math.round(time*raw.sampleRate);if(width<=0)throw Error('Áudio vazio');
  const clip=context.createBuffer(Math.min(raw.numberOfChannels,2),width,raw.sampleRate);for(let ch=0;ch<clip.numberOfChannels;ch++)clip.copyToChannel(raw.getChannelData(ch).subarray(offset,offset+width),ch);
- // O modelo trabalha a 44,1 kHz estéreo. Reamostrar não muda andamento (BPM) nem duração.
  const off=new OfflineAudioContext(2,Math.round(time*SAMPLE_RATE),SAMPLE_RATE);const src=off.createBufferSource();src.buffer=clip;src.connect(off.destination);src.start();const res=await off.startRendering();
  return [new Float32Array(res.getChannelData(0)),new Float32Array(res.getChannelData(1))];
 }
 async function main(){
  if(working)return;const file=$('song').files[0];if(!file){phase('Escolha um áudio primeiro.',0,true);return;}
- if(!LIMITS.local){phase(LIMITS.reason,0,true);return;}
+ const isCloud=engine()==='nuvem';
+ if(!isCloud&&!LIMITS.local){phase(LIMITS.reason,0,true);return;}
  if(file.size>220*1048576){phase('Arquivo acima de 220 MB. Recorte ou converta para MP3 antes.',0,true);return;}
  const sel=Number($('duration').value);
- if(!(sel>0)||sel>LIMITS.maxSeconds){phase('Duração acima do máximo do APS (5 min por separação). Escolha um trecho menor.',0,true);return;}
- if(sel>LIMITS.recommendedSeconds){const [a,b]=estimateSeconds(sel,deviceInfo().mobile);if(!confirm('Atenção: '+fmtMin(sel)+' está acima do recomendado para este aparelho ('+fmtMin(LIMITS.recommendedSeconds)+'). Tempo estimado: ~'+fmtMin(a)+' a '+fmtMin(b)+' (estimativa, sem garantia). Pode travar ou faltar memória; nenhuma pista falsa será criada. Mantenha a tela ligada. Continuar?'))return;}
+ if(!isCloud&&(!(sel>0)||sel>LIMITS.maxSeconds)){phase('Duração acima do máximo do APS (5 min por separação). Escolha um trecho menor.',0,true);return;}
+ if(!isCloud&&sel>LIMITS.recommendedSeconds){const [a,b]=estimateSeconds(sel,deviceInfo().mobile);if(!confirm('Atenção: '+fmtMin(sel)+' está acima do recomendado para este aparelho ('+fmtMin(LIMITS.recommendedSeconds)+'). Tempo estimado: ~'+fmtMin(a)+' a '+fmtMin(b)+' (estimativa, sem garantia). Pode travar ou faltar memória; nenhuma pista falsa será criada. Mantenha a tela ligada. Continuar?'))return;}
  working=true;$('eta').textContent='';$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;resultInfo=null;
  let lock=null;try{lock=await navigator.wakeLock?.request('screen');}catch{}
- try{const mix=await decodeInput(file);const dur=mix[0].length/SAMPLE_RATE;
-  phase('Trecho de '+dur.toFixed(1)+' s pronto ('+blockCount(mix[0].length)+' blocos). Carregando o motor…',3);
-  const out=await runWorker(mix,dur);resultBlobs=out.blobs;resultInfo=out.info;
-  phase('Separação concluída. Ouça e baixe as 6 pistas geradas pelo modelo.',100);showResult();}
- catch(e){phase((e.cancelled?'':'Não foi possível concluir: ')+(e?.message||e)+(e.cancelled?'':' Nenhuma pista foi criada. Tente um trecho menor ou o modo leve.'),0,true);console.error(e);}
- finally{try{await lock?.release();}catch{}closeWorker();showModelCache();working=false;$('start').disabled=!LIMITS.local;$('cancel').disabled=true;}
+ try{
+  if(isCloud){
+   const out=await runCloud(file);resultBlobs=out.blobs;resultInfo=out.info;
+   phase('Separação na nuvem concluída. Ouça e baixe as 6 pistas.',100);showResult();
+  }else{
+   const mix=await decodeInput(file);const dur=mix[0].length/SAMPLE_RATE;
+   phase('Trecho de '+dur.toFixed(1)+' s pronto ('+blockCount(mix[0].length)+' blocos). Carregando o motor…',3);
+   const out=await runWorker(mix,dur);resultBlobs=out.blobs;resultInfo=out.info;
+   phase('Separação concluída. Ouça e baixe as 6 pistas geradas pelo modelo.',100);showResult();
+  }
+ }catch(e){phase((e.cancelled?'':'Não foi possível concluir: ')+(e?.message||e)+(e.cancelled?'':' Nenhuma pista foi criada. Tente um trecho menor ou o modo leve.'),0,true);console.error(e);}
+ finally{try{await lock?.release();}catch{}closeWorker();showModelCache();working=false;$('start').disabled=false;$('cancel').disabled=true;}
 }
 function openDB(name,store){return new Promise((ok,fail)=>{if(!window.indexedDB)return fail(Error('Armazenamento local indisponível.'));const r=indexedDB.open(name,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(store))r.result.createObjectStore(store);};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error);});}
 async function put(name,store,value){const db=await openDB(name,store);try{await new Promise((ok,fail)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value,'latest');tx.oncomplete=ok;tx.onerror=()=>fail(tx.error||Error('Armazenamento insuficiente.'));tx.onabort=()=>fail(tx.error||Error('Transferência cancelada.'));});}finally{db.close();}}
-// Integração com a DAW: o mesmo canal já existente (IndexedDB "aps-stems-transfer-v1" + daw.html?importStems=1).
 async function sendStemsToMixer(){
  if(!resultBlobs||working){$('transferStatus').textContent='Conclua a separação primeiro.';return;}
  $('sendMixer').disabled=true;
@@ -128,7 +171,6 @@ window.addEventListener('pagehide',()=>{stopPreview();closeWorker();});
 $('apsDrumOnlyGo')?.addEventListener('click',async()=>{const st=$('apsDrumOnlyStatus'),file=$('apsDrumOnlyFile')?.files?.[0];if(!file){st.textContent='Escolha primeiro um WAV ou MP3 de bateria.';return;}
  if(file.size>220*1048576){st.textContent='Arquivo grande demais (máximo 220 MB).';return;}
  try{st.textContent='Salvando a bateria dentro do APS…';await put('aps-drum-separated-v1','pending',{blob:file,name:file.name,source:'usuario'});location.href='./bateria.html?importar=separador#aps-drum-analyzer';}catch(e){st.textContent='Armazenamento indisponível: '+e.message;}});
-// Recebe a pista enviada pelo estúdio (daw.html → Separar pista selecionada)
 (async()=>{if(new URLSearchParams(location.search).get('importar')!=='daw')return;try{const db=await openDB('aps-sep-input-v1','pending');const item=await new Promise((ok,fail)=>{const tx=db.transaction('pending','readwrite'),st=tx.objectStore('pending'),g=st.get('latest');g.onsuccess=()=>{st.delete('latest');ok(g.result);};g.onerror=()=>fail(g.error);});db.close();if(!item?.blob)return;const f=new File([item.blob],item.name||'pista.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);$('song').files=dt.files;$('song').dispatchEvent(new Event('change',{bubbles:true}));phase('Pista do estúdio carregada: '+f.name+'. Escolha a duração e toque em Separar.',0);}catch(e){phase('Não consegui receber a pista do estúdio: '+e.message,0,true);}})();
 applyLimits();
 window.APS6Stem={pcmToWav,SOURCES,SAMPLE_RATE,SEG,STRIDE,limits:()=>LIMITS,state:()=>({working,hasResult:!!resultBlobs,info:resultInfo,sizes:resultBlobs?.map(b=>b.size)}),blobs:()=>resultBlobs};
