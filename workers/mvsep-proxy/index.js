@@ -37,6 +37,18 @@ export default {
       });
     }
 
+    // Proxy de download dos arquivos resultantes
+    if (path === '/download' && request.method === 'GET') {
+      const fileUrl = url.searchParams.get('url');
+      if (!fileUrl) return new Response(JSON.stringify({ error: 'url ausente' }), { status: 400 });
+      const res = await fetch(fileUrl);
+      if (!res.ok) return new Response('Falha ao baixar', { status: res.status });
+      const headers = new Headers(res.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Content-Disposition', 'attachment');
+      return new Response(res.body, { status: res.status, headers });
+    }
+
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         headers: {
@@ -47,6 +59,6 @@ export default {
       });
     }
 
-    return new Response('MVSEP Proxy OK', { headers: { 'Access-Control-Allow-Origin': '*' } });
+    return new Response('Proxy MVSEP funcionando', { headers: { 'Access-Control-Allow-Origin': '*' } });
   }
 };
