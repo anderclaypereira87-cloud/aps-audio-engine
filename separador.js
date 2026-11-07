@@ -26,16 +26,30 @@ function prefix(){return(($('song').files[0]?.name)||'APS').replace(/\.[^.]+$/,'
 function showResult(blobsByStem){
  const box=$('result');box.replaceChildren();
  const selected=selectedInstruments();
+ let shown=0;
  selected.forEach(id=>{
   const info=STEM_MAP[id];if(!info||!blobsByStem[id])return;
+  shown++;
   const card=document.createElement('div');card.className='resultcard';
   card.innerHTML=`<h3>${info.icon} ${info.name}</h3><div class="buttons"><button class="listen">▶ Ouvir</button><button class="dl">↓ Baixar</button></div>`;
   card.querySelector('.listen').onclick=()=>preview(blobsByStem[id]).catch(e=>phase('Erro ao tocar: '+e.message,undefined,true));
   card.querySelector('.dl').onclick=()=>download(blobsByStem[id],prefix()+'_'+id+'.mp3');
   box.append(card);
  });
+ if(shown===0){
+  phase('Separação concluída, mas nenhum arquivo reconhecido. Tente de novo.',100,true);
+  return;
+ }
  $('resultsPanel').hidden=false;
  $('resultsPanel').scrollIntoView({behavior:'smooth'});
+}
+function mapStem(name){
+ const n=(name||'').toLowerCase();
+ if(n.includes('vocal')||n.includes('voz'))return 'vocals';
+ if(n.includes('drum')||n.includes('bateria'))return 'drums';
+ if(n.includes('bass')||n.includes('baixo'))return 'bass';
+ if(n.includes('other')||n.includes('outro'))return 'other';
+ return null;
 }
 async function runCloud(file){
  const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
@@ -68,15 +82,12 @@ async function runCloud(file){
  const blobsByStem={};
  for(const f of files){
   if(!f.url)continue;
-  const name=(f.name||'').toLowerCase();
-  let stem=null;
-  if(name.includes('vocal'))stem='vocals';
-  else if(name.includes('drum'))stem='drums';
-  else if(name.includes('bass'))stem='bass';
-  else if(name.includes('other'))stem='other';
+  const stem=mapStem(f.name);
   if(!stem)continue;
-  const audioRes=await fetch(f.url);
-  if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
+  try{
+   const audioRes=await fetch(f.url);
+   if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
+  }catch(e){console.warn('Falha ao baixar',f.name,e);}
  }
  return blobsByStem;
 }
