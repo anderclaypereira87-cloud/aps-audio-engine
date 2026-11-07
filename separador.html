@@ -24,13 +24,13 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
   <label class="inst active"><input type="checkbox" value="other" checked> 🎼 Outros</label>
 </div>
 
-<div class="filebox" id="filebox">
-  <input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac" />
+<label class="filebox" id="filebox" for="song">
+  <input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg" />
   <div class="filedrop" id="filedrop">
     <strong>＋ Toque aqui para escolher a música</strong>
-    <span>MP3, WAV, M4A ou FLAC</span>
+    <span>MP3, WAV, M4A, FLAC ou OGG</span>
   </div>
-</div>
+</label>
 <div id="apsChosenSong" style="text-align:center;color:#f4d89a;min-height:24px;margin-bottom:4px;font-size:13px"></div>
 
 <button id="start" type="button">♫ Separar agora</button>
@@ -41,24 +41,27 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
 
 <section id="resultsPanel" hidden><h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2><div id="result"></div></section>
 </main>
-<script type="module" src="./separador.js?v=442"></script>
+<script type="module" src="./separador.js?v=443"></script>
 <script>
 (()=>{
  const list=document.getElementById('instList');
  list.querySelectorAll('.inst').forEach(lab=>{
-  lab.addEventListener('click',()=>{
+  lab.addEventListener('click',e=>{
+   if(e.target.tagName==='INPUT') return;
    const cb=lab.querySelector('input');
    cb.checked=!cb.checked;
    lab.classList.toggle('active',cb.checked);
   });
  });
  const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),box=document.getElementById('filebox'),drop=document.getElementById('filedrop');
- picker?.addEventListener('change',()=>{
+ function updateFile(){
   const f=picker.files?.[0];
   status.textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';
   box.classList.toggle('has-file',!!f);
   if(f)drop.innerHTML='<strong>✔ '+f.name+'</strong><span>'+(f.size/1048576).toFixed(1)+' MB · toque para trocar</span>';
-  else drop.innerHTML='<strong>＋ Toque aqui para escolher a música</strong><span>MP3, WAV, M4A ou FLAC</span>';
- });
+  else drop.innerHTML='<strong>＋ Toque aqui para escolher a música</strong><span>MP3, WAV, M4A, FLAC ou OGG</span>';
+ }
+ picker.addEventListener('change',updateFile);
+ picker.addEventListener('input',updateFile);
 })();
 </script></body></html>
