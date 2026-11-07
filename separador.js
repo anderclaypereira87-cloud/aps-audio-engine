@@ -56,14 +56,15 @@ async function runCloud(file){
  const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
  phase('Enviando música…',15);
  const form=new FormData();
- form.append('audiofile',file);
+ form.append('audiofile',file,file.name);
  form.append('api_token',token);
  form.append('sep_type','20');
  form.append('output_format','0');
  const res=await fetch(PROXY+'/create',{method:'POST',body:form});
  const job=await res.json().catch(()=>({}));
  if(!res.ok||!job.success||!job.data?.hash){
-  throw Error(job.message||job.error||'Erro ao enviar (verifique token ou limite do MVSEP).');
+  const msg=job.data?.message||job.message||job.error||(job.errors&&job.errors[0])||'Erro ao enviar';
+  throw Error(msg);
  }
  const hash=job.data.hash;
  phase('Separando na nuvem…',40);
@@ -74,7 +75,7 @@ async function runCloud(file){
   const data=await st.json().catch(()=>({}));
   status=data.status||'waiting';
   phase('Processando… ('+status+')',40+Math.min(40,tries*0.6));
-  if(status==='failed')throw Error(data.message||'Separação falhou.');
+  if(status==='failed')throw Error(data.data?.message||data.message||'Separação falhou.');
   if(status==='done')finalData=data;
  }
  if(status!=='done'||!finalData)throw Error('Demorou demais. Tente de novo.');
@@ -86,7 +87,6 @@ async function runCloud(file){
   const stem=mapStem(f.name);
   if(!stem)continue;
   try{
-   // Baixa via proxy para evitar bloqueio do navegador
    const proxyUrl=PROXY+'/download?url='+encodeURIComponent(f.url);
    const audioRes=await fetch(proxyUrl);
    if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
