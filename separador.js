@@ -1,5 +1,5 @@
-// APS Separador simplificado · só nuvem StemConsole + escolha de instrumentos
-const DEFAULT_STEMCONSOLE_KEY='sc_live_qhfUakGoAeELErZBncHc7Qxlz_VIOhTyPkvuO_8OrXE';
+// APS Separador · MVSEP API (4 stems: vocals, drums, bass, other)
+const DEFAULT_MVSEP_TOKEN='vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
 let working=false,resultBlobs=null,player=null;
 
@@ -7,8 +7,6 @@ const STEM_MAP={
  vocals:{name:'Voz',icon:'🎤'},
  drums:{name:'Bateria',icon:'🥁'},
  bass:{name:'Baixo',icon:'🎸'},
- guitar:{name:'Guitarra',icon:'🎸'},
- piano:{name:'Teclado / Piano',icon:'🎹'},
  other:{name:'Outros',icon:'🎼'}
 };
 
@@ -39,31 +37,45 @@ function showResult(blobsByStem){
  $('resultsPanel').scrollIntoView({behavior:'smooth'});
 }
 async function runCloud(file){
- const key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;
+ const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
  phase('Enviando música…',15);
- const form=new FormData();form.append('file',file);form.append('model','fast');
- const res=await fetch('https://stemconsole.ai/api/v1/splits',{method:'POST',headers:{Authorization:'Bearer '+key},body:form});
- if(!res.ok){const err=await res.json().catch(()=>({}));throw Error(err.message||err.error||'Erro na API (verifique crédito/chave).');}
- const job=await res.json();const id=job.id;if(!id)throw Error('Resposta inválida.');
+ const form=new FormData();
+ form.append('audiofile',file);
+ form.append('api_token',token);
+ form.append('sep_type','20');
+ form.append('output_format','0');
+ const res=await fetch('https://mvsep.com/api/separation/create',{method:'POST',body:form});
+ if(!res.ok){const err=await res.json().catch(()=>({}));throw Error(err.message||err.error||'Erro ao enviar (verifique token).');}
+ const job=await res.json();
+ if(!job.success||!job.data?.hash)throw Error(job.message||'Resposta inválida da API.');
+ const hash=job.data.hash;
  phase('Separando na nuvem…',40);
- let status='queued',tries=0;
- while(status!=='done'&&tries<90){
-  await new Promise(r=>setTimeout(r,4000));tries++;
-  const st=await fetch('https://stemconsole.ai/api/v1/splits/'+id,{headers:{Authorization:'Bearer '+key}});
+ let status='waiting',tries=0,finalData=null;
+ while(status!=='done'&&tries<120){
+  await new Promise(r=>setTimeout(r,5000));tries++;
+  const st=await fetch('https://mvsep.com/api/separation/get?hash='+hash);
   if(!st.ok)throw Error('Falha ao consultar status.');
-  const data=await st.json();status=data.status;
-  phase('Processando… ('+status+')',40+Math.min(40,tries*0.8));
+  const data=await st.json();
+  status=data.status||'waiting';
+  phase('Processando… ('+status+')',40+Math.min(40,tries*0.6));
   if(status==='failed')throw Error(data.message||'Separação falhou.');
+  if(status==='done')finalData=data;
  }
- if(status!=='done')throw Error('Demorou demais. Tente de novo.');
- const final=await (await fetch('https://stemconsole.ai/api/v1/splits/'+id,{headers:{Authorization:'Bearer '+key}})).json();
- const stems=final.stems||[];
+ if(status!=='done'||!finalData)throw Error('Demorou demais. Tente de novo.');
+ const files=finalData.data?.files||[];
  phase('Baixando pistas…',90);
  const blobsByStem={};
- for(const s of stems){
-  if(!s.mp3_url)continue;
-  const audioRes=await fetch(s.mp3_url);
-  if(audioRes.ok)blobsByStem[s.name]=await audioRes.blob();
+ for(const f of files){
+  if(!f.url)continue;
+  const name=(f.name||'').toLowerCase();
+  let stem=null;
+  if(name.includes('vocal'))stem='vocals';
+  else if(name.includes('drum'))stem='drums';
+  else if(name.includes('bass'))stem='bass';
+  else if(name.includes('other'))stem='other';
+  if(!stem)continue;
+  const audioRes=await fetch(f.url);
+  if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
  }
  return blobsByStem;
 }
