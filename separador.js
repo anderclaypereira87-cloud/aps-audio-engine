@@ -1,5 +1,6 @@
-// APS Separador · MVSEP API (4 stems: vocals, drums, bass, other)
-const DEFAULT_MVSEP_TOKEN='vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
+// APS Separador · MVSEP via Cloudflare Worker proxy
+const PROXY = 'https://aps-mvsep.aps-audio.workers.dev';
+const DEFAULT_MVSEP_TOKEN = 'vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
 let working=false,resultBlobs=null,player=null;
 
@@ -44,18 +45,18 @@ async function runCloud(file){
  form.append('api_token',token);
  form.append('sep_type','20');
  form.append('output_format','0');
- const res=await fetch('https://mvsep.com/api/separation/create',{method:'POST',body:form});
- if(!res.ok){const err=await res.json().catch(()=>({}));throw Error(err.message||err.error||'Erro ao enviar (verifique token).');}
- const job=await res.json();
- if(!job.success||!job.data?.hash)throw Error(job.message||'Resposta inválida da API.');
+ const res=await fetch(PROXY+'/create',{method:'POST',body:form});
+ const job=await res.json().catch(()=>({}));
+ if(!res.ok||!job.success||!job.data?.hash){
+  throw Error(job.message||job.error||'Erro ao enviar (verifique token ou limite do MVSEP).');
+ }
  const hash=job.data.hash;
  phase('Separando na nuvem…',40);
  let status='waiting',tries=0,finalData=null;
  while(status!=='done'&&tries<120){
   await new Promise(r=>setTimeout(r,5000));tries++;
-  const st=await fetch('https://mvsep.com/api/separation/get?hash='+hash);
-  if(!st.ok)throw Error('Falha ao consultar status.');
-  const data=await st.json();
+  const st=await fetch(PROXY+'/status?hash='+hash);
+  const data=await st.json().catch(()=>({}));
   status=data.status||'waiting';
   phase('Processando… ('+status+')',40+Math.min(40,tries*0.6));
   if(status==='failed')throw Error(data.message||'Separação falhou.');
