@@ -86,7 +86,9 @@ async function runCloud(file){
   const stem=mapStem(f.name);
   if(!stem)continue;
   try{
-   const audioRes=await fetch(f.url);
+   // Baixa via proxy para evitar bloqueio do navegador
+   const proxyUrl=PROXY+'/download?url='+encodeURIComponent(f.url);
+   const audioRes=await fetch(proxyUrl);
    if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
   }catch(e){console.warn('Falha ao baixar',f.name,e);}
  }
@@ -94,7 +96,6 @@ async function runCloud(file){
 }
 function openInDaw(){
  if(!resultBlobs)return;
- // Salva os stems no localStorage para a DAW pegar
  const stems={};
  for(const [id,blob] of Object.entries(resultBlobs)){
   stems[id]=URL.createObjectURL(blob);
