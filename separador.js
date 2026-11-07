@@ -41,7 +41,7 @@ function showResult(blobsByStem){
 async function runCloud(file){
  const key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;
  phase('Enviando música…',15);
- const form=new FormData();form.append('file',file);form.append('model','full');
+ const form=new FormData();form.append('file',file);form.append('model','fast');
  const res=await fetch('https://stemconsole.ai/api/v1/splits',{method:'POST',headers:{Authorization:'Bearer '+key},body:form});
  if(!res.ok){const err=await res.json().catch(()=>({}));throw Error(err.message||err.error||'Erro na API (verifique crédito/chave).');}
  const job=await res.json();const id=job.id;if(!id)throw Error('Resposta inválida.');
