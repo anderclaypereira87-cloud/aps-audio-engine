@@ -1,20 +1,61 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>APS — Painel do dono</title><style>
-body{margin:0;background:#0d0d0f;color:#eee;font:14px system-ui;padding:14px}h1{color:#d4af37}input,select,button{padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#eee}
-button{background:#d4af37;color:#111;font-weight:700;border:0;cursor:pointer}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border-bottom:1px solid #222;padding:6px;text-align:left}th{color:#d4af37}
-.box{overflow-x:auto}.rev{font-size:22px;color:#d4af37}
-</style></head><body><h1>Painel do dono</h1>
-<p>Chave de administrador (fica só neste aparelho): <input id=k type=password> <button id=en>Entrar</button> <button id=own>Marcar esta conta como dono</button></p>
-<div id=out></div>
-<script src="./auth-config.js?v=362"></script><script src="./aps-pay.js?v=395"></script><script>
-const $=s=>document.querySelector(s);$('#k').value=localStorage.getItem('aps_admin')||'';
-const A=(p,m,b)=>APSPay.api(p,m,b,$('#k').value);const dt=t=>t?new Date(t).toLocaleDateString('pt-BR'):'—';
-const pg={PIX:'Pix',CREDIT_CARD:'Cartão',BOLETO:'Boleto'};
-async function load(){localStorage.setItem('aps_admin',$('#k').value);try{const d=await A('/admin/users');
- $('#out').innerHTML=`<div>Receita ${d.revenueMonth}: <span class=rev>R$ ${d.revenue.toFixed(2).replace('.',',')}</span> — ${d.users.length} usuários</div><div class=box><table><tr><th>Nome</th><th>E-mail</th><th>Cadastro</th><th>Plano</th><th>Status pagamento</th><th>Último pagamento</th><th>Acesso grátis</th></tr>${d.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${dt(u.created)}</td><td>${u.status.plan}${u.status.comp?' (cortesia)':''}</td><td>${u.lastEvent?esc(u.lastEvent.event)+' · '+(pg[u.lastEvent.billingType]||u.lastEvent.billingType||''):(u.status.pending?'pendente':'—')}</td><td>${u.lastPayment?dt(u.lastPayment.at)+' · R$ '+u.lastPayment.value+' · '+(pg[u.lastPayment.billingType]||''):'—'}</td><td><select id="p_${u.id}"><option value=pro>Pro</option><option value=estudio>Estúdio</option></select> <input id="d_${u.id}" size=3 placeholder="dias"> <button onclick="comp('${u.id}')">Liberar</button> <button onclick="comp('${u.id}',1)">Revogar</button></td></tr>`).join('')}</table></div>`;}catch(e){$('#out').textContent=e.message;}}
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');}
-async function comp(id,revoke){await A('/admin/comp','POST',{userId:id,revoke:!!revoke,plan:$('#p_'+id).value,days:+$('#d_'+id).value||0});load();}
-$('#en').onclick=load;
-$('#own').onclick=async()=>{try{const r=await A('/admin/claim-owner','POST',{userToken:APSPay.token()});APSPay.apply(r.status);alert('Conta marcada como dono: tudo liberado.');}catch(e){alert(e.message+' — cadastre-se antes em planos.html com seu e-mail.');}};
-if($('#k').value)load();
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS · Admin</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee;font:15px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:20px}h1{color:#e5be74}.card{background:#171d2b;border:1px solid #444;border-radius:14px;padding:16px;margin:14px 0}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #333;text-align:left}input,select{padding:10px;border-radius:8px;border:1px solid #555;background:#0f131d;color:#eee}button{background:#dbb66f;color:#151922;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}button.alt{background:#282f3d;color:#f5d79e;border:1px solid #997d4b}.msg{color:#f5d79e;min-height:20px}</style></head>
+<body><main>
+<h1>Painel Admin APS</h1>
+<p id="status" class="msg">Carregando…</p>
+<div class="card" id="content" hidden>
+ <h2>Usuários</h2>
+ <table id="users"><thead><tr><th>E-mail</th><th>Nome</th><th>Plano</th><th>Ação</th></tr></thead><tbody></tbody></table>
+</div>
+<div class="card" id="grant" hidden>
+ <h2>Liberar plano manualmente</h2>
+ <input id="email" placeholder="E-mail do usuário" style="width:100%;margin-bottom:8px">
+ <select id="plan"><option value="free">Grátis</option><option value="pro">Pro</option><option value="estudio">Estúdio</option></select>
+ <button id="grantBtn">Liberar</button>
+ <p id="grantMsg" class="msg"></p>
+</div>
+<p><a href="./painel.html" style="color:#e5be74">← Voltar ao estúdio</a></p>
+</main>
+<script src="./auth-config.js"></script>
+<script src="./aps-pay.js"></script>
+<script src="./aps-auth.js"></script>
+<script>
+(async()=>{
+ const el=id=>document.getElementById(id), status=el('status');
+ try{
+  const {sb,user}=await APSAccount.current();
+  if(!user){location.replace('./login.html?next=admin.html');return;}
+  const profile=await APSAccount.profile(sb,user);
+  if(profile.role!=='admin' && user.email!=='anderclay.pereira87@gmail.com'){
+   status.textContent='Acesso restrito ao administrador.';return;
+  }
+  status.textContent='';
+  el('content').hidden=false; el('grant').hidden=false;
+
+  async function load(){
+   const {data,error}=await sb.from('profiles').select('id,email,full_name,plan_tier,role').order('created_at',{ascending:false});
+   if(error) throw error;
+   const tb=el('users').querySelector('tbody'); tb.innerHTML='';
+   (data||[]).forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.email||''}</td><td>${p.full_name||''}</td><td>${p.plan_tier||'free'}</td><td><button class="alt" data-id="${p.id}" data-email="${p.email}">Mudar plano</button></td>`;
+    tb.append(tr);
+   });
+   tb.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    el('email').value=b.dataset.email;
+    el('email').scrollIntoView();
+   });
+  }
+  await load();
+
+  el('grantBtn').onclick=async()=>{
+   const email=el('email').value.trim(), plan=el('plan').value;
+   if(!email) return;
+   el('grantMsg').textContent='Atualizando…';
+   const {error}=await sb.from('profiles').update({plan_tier:plan}).eq('email',email);
+   el('grantMsg').textContent=error?error.message:'Plano atualizado.';
+   if(!error) load();
+  };
+ }catch(e){status.textContent=e.message;}
+})();
 </script></body></html>
