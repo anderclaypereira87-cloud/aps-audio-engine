@@ -8,7 +8,7 @@ window.APSAccount = {
   },
   url(page) { return new URL(page, location.href).href; },
   next(value) {
-    const allowed = ['conta.html', 'painel.html', 'planos.html', 'daw.html', 'midia.html', 'projetos.html'];
+    const allowed = ['conta.html', 'painel.html', 'planos.html', 'daw.html', 'midia.html', 'projetos.html', 'admin.html'];
     const name = String(value || '').replace(/^\.\//, '');
     return allowed.includes(name) ? './' + name : './conta.html';
   },
@@ -23,6 +23,14 @@ window.APSAccount = {
       .select('id,full_name,email,role,plan_tier,created_at').eq('id', user.id).maybeSingle();
     if (error) throw error;
     if (!data) throw new Error('Perfil ainda não disponível. Confirme que o SQL do APS foi aplicado no projeto correto.');
+    // Dono sempre tem acesso total
+    if (user.email === 'anderclay.pereira87@gmail.com') {
+      data.role = 'admin';
+      data.plan_tier = 'estudio';
+      if (window.APSPlan) APSPlan.setPlan('estudio');
+    } else if (window.APSPlan) {
+      APSPlan.setPlan(data.plan_tier || 'free');
+    }
     return data;
   }
 };
