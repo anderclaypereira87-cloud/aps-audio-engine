@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c0e18">
+<title>Criar conta · APS Audio</title>
+<link rel="icon" href="./icon-192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#32283a,#0b0e17 58%);color:#f3efe8;font:16px/1.5 system-ui,sans-serif}
+main{width:min(420px,calc(100% - 28px));margin:28px auto;padding:28px 22px;background:#171d2b;border:1px solid #76603c;border-radius:22px;box-shadow:0 16px 60px #0008}
+a{color:#ebca8d;text-decoration:none}.brand{margin:18px 0 4px;color:#ebca8d;font-size:20px;font-weight:900;letter-spacing:1.5px;text-align:center}
+h1{margin:8px 0 4px;font-size:26px;text-align:center}p{color:#bec5d0;text-align:center;margin:6px 0 18px}
+label{display:block;margin:14px 0 5px;font-size:14px;color:#d4d8e0}
+input{width:100%;border:1px solid #536073;border-radius:12px;background:#0e1320;color:white;padding:14px;font:inherit}
+button{width:100%;margin:16px 0 0;padding:14px;min-height:50px;border-radius:12px;border:0;background:#dfbd79;color:#161b22;font:inherit;font-weight:800;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+#status{min-height:22px;margin:14px 0;color:#f6d492;text-align:center;font-size:14px}
+.links{text-align:center;margin-top:18px;font-size:14px}
+footer{color:#9ca4af;text-align:center;font-size:12px;margin-top:28px}
+</style>
+</head>
+<body><main>
+<a href="./index.html">← Voltar</a>
+<div class="brand">APS AUDIO</div>
+<h1>Criar conta</h1>
+<p>Grátis. Leva menos de 1 minuto.</p>
+<form id="form">
+<label for="name">Nome</label>
+<input id="name" autocomplete="name" maxlength="120" required placeholder="Seu nome">
+<label for="email">E-mail</label>
+<input id="email" type="email" autocomplete="email" required placeholder="seu@email.com">
+<label for="password">Senha</label>
+<input id="password" type="password" minlength="8" autocomplete="new-password" required placeholder="Mínimo 8 caracteres">
+<button id="submit" type="submit">Criar conta grátis</button>
+</form>
+<p id="status" role="status"></p>
+<div class="links"><a href="./login.html">Já tenho conta → Entrar</a></div>
+<footer>APS Audio Engine · Anderclay Pereira Silva</footer>
+</main>
+<script src="./auth-config.js"></script>
+<script src="./aps-pay.js"></script>
+<script src="./aps-auth.js"></script>
+<script>
+(function(){
+  const el = id => document.getElementById(id);
+  const message = t => { el('status').textContent = t; };
+  const busy = s => { el('submit').disabled = s; };
+
+  el('form').onsubmit = async e => {
+    e.preventDefault();
+    busy(true);
+    message('');
+    try {
+      const sb = await APSAccount.client();
+      const full_name = el('name').value.trim();
+      const email = el('email').value.trim();
+      const password = el('password').value;
+      if (!full_name) throw new Error('Informe seu nome.');
+
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name },
+          emailRedirectTo: APSAccount.url('./auth-callback.html')
+        }
+      });
+      if (error) throw error;
+
+      if (data.session) {
+        location.assign('./conta.html');
+      } else {
+        message('Conta criada. Confira seu e-mail para confirmar e entrar.');
+        el('form').style.display = 'none';
+      }
+    } catch (e) {
+      message(e.message || 'Não foi possível criar a conta.');
+    } finally {
+      busy(false);
+    }
+  };
+})();
+</script>
+</body>
+</html>
