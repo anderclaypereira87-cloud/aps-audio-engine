@@ -2,14 +2,8 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>Separador | APS</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0b1019;color:#f2f2f4;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:480px;margin:auto;padding:24px 16px 60px}.brand{color:#e7c07b;font-weight:800;letter-spacing:.04em;text-align:center;margin-bottom:8px}h1{font-size:26px;margin:0 0 20px;color:#f4d99f;text-align:center}.instruments{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}.inst{border:2px solid #455269;background:#1a1f2b;border-radius:14px;padding:20px 10px;text-align:center;font-size:16px;font-weight:650;cursor:pointer;user-select:none;transition:all .15s}.inst.active{border-color:#e2ba70;background:#3a3329;color:#ffe1a3}.inst input{display:none}
-.filebox{position:relative;margin-bottom:4px}
-.filebox input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2}
-.filedrop{border:2px dashed #b99755;border-radius:14px;background:#111724;color:#eee;padding:28px 16px;text-align:center;transition:all .15s;pointer-events:none}
-.filedrop strong{display:block;font-size:18px;color:#f4d99f;margin-bottom:6px}
-.filedrop span{color:#aeb6c5;font-size:13px}
-.filebox:hover .filedrop,.filebox:active .filedrop{background:#1a2433;border-color:#e9c587}
-.filebox.has-file .filedrop{border-color:#7dba7d;border-style:solid;background:#15201a}
-.filebox.has-file .filedrop strong{color:#b7e0b7}
+.filebtn{display:block;width:100%;min-height:80px;border:2px dashed #b99755;border-radius:14px;background:#111724;color:#f4d99f;font-size:18px;font-weight:700;text-align:center;padding:24px 16px;cursor:pointer;margin-bottom:8px}
+.filebtn.has-file{border-style:solid;border-color:#7dba7d;background:#15201a;color:#b7e0b7}
 button{display:block;width:100%;min-height:60px;border-radius:14px;background:#dcba78;color:#16181d;font-size:18px;font-weight:800;border:0;margin:20px 0;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.progress{height:10px;border-radius:99px;background:#39414d;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,#9c7537,#e9c587);transition:width .2s}#phase{min-height:28px;font-size:14px;color:#dbcaab;text-align:center;margin:10px 0}#result{display:grid;gap:12px;margin-top:24px}.resultcard{background:#222a36;border:1px solid #505d6e;border-radius:14px;padding:16px}.resultcard h3{margin:0 0 8px;font-size:16px;color:#ffe1a3}.resultcard .buttons{display:flex;gap:8px}.resultcard button{min-height:44px;font-size:14px;flex:1;margin:0}@media(max-width:480px){.instruments{grid-template-columns:1fr}}
 </style></head><body><main>
 <div class="brand">APS</div>
@@ -24,13 +18,8 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
   <label class="inst active"><input type="checkbox" value="other" checked> 🎼 Outros</label>
 </div>
 
-<label class="filebox" id="filebox" for="song">
-  <input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg" />
-  <div class="filedrop" id="filedrop">
-    <strong>＋ Toque aqui para escolher a música</strong>
-    <span>MP3, WAV, M4A, FLAC ou OGG</span>
-  </div>
-</label>
+<button type="button" class="filebtn" id="fileBtn">＋ Toque aqui para escolher a música</button>
+<input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg" hidden />
 <div id="apsChosenSong" style="text-align:center;color:#f4d89a;min-height:24px;margin-bottom:4px;font-size:13px"></div>
 
 <button id="start" type="button">♫ Separar agora</button>
@@ -41,7 +30,7 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
 
 <section id="resultsPanel" hidden><h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2><div id="result"></div></section>
 </main>
-<script type="module" src="./separador.js?v=443"></script>
+<script type="module" src="./separador.js?v=444"></script>
 <script>
 (()=>{
  const list=document.getElementById('instList');
@@ -53,15 +42,15 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
    lab.classList.toggle('active',cb.checked);
   });
  });
- const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),box=document.getElementById('filebox'),drop=document.getElementById('filedrop');
+ const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),btn=document.getElementById('fileBtn');
+ btn.onclick=()=>picker.click();
  function updateFile(){
   const f=picker.files?.[0];
   status.textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';
-  box.classList.toggle('has-file',!!f);
-  if(f)drop.innerHTML='<strong>✔ '+f.name+'</strong><span>'+(f.size/1048576).toFixed(1)+' MB · toque para trocar</span>';
-  else drop.innerHTML='<strong>＋ Toque aqui para escolher a música</strong><span>MP3, WAV, M4A, FLAC ou OGG</span>';
+  btn.classList.toggle('has-file',!!f);
+  btn.textContent=f?'✔ '+f.name+'
+'+(f.size/1048576).toFixed(1)+' MB · toque para trocar':'＋ Toque aqui para escolher a música';
  }
  picker.addEventListener('change',updateFile);
- picker.addEventListener('input',updateFile);
 })();
 </script></body></html>
