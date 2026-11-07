@@ -40,6 +40,7 @@ function showResult(blobsByStem){
   phase('Separação concluída, mas nenhum arquivo reconhecido. Tente de novo.',100,true);
   return;
  }
+ resultBlobs=blobsByStem;
  $('resultsPanel').hidden=false;
  $('resultsPanel').scrollIntoView({behavior:'smooth'});
 }
@@ -91,6 +92,23 @@ async function runCloud(file){
  }
  return blobsByStem;
 }
+function openInDaw(){
+ if(!resultBlobs)return;
+ // Salva os stems no localStorage para a DAW pegar
+ const stems={};
+ for(const [id,blob] of Object.entries(resultBlobs)){
+  stems[id]=URL.createObjectURL(blob);
+ }
+ sessionStorage.setItem('aps_stems',JSON.stringify(stems));
+ sessionStorage.setItem('aps_stems_name',prefix());
+ location.href='./index.html?from=separador';
+}
+function downloadAll(){
+ if(!resultBlobs)return;
+ for(const [id,blob] of Object.entries(resultBlobs)){
+  download(blob,prefix()+'_'+id+'.mp3');
+ }
+}
 async function main(){
  if(working)return;
  const file=$('song').files[0];if(!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
@@ -106,4 +124,6 @@ async function main(){
 }
 $('start').addEventListener('click',main);
 $('cancel').addEventListener('click',()=>{if(working)phase('Cancelado.',0);working=false;$('start').disabled=false;$('cancel').disabled=true;});
+$('openDaw')?.addEventListener('click',openInDaw);
+$('downloadAll')?.addEventListener('click',downloadAll);
 window.addEventListener('pagehide',stopPreview);
