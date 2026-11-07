@@ -34,24 +34,25 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
 <div id="apsChosenSong" style="text-align:center;color:#f4d89a;min-height:24px;margin-bottom:4px;font-size:13px"></div>
 
 <button id="start" type="button">♫ Separar agora</button>
+<button id="cancel" type="button" disabled style="background:#555;margin-top:8px">Cancelar</button>
 
 <div class="progress"><div class="bar" id="bar"></div></div>
 <div id="phase">Toque nos instrumentos que quer e escolha a música.</div>
 
 <section id="resultsPanel" hidden><h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2><div id="result"></div></section>
 </main>
-<script type="module" src="./">separador.js?v=441"></script>
+<script type="module" src="./separador.js?v=442"></script>
 <script>
 (()=>{
- const list=document.getElementById('instList);
+ const list=document.getElementById('instList');
  list.querySelectorAll('.inst').forEach(lab=>{
   lab.addEventListener('click',()=>{
-   const cb=lab.querySelector('input);
+   const cb=lab.querySelector('input');
    cb.checked=!cb.checked;
    lab.classList.toggle('active',cb.checked);
   });
  });
- const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),box=document.getElementById('filebox'),drop=document.getElementById('filedrop);
+ const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),box=document.getElementById('filebox'),drop=document.getElementById('filedrop');
  picker?.addEventListener('change',()=>{
   const f=picker.files?.[0];
   status.textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';
