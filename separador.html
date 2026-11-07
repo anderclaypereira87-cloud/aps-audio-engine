@@ -1,47 +1,39 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>Separador de Instrumentos | APS</title>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>Separador | APS</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#0b1019;color:#f2f2f4;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:560px;margin:auto;padding:20px 16px 80px}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.brand{color:#e7c07b;font-weight:800;letter-spacing:.04em}.back{color:#e4ca92;text-decoration:none;border:1px solid #515766;border-radius:10px;padding:8px 12px;font-size:14px}.hero{text-align:center;margin-bottom:24px}.hero h1{font-size:28px;margin:0;color:#f4d99f}.hero p{color:#c6cdd8;margin:8px 0 0;font-size:15px}.instruments{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:20px 0}.inst{border:2px solid #455269;background:#1a1f2b;border-radius:14px;padding:18px 10px;text-align:center;font-size:15px;font-weight:650;cursor:pointer;user-select:none;transition:all .15s}.inst.active{border-color:#e2ba70;background:#3a3329;color:#ffe1a3}.inst input{display:none}.filebox{margin:20px 0}input[type=file]{width:100%;padding:18px;border:2px dashed #b99755;border-radius:14px;background:#111724;color:#eee;font-size:15px}button{display:block;width:100%;min-height:56px;border-radius:14px;background:#dcba78;color:#16181d;font-size:17px;font-weight:800;border:0;margin:16px 0;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.progress{height:10px;border-radius:99px;background:#39414d;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:linear-gradient(90deg,#9c7537,#e9c587);transition:width .2s}#phase{min-height:36px;font-size:14px;color:#dbcaab;text-align:center;margin:8px 0}#result{display:grid;gap:12px;margin-top:20px}.resultcard{background:#222a36;border:1px solid #505d6e;border-radius:14px;padding:16px}.resultcard h3{margin:0 0 8px;font-size:16px;color:#ffe1a3}.resultcard .buttons{display:flex;gap:8px}.resultcard button{min-height:44px;font-size:14px;flex:1;margin:0}.notice{font-size:13px;color:#aeb6c5;text-align:center;margin-top:16px}@media(max-width:480px){.instruments{grid-template-columns:1fr}}
+*{box-sizing:border-box}body{margin:0;background:#0b1019;color:#f2f2f4;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:480px;margin:auto;padding:24px 16px 60px}.brand{color:#e7c07b;font-weight:800;letter-spacing:.04em;text-align:center;margin-bottom:8px}h1{font-size:26px;margin:0 0 20px;color:#f4d99f;text-align:center}.instruments{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}.inst{border:2px solid #455269;background:#1a1f2b;border-radius:14px;padding:20px 10px;text-align:center;font-size:16px;font-weight:650;cursor:pointer;user-select:none;transition:all .15s}.inst.active{border-color:#e2ba70;background:#3a3329;color:#ffe1a3}.inst input{display:none}input[type=file]{width:100%;padding:20px;border:2px dashed #b99755;border-radius:14px;background:#111724;color:#eee;font-size:15px}button{display:block;width:100%;min-height:60px;border-radius:14px;background:#dcba78;color:#16181d;font-size:18px;font-weight:800;border:0;margin:20px 0;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.progress{height:10px;border-radius:99px;background:#39414d;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,#9c7537,#e9c587);transition:width .2s}#phase{min-height:28px;font-size:14px;color:#dbcaab;text-align:center;margin:10px 0}#result{display:grid;gap:12px;margin-top:24px}.resultcard{background:#222a36;border:1px solid #505d6e;border-radius:14px;padding:16px}.resultcard h3{margin:0 0 8px;font-size:16px;color:#ffe1a3}.resultcard .buttons{display:flex;gap:8px}.resultcard button{min-height:44px;font-size:14px;flex:1;margin:0}@media(max-width:480px){.instruments{grid-template-columns:1fr}}
 </style></head><body><main>
-<div class="top"><div class="brand">APS · Separador</div><a class="back" href="./painel.html">← Voltar</a></div>
-<section class="hero"><h1>Separar instrumentos</h1><p>Escolha o que você quer separar e envie a música.</p></section>
+<div class="brand">APS</div>
+<h1>Separar instrumentos</h1>
 
 <div class="instruments" id="instList">
   <label class="inst active"><input type="checkbox" value="vocals" checked> 🎤 Voz</label>
   <label class="inst active"><input type="checkbox" value="drums" checked> 🥁 Bateria</label>
   <label class="inst active"><input type="checkbox" value="bass" checked> 🎸 Baixo</label>
   <label class="inst active"><input type="checkbox" value="guitar" checked> 🎸 Guitarra</label>
-  <label class="inst active"><input type="checkbox" value="piano" checked> 🎹 Teclado / Piano</label>
+  <label class="inst active"><input type="checkbox" value="piano" checked> 🎹 Teclado</label>
   <label class="inst active"><input type="checkbox" value="other" checked> 🎼 Outros</label>
 </div>
 
-<div class="filebox"><input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac" /></div>
-<div id="apsChosenSong" style="text-align:center;color:#f4d89a;min-height:24px;margin-bottom:8px"></div>
+<input id="song" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac" />
 
 <button id="start" type="button">♫ Separar agora</button>
-<button id="cancel" type="button" class="ghost" style="background:transparent;color:#d4dbe5;border:1px solid #697284;margin-top:0" disabled>Cancelar</button>
 
 <div class="progress"><div class="bar" id="bar"></div></div>
-<div id="phase">Escolha os instrumentos e o arquivo.</div>
+<div id="phase">Toque nos instrumentos que quer e escolha a música.</div>
 
 <section id="resultsPanel" hidden><h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2><div id="result"></div></section>
-<p class="notice">Use apenas músicas próprias ou autorizadas. O processamento acontece na nuvem.</p>
 </main>
-<script type="module" src="./separador.js?v=430"></script>
+<script type="module" src="./separador.js?v=440"></script>
 <script>
 (()=>{
- const list=document.getElementById('instList');
+ const list=document.getElementById('instList);
  list.querySelectorAll('.inst').forEach(lab=>{
   lab.addEventListener('click',()=>{
-   const cb=lab.querySelector('input');
+   const cb=lab.querySelector('input);
    cb.checked=!cb.checked;
    lab.classList.toggle('active',cb.checked);
   });
- });
- const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong');
- picker?.addEventListener('change',()=>{
-  const f=picker.files?.[0];
-  status.textContent=f?'Arquivo: '+f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';
  });
 })();
 </script></body></html>
