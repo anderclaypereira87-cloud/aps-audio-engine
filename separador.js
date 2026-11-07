@@ -4,6 +4,9 @@ import {SOURCES,SAMPLE_RATE,SEG,STRIDE,blockCount,wavHeader,pcmToWav,zipBlobs,de
 const $=id=>document.getElementById(id);
 let backendLabel='',working=false,resultBlobs=null,resultInfo=null,context=null,player=null,activeWorker=null,stopWorker=null,elapsedTimer=null;
 
+// Chave padrão do StemConsole (pode ser sobrescrita pelo campo seguro)
+const DEFAULT_STEMCONSOLE_KEY='sc_live_qhfUakGoAeELErZBncHc7Qxlz_VIOhTyPkvuO_8OrXE';
+
 function phase(msg,percent,error=false){const el=$('phase');el.textContent=msg;el.classList.toggle('err',!!error);if(percent!==undefined){$('bar').style.width=percent+'%';document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',String(percent));}}
 export function deviceInfo(){
  const mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
@@ -27,8 +30,8 @@ function applyLimits(){
  showModelCache();showEstimate();updateCloudUI();
 }
 function updateCloudUI(){
- const box=$('apsCloudKeyBox'),key=localStorage.getItem('aps_stemconsole_key')||'';
- if(engine()==='nuvem'){box.style.display='block';$('apsStemConsoleKey').value=key;$('apsEngNuvemStatus').textContent=key?'✔ chave salva':'';}
+ const box=$('apsCloudKeyBox'),key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;
+ if(engine()==='nuvem'){box.style.display='block';$('apsStemConsoleKey').value=key;$('apsEngNuvemStatus').textContent='✔ chave configurada';}
  else box.style.display='none';
 }
 document.querySelectorAll('input[name="apsEngine"]').forEach(r=>r.addEventListener('change',updateCloudUI));
@@ -80,7 +83,7 @@ function runWorker(audio,durationSec){
  });
 }
 async function runCloud(file){
- const key=localStorage.getItem('aps_stemconsole_key');if(!key)throw Error('Coloque sua API key do StemConsole no campo acima e clique em Salvar chave.');
+ const key=localStorage.getItem('aps_stemconsole_key')||DEFAULT_STEMCONSOLE_KEY;if(!key)throw Error('Coloque sua API key do StemConsole no campo acima e clique em Salvar chave.');
  phase('Enviando áudio para a nuvem (StemConsole)…',10);
  const form=new FormData();form.append('file',file);form.append('model','full');
  const res=await fetch('https://stemconsole.ai/api/v1/splits',{method:'POST',headers:{Authorization:'Bearer '+key},body:form});
