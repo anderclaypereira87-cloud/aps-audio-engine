@@ -1,18 +1,31 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS · Admin</title>
-<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee;font:15px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:20px}h1{color:#e5be74}.card{background:#171d2b;border:1px solid #444;border-radius:14px;padding:16px;margin:14px 0}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #333;text-align:left}input,select{padding:10px;border-radius:8px;border:1px solid #555;background:#0f131d;color:#eee}button{background:#dbb66f;color:#151922;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}button.alt{background:#282f3d;color:#f5d79e;border:1px solid #997d4b}.msg{color:#f5d79e;min-height:20px}</style></head>
+<style>*{box-sizing:border-box}body{margin:0;background:#0c0e18;color:#eee;font:15px system-ui,sans-serif}main{max-width:960px;margin:auto;padding:20px}h1{color:#e5be74}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0}.stat{background:#171d2b;border:1px solid #444;border-radius:12px;padding:16px;text-align:center}.stat b{display:block;font-size:28px;color:#e5be74}.card{background:#171d2b;border:1px solid #444;border-radius:14px;padding:16px;margin:14px 0}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #333;text-align:left}input,select{padding:10px;border-radius:8px;border:1px solid #555;background:#0f131d;color:#eee;width:100%;margin-bottom:8px}button{background:#dbb66f;color:#151922;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}button.alt{background:#282f3d;color:#f5d79e;border:1px solid #997d4b}.msg{color:#f5d79e;min-height:20px}</style></head>
 <body><main>
 <h1>Painel Admin APS</h1>
 <p id="status" class="msg">Carregando…</p>
+<div class="stats" id="stats" hidden>
+ <div class="stat"><b id="totalUsers">0</b>usuários</div>
+ <div class="stat"><b id="paidUsers">0</b>pagantes</div>
+ <div class="stat"><b id="proUsers">0</b>Pro</div>
+ <div class="stat"><b id="estudioUsers">0</b>Estúdio</div>
+</div>
 <div class="card" id="content" hidden>
  <h2>Usuários</h2>
  <table id="users"><thead><tr><th>E-mail</th><th>Nome</th><th>Plano</th><th>Ação</th></tr></thead><tbody></tbody></table>
 </div>
 <div class="card" id="grant" hidden>
  <h2>Liberar plano manualmente</h2>
- <input id="email" placeholder="E-mail do usuário" style="width:100%;margin-bottom:8px">
+ <input id="email" placeholder="E-mail do usuário">
  <select id="plan"><option value="free">Grátis</option><option value="pro">Pro</option><option value="estudio">Estúdio</option></select>
  <button id="grantBtn">Liberar</button>
  <p id="grantMsg" class="msg"></p>
+</div>
+<div class="card" id="asaas" hidden>
+ <h2>API Asaas (somente admin)</h2>
+ <input id="asaasKey" type="password" placeholder="Cole a API key do Asaas (fica só neste navegador)">
+ <button id="saveAsaas">Salvar chave</button>
+ <p id="asaasMsg" class="msg"></p>
+ <small>A chave não é enviada para o servidor do APS. Serve para futuras consultas de pagamentos.</small>
 </div>
 <p><a href="./painel.html" style="color:#e5be74">← Voltar ao estúdio</a></p>
 </main>
@@ -30,21 +43,27 @@
    status.textContent='Acesso restrito ao administrador.';return;
   }
   status.textContent='';
-  el('content').hidden=false; el('grant').hidden=false;
+  el('content').hidden=false; el('grant').hidden=false; el('asaas').hidden=false; el('stats').hidden=false;
+
+  const saved=localStorage.getItem('aps_asaas_key'); if(saved) el('asaasKey').value=saved;
+  el('saveAsaas').onclick=()=>{localStorage.setItem('aps_asaas_key',el('asaasKey').value.trim()); el('asaasMsg').textContent='Chave salva neste navegador.';};
 
   async function load(){
    const {data,error}=await sb.from('profiles').select('id,email,full_name,plan_tier,role').order('created_at',{ascending:false});
    if(error) throw error;
+   const list=data||[];
+   el('totalUsers').textContent=list.length;
+   const paid=list.filter(p=>p.plan_tier==='pro'||p.plan_tier==='estudio');
+   el('paidUsers').textContent=paid.length;
+   el('proUsers').textContent=list.filter(p=>p.plan_tier==='pro').length;
+   el('estudioUsers').textContent=list.filter(p=>p.plan_tier==='estudio').length;
    const tb=el('users').querySelector('tbody'); tb.innerHTML='';
-   (data||[]).forEach(p=>{
+   list.forEach(p=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.email||''}</td><td>${p.full_name||''}</td><td>${p.plan_tier||'free'}</td><td><button class="alt" data-id="${p.id}" data-email="${p.email}">Mudar plano</button></td>`;
+    tr.innerHTML=`<td>${p.email||''}</td><td>${p.full_name||''}</td><td>${p.plan_tier||'free'}</td><td><button class="alt" data-email="${p.email}">Mudar plano</button></td>`;
     tb.append(tr);
    });
-   tb.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    el('email').value=b.dataset.email;
-    el('email').scrollIntoView();
-   });
+   tb.querySelectorAll('button').forEach(b=>b.onclick=()=>{el('email').value=b.dataset.email; el('email').scrollIntoView();});
   }
   await load();
 
