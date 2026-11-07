@@ -2,7 +2,7 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>Separador | APS</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0b1019;color:#f2f2f4;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:480px;margin:auto;padding:24px 16px 60px}.brand{color:#e7c07b;font-weight:800;letter-spacing:.04em;text-align:center;margin-bottom:8px}h1{font-size:26px;margin:0 0 20px;color:#f4d99f;text-align:center}.instruments{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}.inst{border:2px solid #455269;background:#1a1f2b;border-radius:14px;padding:20px 10px;text-align:center;font-size:16px;font-weight:650;cursor:pointer;user-select:none;transition:all .15s}.inst.active{border-color:#e2ba70;background:#3a3329;color:#ffe1a3}.inst input{display:none}
-.filebtn{display:block;width:100%;min-height:80px;border:2px dashed #b99755;border-radius:14px;background:#111724;color:#f4d99f;font-size:18px;font-weight:700;text-align:center;padding:24px 16px;cursor:pointer;margin-bottom:8px}
+.filebtn{display:block;width:100%;min-height:80px;border:2px dashed #b99755;border-radius:14px;background:#111724;color:#f4d99f;font-size:18px;font-weight:700;text-align:center;padding:24px 16px;cursor:pointer;margin-bottom:8px;white-space:pre-line}
 .filebtn.has-file{border-style:solid;border-color:#7dba7d;background:#15201a;color:#b7e0b7}
 button{display:block;width:100%;min-height:60px;border-radius:14px;background:#dcba78;color:#16181d;font-size:18px;font-weight:800;border:0;margin:20px 0;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.progress{height:10px;border-radius:99px;background:#39414d;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,#9c7537,#e9c587);transition:width .2s}#phase{min-height:28px;font-size:14px;color:#dbcaab;text-align:center;margin:10px 0}#result{display:grid;gap:12px;margin-top:24px}.resultcard{background:#222a36;border:1px solid #505d6e;border-radius:14px;padding:16px}.resultcard h3{margin:0 0 8px;font-size:16px;color:#ffe1a3}.resultcard .buttons{display:flex;gap:8px}.resultcard button{min-height:44px;font-size:14px;flex:1;margin:0}@media(max-width:480px){.instruments{grid-template-columns:1fr}}
 </style></head><body><main>
@@ -30,7 +30,7 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
 
 <section id="resultsPanel" hidden><h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2><div id="result"></div></section>
 </main>
-<script type="module" src="./separador.js?v=444"></script>
+<script type="module" src="./separador.js?v=445"></script>
 <script>
 (()=>{
  const list=document.getElementById('instList');
@@ -43,14 +43,20 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
   });
  });
  const picker=document.getElementById('song'),status=document.getElementById('apsChosenSong'),btn=document.getElementById('fileBtn');
- btn.onclick=()=>picker.click();
+ btn.onclick=()=>{picker.value='';picker.click();};
  function updateFile(){
-  const f=picker.files?.[0];
-  status.textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MB':'';
-  btn.classList.toggle('has-file',!!f);
-  btn.textContent=f?'✔ '+f.name+'
-'+(f.size/1048576).toFixed(1)+' MB · toque para trocar':'＋ Toque aqui para escolher a música';
+  const f=picker.files&&picker.files[0];
+  if(f){
+   status.textContent=f.name+' · '+(f.size/1048576).toFixed(1)+' MB';
+   btn.classList.add('has-file');
+   btn.textContent='✔ '+f.name+'\n'+(f.size/1048576).toFixed(1)+' MB · toque para trocar';
+  }else{
+   status.textContent='';
+   btn.classList.remove('has-file');
+   btn.textContent='＋ Toque aqui para escolher a música';
+  }
  }
  picker.addEventListener('change',updateFile);
+ picker.addEventListener('input',updateFile);
 })();
 </script></body></html>
