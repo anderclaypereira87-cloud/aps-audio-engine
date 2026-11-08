@@ -173,15 +173,19 @@ async function runCloud(file,{signal}={}){
  rememberJob({...saved,status:'done'});
  return blobsByStem;
 }
-async function openInDaw({alsoDownload=false}={}){
- if(!resultBlobs||transferring)return;
+function selectedResultStems(){
+ if(!resultBlobs)return [];
  const selected=selectedInstruments();
  const extensions={'audio/mpeg':'mp3','audio/wav':'wav','audio/x-wav':'wav','audio/flac':'flac','audio/mp4':'m4a','audio/ogg':'ogg','audio/webm':'webm'};
- const stems=Object.entries(resultBlobs).filter(([id])=>selected.includes(id)).map(([id,blob])=>{
+ return Object.entries(resultBlobs).filter(([id])=>selected.includes(id)).map(([id,blob])=>{
   const mime=blob.type.split(';')[0].toLowerCase();
   const ext=extensions[mime]||'mp3';
   return {id,name:STEM_MAP[id].name+'.'+ext,type:extensions[mime]?mime:'audio/mpeg',blob};
  });
+}
+async function openInDaw(){
+ if(!resultBlobs||transferring)return;
+ const stems=selectedResultStems();
  if(!stems.length){phase('Não há pistas selecionadas para abrir na DAW.',undefined,true);return;}
  transferring=true;syncControls();$('openDaw').disabled=true;$('downloadAll').disabled=true;
  phase('Abrindo as pistas no estúdio…',100);
@@ -199,7 +203,6 @@ async function openInDaw({alsoDownload=false}={}){
    tx.objectStore('sessions').put(row,'latest');
    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Não foi possível salvar as pistas para abrir no estúdio.'));
   });
-  if(alsoDownload)for(const stem of stems)download(stem.blob,prefix()+'_'+stem.id+'.'+stem.name.split('.').pop());
   location.href='./daw.html?modulo=gravacao&importStems=1&v=451';
  }catch(e){
   phase('Não foi possível abrir as pistas na DAW: '+(e?.message||'tente novamente.'),undefined,true);
@@ -208,7 +211,11 @@ async function openInDaw({alsoDownload=false}={}){
  }
 }
 function downloadAll(){
- return openInDaw({alsoDownload:true});
+ if(transferring)return;
+ const stems=selectedResultStems();
+ if(!stems.length){phase('Não há pistas selecionadas para baixar.',undefined,true);return;}
+ for(const stem of stems)download(stem.blob,prefix()+'_'+stem.id+'.'+stem.name.split('.').pop());
+ phase('Download das pistas iniciado no aparelho.',100);
 }
 async function main(){
  if(working||transferring)return;
@@ -221,7 +228,7 @@ async function main(){
   const blobs=await runCloud(file,{signal:controller.signal});
   ensureActive(controller.signal);
   resultBlobs=blobs;
-  phase('Pronto! Ouça ou baixe as pistas.',100);
+  phase('Pronto! Escolha baixar no aparelho ou abrir na DAW de gravação.',100);
   showResult(blobs,selected);
  }catch(e){
   if(controller.signal.aborted){

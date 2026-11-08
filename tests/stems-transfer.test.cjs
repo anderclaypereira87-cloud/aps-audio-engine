@@ -81,11 +81,18 @@ test('opens only the instruments selected by the user',async()=>{
  assert.deepEqual(db.records.get('latest').stems.map(s=>s.id),['bass']);
 });
 
-test('bulk download also transfers the stems and opens the DAW',async()=>{
+test('device download saves the selected files and keeps the separator open',async()=>{
  const db=database(),s=sender(db);await s.download();
- assert.equal(s.downloads.length,4);assert.equal(s.navigations.length,1);
+ assert.equal(s.downloads.length,4);assert.equal(s.navigations.length,0);
  assert.ok(s.downloads.every(d=>d.name.endsWith('.mp3')));
- assert.equal(db.records.get('latest').stems.length,4);
+ assert.equal(db.records.has('latest'),false);
+ assert.match(s.el('phase').textContent,/iniciado no aparelho/);
+});
+
+test('device download respects the instrument selection without preparing a DAW transfer',async()=>{
+ const db=database(),s=sender(db,['bass']);await s.download();
+ assert.equal(s.downloads.length,1);assert.match(s.downloads[0].name,/_bass\.mp3$/);
+ assert.equal(s.navigations.length,0);assert.equal(db.commits.length,0);
 });
 
 test('a failed storage commit keeps the separator results available and does not navigate',async()=>{
