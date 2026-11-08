@@ -84,7 +84,7 @@ body.aps-workspace .layout #apsTransferNotice.aps-visible:not([hidden]){display:
 </nav>
 <section id="apsScreenTitle" class="aps-screen-title" aria-live="polite"><div><h1>Gravação multitrack</h1><p>Nova pista, microfone, guia de andamento e compasso</p></div><span class="aps-status">Plano Grátis</span></section>
 <div class="layout">
-<main><div id="apsDrumNotice" hidden style="margin:12px;padding:15px;border-radius:12px;border:1px solid #d9b56a;background:#29241b;color:#f0d5a1"><strong>🥁 Sua bateria está pronta!</strong><p style="margin:5px 0 10px;font-size:12px">Receba o ritmo criado no Drum Sampler como pista de áudio dentro da DAW.</p><button id="apsDrumReceive" type="button" class="primary">＋ Receber bateria na DAW</button></div><div id="apsTransferNotice" hidden style="margin:12px;padding:15px;border-radius:12px;border:1px solid #d9b56a;background:#29241b;color:#f0d5a1"><strong>Seis pistas prontas para importar</strong><p style="font-size:12px;margin:5px 0 10px">Toque para abrir as faixas separadas diretamente no mixer deste aparelho.</p><button id="apsTransferButton" type="button" style="background:#d9b56a;color:#17191c">＋ Receber seis pistas</button></div>
+<main><div id="apsDrumNotice" hidden style="margin:12px;padding:15px;border-radius:12px;border:1px solid #d9b56a;background:#29241b;color:#f0d5a1"><strong>🥁 Sua bateria está pronta!</strong><p style="margin:5px 0 10px;font-size:12px">Receba o ritmo criado no Drum Sampler como pista de áudio dentro da DAW.</p><button id="apsDrumReceive" type="button" class="primary">＋ Receber bateria na DAW</button></div><div id="apsTransferNotice" hidden style="margin:12px;padding:15px;border-radius:12px;border:1px solid #d9b56a;background:#29241b;color:#f0d5a1"><strong>Pistas separadas prontas para abrir</strong><p style="font-size:12px;margin:5px 0 10px">As faixas abrem automaticamente no estúdio. Se houver uma interrupção, toque abaixo para tentar novamente.</p><button id="apsTransferButton" type="button" style="background:#d9b56a;color:#17191c">＋ Abrir pistas na DAW</button></div>
 <section class="panel">
  <div class="ph"><div><h1>Estúdio multitrack</h1><p class="sub">Arquivos de até 10 minutos · até 16 pistas, conforme a memória do aparelho</p></div><div class="actions"><button type="button" id="apsNewTrack" class="primary">＋ Nova track</button><button id="importBtn" class="primary">＋ Importar áudio / vídeo</button><button id="demo" class="accent">♫ Demonstração</button><input class="hide" id="file" type="file" accept="audio/*,video/*,.wav,.mp3,.m4a,.aac,.aiff,.aif,.ogg,.opus,.flac,.mp4,.webm,.mov,.mkv,.avi,.wmv,.m4v,.3gp" multiple></div></div>
  <div class="transport"><button id="play" class="primary">▶ Reproduzir</button><button id="stop">■ Parar</button><button id="record" class="record">● Gravar instrumento</button><div class="clock" id="clock">00:00 / 00:00</div><input aria-label="Posição da reprodução" type="range" class="progress" id="seek" min="0" max="1000" value="0"><div class="row grow"><label>BPM <input type="number" id="bpm" value="100" min="40" max="240" class="number"></label><button id="tap" class="mini">Tap tempo</button><button id="apsDetectBPM" class="mini">⌁ Ler BPM da guia</button><label>Compasso <select id="apsTimeSig" class="compact" aria-label="Compasso"><option>4/4</option><option>3/4</option><option>2/4</option><option>6/8</option><option>5/4</option><option>7/8</option></select></label><label class="check"><input type="checkbox" id="metro"> Metrônomo</label><label>🔊 Clique <input type="range" id="apsMetroVolume" min="0" max="100" value="35" step="1" style="width:82px;vertical-align:middle" aria-label="Volume do metrônomo"><span id="apsMetroVolumeText">35%</span></label><label>⏱ Velocidade <select id="apsSpeed" class="compact" aria-label="Velocidade de reprodução"><option value="0.5">0,5×</option><option value="0.75">0,75×</option><option value="0.9">0,9×</option><option value="1" selected>1,0×</option><option value="1.1">1,1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2,0×</option></select></label><label class="check"><input type="checkbox" id="loop"> Repetir</label><span class="mut" id="ntrack">0 pistas</span></div></div>
@@ -499,21 +499,48 @@ if(/^https?:$/.test(location.protocol)){const link=document.createElement('link'
 /* Diagnóstico somente de leitura para verificação do áudio e da sessão. */
 window.Timbra={version:'0.5.0',getState:()=>({tracks:tracks.map(t=>({name:t.name,type:t.type,duration:t.buf.duration,start:t.start,mute:t.mute,solo:t.solo,gain:t.gain})),duration:total,playing,recording,access:'free',unlimited:true,used:0,dirty,video:!!videoFile,engine:!!engine}),renderPreview:async()=>{if(!tracks.length)throw Error('Sem pistas');const out=await renderMix();let peak=0,energy=0;const d=out.getChannelData(0);for(const x of d){peak=Math.max(peak,Math.abs(x));energy+=x*x;}return {length:out.length,rate:out.sampleRate,duration:out.duration,peak,rms:Math.sqrt(energy/d.length)};}};
 
+let apsReceivingStems=false;
 async function apsReceiveStems(){
- if(!guard())return;
+ if(apsReceivingStems||!guard())return;
  if(!window.indexedDB)throw Error('Este navegador não permite a transferência automática.');
- const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('aps-stems-transfer-v1',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+ apsReceivingStems=true;busy=true;$('apsTransferButton').disabled=true;
+ let db,before;
  try{
+  db=await new Promise((resolve,reject)=>{
+   const request=indexedDB.open('aps-stems-transfer-v1',1);
+   request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('sessions'))request.result.createObjectStore('sessions');};
+   request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+  });
   const row=await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readonly');const req=tx.objectStore('sessions').get('latest');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
-  if(!row||!Array.isArray(row.stems)||row.stems.length!==6)throw Error('Não encontrei seis pistas salvas. Volte ao separador e baixe os WAVs.');
-  if(tracks.length+6>16)throw Error('O mixer aceita no máximo 16 pistas. Remova algumas antes de importar.');
-  const files=row.stems.map(s=>new File([s.blob],s.name,{type:'audio/wav'}));
-  await importFiles(files);
-  await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').delete('latest');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+  if(!row||!Array.isArray(row.stems)||row.stems.length<1||row.stems.length>6)throw Error('Não encontrei pistas separadas para abrir. Volte ao separador e toque em Abrir na DAW.');
+  if(tracks.length+row.stems.length>64)throw Error('O mixer aceita no máximo 64 pistas. Remova algumas antes de importar.');
+  const pending=[];let required=memoryBytes();
+  for(const stem of row.stems){
+   if(!stem.blob?.size||typeof stem.blob.arrayBuffer!=='function')throw Error('Uma das pistas separadas está vazia ou incompleta.');
+   const name=String(stem.name||stem.id||'Pista').replace(/\.[^.]+$/,'');
+   say('Abrindo pista separada: '+name+'…');
+   let buf;try{buf=await initAudio().decodeAudioData(await stem.blob.arrayBuffer());}catch{throw Error('Não foi possível ler a pista '+name+'. Volte ao separador para tentar novamente.');}
+   if(!buf.length||!Number.isFinite(buf.duration)||buf.duration>MAX_SECONDS+.01||buf.numberOfChannels<1||buf.numberOfChannels>2)throw Error('A pista '+name+' deve ser mono ou estéreo, com até 10 minutos.');
+   required+=buf.length*buf.numberOfChannels*4;
+   if(required>MAX_BYTES)throw Error('As pistas excedem a memória disponível neste aparelho. Abra menos instrumentos por vez.');
+   pending.push({name,buf,type:D.infer(stem.id||name)});
+  }
+  before={tracks:tracks.slice(),selected,dirty,notes,notesTrack,name:$('projectName').value,saveState:$('saveState').textContent};
+  stopPlayback(true);
+  if(!tracks.length&&row.name)$('projectName').value=String(row.name);
+  for(const stem of pending)addTrack(stem.name,stem.buf,stem.type,{start:0,trimIn:0});
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction('sessions','readwrite'),store=tx.objectStore('sessions'),req=store.get('latest');
+   req.onsuccess=()=>{if(req.result?.id===row.id)store.delete('latest');};
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Não foi possível concluir a transferência das pistas.'));
+  });
   $('apsTransferNotice').hidden=true;
   const p=new URL(location.href);p.searchParams.delete('importStems');history.replaceState(null,'',p.pathname+p.search+p.hash);
-  say('As seis pistas foram inseridas no mixer e estão prontas para timbragem e mixagem.');
- }finally{db.close();}
+  say(pending.length===1?'Pista aberta na DAW e pronta para editar.':pending.length+' pistas abertas na DAW e prontas para mixar.');
+ }catch(e){
+  if(before){tracks=before.tracks;selected=before.selected;dirty=before.dirty;notes=before.notes;notesTrack=before.notesTrack;$('projectName').value=before.name;$('saveState').textContent=before.saveState;updateDuration();redraw();selectUI();}
+  throw e;
+ }finally{db?.close();busy=false;apsReceivingStems=false;$('apsTransferButton').disabled=false;}
 }
 window.addEventListener('aps:import-transferred-stems',()=>apsReceiveStems().catch(report));
 async function apsImportMediaTransfer(file){
@@ -757,15 +784,19 @@ initBassIRCatalog();
 })();
 </script>
 <script>document.getElementById('apsImportSixStems')?.addEventListener('click',()=>document.getElementById('file')?.click());</script>
-<script>
+<script id="apsStemsBridge">
 (function(){
  const target=document.getElementById('apsTransferNotice');
  if(!target)return;
  const params=new URLSearchParams(location.search);
- if(params.has('importStems'))target.hidden=false;
+ if(params.has('importStems')){
+  target.hidden=false;
+  const receive=()=>window.dispatchEvent(new CustomEvent('aps:import-transferred-stems'));
+  if(document.readyState==='complete')receive();else window.addEventListener('load',receive,{once:true});
+ }
  const button=document.getElementById('apsTransferButton');
  button.addEventListener('click',()=>{
-  // The app core handles decoding and adding the transferred WAVs, preserving its size guards.
+  // O núcleo lê as pistas e mantém os limites de duração e memória da sessão.
   const event=new CustomEvent('aps:import-transferred-stems');
   window.dispatchEvent(event);
  });

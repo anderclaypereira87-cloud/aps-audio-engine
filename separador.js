@@ -2,7 +2,7 @@
 const PROXY = 'https://aps-mvsep.aps-audio.workers.dev';
 const DEFAULT_MVSEP_TOKEN = 'vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
-let working=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='';
+let working=false,transferring=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='';
 const PENDING_JOB_KEY='aps_mvsep_pending_v1';
 
 const STEM_MAP={
@@ -42,12 +42,12 @@ function forgetJob(hash){
 function syncControls(){
  const saved=!!pendingJob;
  const completed=pendingJob?.status==='done';
- $('start').disabled=working;
+ $('start').disabled=working||transferring;
  $('start').textContent=saved?(completed?'Reabrir resultado':'Continuar separação'):'♫ Separar agora';
  $('cancel').disabled=!working;
- $('song').disabled=working||saved;
- document.querySelectorAll('#instList input').forEach(cb=>{cb.disabled=working||saved;});
- const reset=$('newSeparation');if(reset){reset.hidden=!saved;reset.disabled=working;reset.textContent=completed?'Escolher outra música':'Escolher outra música (o pedido anterior continua no serviço)';}
+ $('song').disabled=working||saved||transferring;
+ document.querySelectorAll('#instList input').forEach(cb=>{cb.disabled=working||saved||transferring;});
+ const reset=$('newSeparation');if(reset){reset.hidden=!saved;reset.disabled=working||transferring;reset.textContent=completed?'Escolher outra música':'Escolher outra música (o pedido anterior continua no serviço)';}
  const note=$('pendingNote');if(note){
   note.hidden=!saved;
   note.textContent=completed?'Você pode reabrir as pistas neste aparelho, sem reenviar a música, enquanto o resultado estiver disponível no serviço.':'Seu pedido está salvo neste aparelho. Você pode voltar a esta página e tocar em Continuar separação, sem reenviar a música. Pausar o acompanhamento mantém o pedido na fila do serviço.';
@@ -173,24 +173,45 @@ async function runCloud(file,{signal}={}){
  rememberJob({...saved,status:'done'});
  return blobsByStem;
 }
-function openInDaw(){
- if(!resultBlobs)return;
- const stems={};
- for(const [id,blob] of Object.entries(resultBlobs)){
-  stems[id]=URL.createObjectURL(blob);
+async function openInDaw({alsoDownload=false}={}){
+ if(!resultBlobs||transferring)return;
+ const selected=selectedInstruments();
+ const extensions={'audio/mpeg':'mp3','audio/wav':'wav','audio/x-wav':'wav','audio/flac':'flac','audio/mp4':'m4a','audio/ogg':'ogg','audio/webm':'webm'};
+ const stems=Object.entries(resultBlobs).filter(([id])=>selected.includes(id)).map(([id,blob])=>{
+  const mime=blob.type.split(';')[0].toLowerCase();
+  const ext=extensions[mime]||'mp3';
+  return {id,name:STEM_MAP[id].name+'.'+ext,type:extensions[mime]?mime:'audio/mpeg',blob};
+ });
+ if(!stems.length){phase('Não há pistas selecionadas para abrir na DAW.',undefined,true);return;}
+ transferring=true;syncControls();$('openDaw').disabled=true;$('downloadAll').disabled=true;
+ phase('Abrindo as pistas no estúdio…',100);
+ let db;
+ try{
+  if(!window.indexedDB)throw Error('Este navegador não permite a transferência automática das pistas.');
+  db=await new Promise((resolve,reject)=>{
+   const r=indexedDB.open('aps-stems-transfer-v1',1);
+   r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains('sessions'))r.result.createObjectStore('sessions');};
+   r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  const row={id:Date.now()+'-'+Math.random().toString(36).slice(2),name:(resultName||prefix()).replace(/\.[^.]+$/,''),stems,createdAt:Date.now()};
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction('sessions','readwrite');
+   tx.objectStore('sessions').put(row,'latest');
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Não foi possível salvar as pistas para abrir no estúdio.'));
+  });
+  if(alsoDownload)for(const stem of stems)download(stem.blob,prefix()+'_'+stem.id+'.'+stem.name.split('.').pop());
+  location.href='./daw.html?modulo=gravacao&importStems=1&v=451';
+ }catch(e){
+  phase('Não foi possível abrir as pistas na DAW: '+(e?.message||'tente novamente.'),undefined,true);
+ }finally{
+  db?.close();transferring=false;syncControls();$('openDaw').disabled=false;$('downloadAll').disabled=false;
  }
- sessionStorage.setItem('aps_stems',JSON.stringify(stems));
- sessionStorage.setItem('aps_stems_name',prefix());
- location.href='./index.html?from=separador';
 }
 function downloadAll(){
- if(!resultBlobs)return;
- for(const [id,blob] of Object.entries(resultBlobs)){
-  download(blob,prefix()+'_'+id+'.mp3');
- }
+ return openInDaw({alsoDownload:true});
 }
 async function main(){
- if(working)return;
+ if(working||transferring)return;
  pendingJob=readPendingJob();
  const file=$('song').files[0];if(!pendingJob&&!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
  const selected=pendingJob?.instruments||selectedInstruments();if(!selected.length){phase('Selecione pelo menos um instrumento.',0,true);return;}
@@ -215,7 +236,7 @@ async function main(){
 $('start').addEventListener('click',main);
 $('cancel').addEventListener('click',()=>activeController?.abort());
 $('newSeparation')?.addEventListener('click',()=>{
- if(working)return;
+ if(working||transferring)return;
  if(pendingJob)forgetJob(pendingJob.hash);
  $('song').value='';$('song').dispatchEvent(new Event('change'));
  syncControls();phase('Escolha a música para iniciar outra separação.',0);
