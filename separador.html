@@ -30,14 +30,15 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
 
 <section id="resultsPanel" hidden>
  <h2 style="text-align:center;color:#f0d49a;margin:24px 0 12px">Resultado</h2>
- <div id="result"></div>
+ <p style="text-align:center;color:#dbcaab;margin:0">Escolha o destino das pistas separadas:</p>
  <div class="actions">
-  <button id="openDaw" type="button" style="background:#7dba7d">Abrir na DAW</button>
-  <button id="downloadAll" type="button">Baixar e abrir na DAW</button>
+  <button id="downloadAll" type="button">Baixar no aparelho</button>
+  <button id="openDaw" type="button" style="background:#7dba7d">Abrir na DAW de gravação</button>
  </div>
+ <div id="result"></div>
 </section>
 </main>
-<script type="module" src="./separador.js?v=451"></script>
+<script type="module" src="./separador.js?v=452"></script>
 <script>
 (function(){
  const list=document.getElementById('instList');
