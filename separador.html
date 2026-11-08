@@ -35,15 +35,13 @@ button{display:block;width:100%;min-height:60px;border-radius:14px;background:#d
  </div>
 </section>
 </main>
-<script type="module" src="./separador.js?v=448"></script>
+<script type="module" src="./separador.js?v=449"></script>
 <script>
 (function(){
  const list=document.getElementById('instList');
  list.querySelectorAll('.inst').forEach(function(lab){
-  lab.addEventListener('click',function(e){
-   if(e.target.tagName==='INPUT') return;
-   const cb=lab.querySelector('input');
-   cb.checked=!cb.checked;
+  const cb=lab.querySelector('input');
+  cb.addEventListener('change',function(){
    lab.classList.toggle('active',cb.checked);
   });
  });

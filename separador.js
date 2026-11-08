@@ -71,8 +71,9 @@ async function runCloud(file){
  let status='waiting',tries=0,finalData=null;
  while(status!=='done'&&tries<120){
   await new Promise(r=>setTimeout(r,5000));tries++;
-  const st=await fetch(PROXY+'/status?hash='+hash);
+  const st=await fetch(PROXY+'/status?hash='+encodeURIComponent(hash));
   const data=await st.json().catch(()=>({}));
+  if(!st.ok||data.success===false)throw Error(data.data?.message||data.message||'Não foi possível consultar a separação.');
   status=data.status||'waiting';
   phase('Processando… ('+status+')',40+Math.min(40,tries*0.6));
   if(status==='failed')throw Error(data.data?.message||data.message||'Separação falhou.');
@@ -80,18 +81,22 @@ async function runCloud(file){
  }
  if(status!=='done'||!finalData)throw Error('Demorou demais. Tente de novo.');
  const files=finalData.data?.files||[];
+ if(!Array.isArray(files)||files.length===0)throw Error('A separação terminou, mas o serviço não retornou arquivos de áudio.');
  phase('Baixando pistas…',90);
  const blobsByStem={};
  for(const f of files){
   if(!f.url)continue;
-  const stem=mapStem(f.name);
+  // MVSEP identifica as pistas em `type`; `download` é o nome do arquivo.
+  const stem=mapStem(f.type||f.name||f.download);
   if(!stem)continue;
-  try{
-   const proxyUrl=PROXY+'/download?url='+encodeURIComponent(f.url);
-   const audioRes=await fetch(proxyUrl);
-   if(audioRes.ok)blobsByStem[stem]=await audioRes.blob();
-  }catch(e){console.warn('Falha ao baixar',f.name,e);}
+  const proxyUrl=PROXY+'/download?url='+encodeURIComponent(f.url);
+  const audioRes=await fetch(proxyUrl);
+  if(!audioRes.ok)throw Error('Não foi possível baixar a pista '+STEM_MAP[stem].name+' (HTTP '+audioRes.status+'). Tente novamente.');
+  const blob=await audioRes.blob();
+  if(!blob.size)throw Error('O serviço retornou um arquivo vazio para a pista '+STEM_MAP[stem].name+'.');
+  blobsByStem[stem]=blob;
  }
+ if(!Object.keys(blobsByStem).length)throw Error('A separação terminou, mas os tipos de pista retornados pelo serviço não foram reconhecidos.');
  return blobsByStem;
 }
 function openInDaw(){
