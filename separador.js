@@ -2,7 +2,8 @@
 const PROXY = 'https://aps-mvsep.aps-audio.workers.dev';
 const DEFAULT_MVSEP_TOKEN = 'vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
-let working=false,resultBlobs=null,player=null;
+let working=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='';
+const PENDING_JOB_KEY='aps_mvsep_pending_v1';
 
 const STEM_MAP={
  vocals:{name:'Voz',icon:'🎤'},
@@ -19,13 +20,74 @@ function phase(msg,percent,error=false){
 function selectedInstruments(){
  return [...document.querySelectorAll('#instList input:checked')].map(cb=>cb.value);
 }
+function readPendingJob(){
+ try{
+  const job=JSON.parse(localStorage.getItem(PENDING_JOB_KEY)||'null');
+  if(job&&typeof job.hash==='string'&&job.hash&&typeof job.name==='string'&&Array.isArray(job.instruments)&&job.instruments.length&&job.instruments.every(id=>STEM_MAP[id]))return job;
+ }catch{}
+ return pendingJob;
+}
+function rememberJob(job){
+ pendingJob=job;
+ try{localStorage.setItem(PENDING_JOB_KEY,JSON.stringify(job));}catch{}
+ syncControls();
+}
+function forgetJob(hash){
+ if(pendingJob?.hash===hash)pendingJob=null;
+ try{
+  const saved=JSON.parse(localStorage.getItem(PENDING_JOB_KEY)||'null');
+  if(saved?.hash===hash)localStorage.removeItem(PENDING_JOB_KEY);
+ }catch{}
+}
+function syncControls(){
+ const saved=!!pendingJob;
+ const completed=pendingJob?.status==='done';
+ $('start').disabled=working;
+ $('start').textContent=saved?(completed?'Reabrir resultado':'Continuar separação'):'♫ Separar agora';
+ $('cancel').disabled=!working;
+ $('song').disabled=working||saved;
+ document.querySelectorAll('#instList input').forEach(cb=>{cb.disabled=working||saved;});
+ const reset=$('newSeparation');if(reset){reset.hidden=!saved;reset.disabled=working;reset.textContent=completed?'Escolher outra música':'Escolher outra música (o pedido anterior continua no serviço)';}
+ const note=$('pendingNote');if(note){
+  note.hidden=!saved;
+  note.textContent=completed?'Você pode reabrir as pistas neste aparelho, sem reenviar a música, enquanto o resultado estiver disponível no serviço.':'Seu pedido está salvo neste aparelho. Você pode voltar a esta página e tocar em Continuar separação, sem reenviar a música. Pausar o acompanhamento mantém o pedido na fila do serviço.';
+ }
+}
+function ensureActive(signal){if(signal?.aborted)throw signal.reason||new DOMException('Acompanhamento pausado.','AbortError');}
+function waitForPoll(signal){
+ ensureActive(signal);
+ return new Promise((resolve,reject)=>{
+  const stop=()=>{clearTimeout(timer);reject(signal.reason||new DOMException('Acompanhamento pausado.','AbortError'));};
+  const timer=setTimeout(()=>{signal?.removeEventListener('abort',stop);resolve();},5000);
+  signal?.addEventListener('abort',stop,{once:true});
+ });
+}
+function elapsed(job){
+ const seconds=Math.max(0,Math.floor((Date.now()-(job.createdAt||Date.now()))/1000));
+ return Math.floor(seconds/60)+' min '+String(seconds%60).padStart(2,'0')+' s';
+}
+function showCloudStatus(data,job){
+ const details=data.data||{};
+ if(data.status==='waiting'){
+  const order=Number(details.current_order);
+  const position=Number.isFinite(order)&&order>0?' · posição '+order:'';
+  phase('Na fila do serviço de separação'+position+' · '+elapsed(job)+' de espera.',20);
+ }else if(data.status==='distributing'){
+  phase('Preparando o áudio para separar os instrumentos…',35);
+ }else if(data.status==='merging'){
+  phase('Finalizando as pistas separadas…',80);
+ }else if(data.status==='processing'){
+  phase('Separando os instrumentos… · '+elapsed(job)+' desde o envio.',55);
+ }else{
+  throw Error('O serviço retornou um estado desconhecido. Seu pedido foi mantido para nova consulta.');
+ }
+}
 function stopPreview(){try{player?.pause();}catch{}player=null;}
 async function preview(blob){stopPreview();const u=URL.createObjectURL(blob);const a=new Audio(u);player=a;a.onended=()=>URL.revokeObjectURL(u);await a.play();}
 function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-function prefix(){return(($('song').files[0]?.name)||'APS').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,40)||'APS';}
-function showResult(blobsByStem){
+function prefix(){return(resultName||$('song').files[0]?.name||'APS').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,40)||'APS';}
+function showResult(blobsByStem,selected=selectedInstruments()){
  const box=$('result');box.replaceChildren();
- const selected=selectedInstruments();
  let shown=0;
  selected.forEach(id=>{
   const info=STEM_MAP[id];if(!info||!blobsByStem[id])return;
@@ -52,34 +114,43 @@ function mapStem(name){
  if(n.includes('other')||n.includes('outro'))return 'other';
  return null;
 }
-async function runCloud(file){
- const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
- phase('Enviando música…',15);
- const form=new FormData();
- form.append('audiofile',file,file.name);
- form.append('api_token',token);
- form.append('sep_type','20');
- form.append('output_format','0');
- const res=await fetch(PROXY+'/create',{method:'POST',body:form});
- const job=await res.json().catch(()=>({}));
- if(!res.ok||!job.success||!job.data?.hash){
-  const msg=job.data?.message||job.message||job.error||(job.errors&&job.errors[0])||'Erro ao enviar';
-  throw Error(msg);
+async function runCloud(file,{signal}={}){
+ let saved=readPendingJob();
+ if(!saved){
+  if(!file)throw Error('Escolha um arquivo de áudio primeiro.');
+  const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
+  phase('Enviando música…',10);
+  const form=new FormData();
+  form.append('audiofile',file,file.name);
+  form.append('api_token',token);
+  form.append('sep_type','20');
+  form.append('output_format','0');
+  const res=await fetch(PROXY+'/create',{method:'POST',body:form,signal});
+  const created=await res.json().catch(()=>({}));
+  if(!res.ok||!created.success||!created.data?.hash){
+   const msg=created.data?.message||created.message||created.error||(created.errors&&created.errors[0])||'Erro ao enviar';
+   throw Error(msg);
+  }
+  saved={hash:created.data.hash,name:file.name,instruments:selectedInstruments(),createdAt:Date.now()};
+  rememberJob(saved);
  }
- const hash=job.data.hash;
- phase('Separando na nuvem…',40);
- let status='waiting',tries=0,finalData=null;
- while(status!=='done'&&tries<120){
-  await new Promise(r=>setTimeout(r,5000));tries++;
-  const st=await fetch(PROXY+'/status?hash='+encodeURIComponent(hash));
-  const data=await st.json().catch(()=>({}));
-  if(!st.ok||data.success===false)throw Error(data.data?.message||data.message||'Não foi possível consultar a separação.');
-  status=data.status||'waiting';
-  phase('Processando… ('+status+')',40+Math.min(40,tries*0.6));
-  if(status==='failed')throw Error(data.data?.message||data.message||'Separação falhou.');
-  if(status==='done')finalData=data;
+ resultName=saved.name;
+ const hash=saved.hash;
+ let finalData;
+ while(true){
+  ensureActive(signal);
+  const st=await fetch(PROXY+'/status?hash='+encodeURIComponent(hash),{signal});
+  const data=await st.json().catch(()=>null);
+  ensureActive(signal);
+  if(data?.status==='failed'||data?.status==='not_found'){
+   forgetJob(hash);
+   throw Error(data.data?.message||data.message||'O serviço não encontrou uma separação válida. Escolha a música para um novo envio.');
+  }
+  if(!st.ok||!data||data.success===false)throw Error(data?.data?.message||data?.message||'Não foi possível consultar a separação.');
+  if(data.status==='done'){finalData=data;break;}
+  showCloudStatus(data,saved);
+  await waitForPoll(signal);
  }
- if(status!=='done'||!finalData)throw Error('Demorou demais. Tente de novo.');
  const files=finalData.data?.files||[];
  if(!Array.isArray(files)||files.length===0)throw Error('A separação terminou, mas o serviço não retornou arquivos de áudio.');
  phase('Baixando pistas…',90);
@@ -90,13 +161,16 @@ async function runCloud(file){
   const stem=mapStem(f.type||f.name||f.download);
   if(!stem)continue;
   const proxyUrl=PROXY+'/download?url='+encodeURIComponent(f.url);
-  const audioRes=await fetch(proxyUrl);
+  ensureActive(signal);
+  const audioRes=await fetch(proxyUrl,{signal});
   if(!audioRes.ok)throw Error('Não foi possível baixar a pista '+STEM_MAP[stem].name+' (HTTP '+audioRes.status+'). Tente novamente.');
   const blob=await audioRes.blob();
+  ensureActive(signal);
   if(!blob.size)throw Error('O serviço retornou um arquivo vazio para a pista '+STEM_MAP[stem].name+'.');
   blobsByStem[stem]=blob;
  }
  if(!Object.keys(blobsByStem).length)throw Error('A separação terminou, mas os tipos de pista retornados pelo serviço não foram reconhecidos.');
+ rememberJob({...saved,status:'done'});
  return blobsByStem;
 }
 function openInDaw(){
@@ -117,19 +191,47 @@ function downloadAll(){
 }
 async function main(){
  if(working)return;
- const file=$('song').files[0];if(!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
- const selected=selectedInstruments();if(!selected.length){phase('Selecione pelo menos um instrumento.',0,true);return;}
- working=true;$('start').disabled=true;$('cancel').disabled=false;$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;
+ pendingJob=readPendingJob();
+ const file=$('song').files[0];if(!pendingJob&&!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
+ const selected=pendingJob?.instruments||selectedInstruments();if(!selected.length){phase('Selecione pelo menos um instrumento.',0,true);return;}
+ const controller=new AbortController();activeController=controller;
+ working=true;syncControls();$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;
  try{
-  const blobs=await runCloud(file);
+  const blobs=await runCloud(file,{signal:controller.signal});
+  ensureActive(controller.signal);
   resultBlobs=blobs;
   phase('Pronto! Ouça ou baixe as pistas.',100);
-  showResult(blobs);
- }catch(e){phase(e?.message||'Erro desconhecido.',0,true);console.error(e);}
- finally{working=false;$('start').disabled=false;$('cancel').disabled=true;}
+  showResult(blobs,selected);
+ }catch(e){
+  if(controller.signal.aborted){
+   phase(pendingJob?'Acompanhamento pausado. Seu pedido continua salvo; toque em Continuar separação.':'Envio interrompido.',undefined);
+  }else{
+   const resume=pendingJob?' Toque em '+(pendingJob.status==='done'?'Reabrir resultado':'Continuar separação')+' para consultar o mesmo pedido.':'';
+   phase((e?.message||'Não foi possível concluir a separação.')+resume,undefined,true);
+   console.error(e);
+  }
+ }finally{working=false;activeController=null;syncControls();}
 }
 $('start').addEventListener('click',main);
-$('cancel').addEventListener('click',()=>{if(working)phase('Cancelado.',0);working=false;$('start').disabled=false;$('cancel').disabled=true;});
+$('cancel').addEventListener('click',()=>activeController?.abort());
+$('newSeparation')?.addEventListener('click',()=>{
+ if(working)return;
+ if(pendingJob)forgetJob(pendingJob.hash);
+ $('song').value='';$('song').dispatchEvent(new Event('change'));
+ syncControls();phase('Escolha a música para iniciar outra separação.',0);
+});
 $('openDaw')?.addEventListener('click',openInDaw);
 $('downloadAll')?.addEventListener('click',downloadAll);
-window.addEventListener('pagehide',stopPreview);
+window.addEventListener('pagehide',()=>{stopPreview();activeController?.abort();});
+pendingJob=readPendingJob();
+if(pendingJob){
+ resultName=pendingJob.name;
+ $('apsChosenSong').textContent=pendingJob.name+' · pedido salvo';
+ $('fileBtn').textContent='✔ '+pendingJob.name;
+ document.querySelectorAll('#instList input').forEach(cb=>{
+  cb.checked=pendingJob.instruments.includes(cb.value);
+  cb.closest('label').classList.toggle('active',cb.checked);
+ });
+ syncControls();
+ phase(pendingJob.status==='done'?'Toque em Reabrir resultado para baixar novamente suas pistas.':'Pedido salvo. Toque em Continuar separação para consultar o resultado sem reenviar a música.',20);
+}
