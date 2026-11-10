@@ -16,7 +16,20 @@ const S={
  pagode:{label:'Pagode',ico:'🥁',lufs:-11,desc:'Percussão viva (pandeiro, tantã, repique), cavaco na frente.',adj:{perc:{g:18,t:2,c:1},violao:{g:10,m:2,t:2},bass:{g:4,b:1},voz:{r:2},coro:{g:10}},rev:2},
  mpb:{label:'MPB',ico:'🎶',lufs:-14,desc:'Mais dinâmica, menos compressão, timbres naturais.',adj:{voz:{c:0,r:4},violao:{g:12,c:0},drums:{g:-8,c:0},kick:{g:-8},bass:{g:-4},keys:{r:4}},rev:4},
  axe:{label:'Axé',ico:'🎉',lufs:-10,desc:'Percussão e metais na frente, energia alta.',adj:{perc:{g:18,t:2},horn:{g:14,t:2},guitar:{g:6,t:2},kick:{g:6},voz:{g:4}},rev:0},
- arrocha:{label:'Arrocha',ico:'💔',lufs:-10.5,desc:'Voz romântica com delay, guitarra/teclado melódicos, grave cheio.',adj:{voz:{d:10,r:4,g:4},guitar:{g:10,d:6,r:6},keys:{g:6,r:6},bass:{b:2,g:4}},rev:3}};
+ arrocha:{label:'Arrocha',ico:'💔',lufs:-10.5,desc:'Voz romântica com delay, guitarra/teclado melódicos, grave cheio.',adj:{voz:{d:10,r:4,g:4},guitar:{g:10,d:6,r:6},keys:{g:6,r:6},bass:{b:2,g:4}},rev:3},
+ xote:{label:'Xote',ico:'💃',lufs:-12,desc:'Forró xote dançante: sanfona clara, zabumba redondo e triângulo definido.',adj:{sanfona:{g:10,m:2,t:2,p:-10},kick:{g:4,b:2},hat:{g:10,t:3},bass:{g:2},voz:{r:2}},rev:2},
+ baiao:{label:'Baião',ico:'🌵',lufs:-11,desc:'Zabumba marcada, sanfona rítmica e triângulo brilhante.',adj:{sanfona:{g:10,m:2,t:1},kick:{g:10,b:3},hat:{g:10,t:4},bass:{g:6,b:2},voz:{g:2}},rev:0},
+ brega:{label:'Brega',ico:'💗',lufs:-10.5,desc:'Voz romântica na frente, teclado envolvente e delay cantado.',adj:{voz:{g:6,d:12,r:6,t:1},keys:{g:10,r:8,d:4},guitar:{g:4,r:4},bass:{b:2,g:4}},rev:4},
+ samba:{label:'Samba',ico:'🟢',lufs:-12,desc:'Percussão viva, cavaco na frente e grave do surdo presente.',adj:{perc:{g:16,t:2,c:1},violao:{g:12,m:2,t:2},kick:{g:6,b:2},bass:{g:4,b:1},voz:{r:2},coro:{g:8}},rev:2},
+ frevo:{label:'Frevo',ico:'☂️',lufs:-10,desc:'Metais na frente, energia alta e percussão brilhante.',adj:{horn:{g:16,t:3},perc:{g:14,t:2},kick:{g:6},guitar:{g:4,t:1},voz:{g:4,t:1}},rev:0},
+ pop:{label:'Pop',ico:'⭐',lufs:-11,desc:'Voz clara na frente, banda equilibrada e brilho controlado.',adj:{voz:{g:6,t:2,r:4,d:4},drums:{g:2},bass:{g:2},guitar:{g:2,p:25},keys:{g:4,r:4}},rev:2},
+ rock:{label:'Rock',ico:'🤘',lufs:-10.5,desc:'Guitarras presentes, bateria com ataque e menos ambiência.',adj:{guitar:{g:12,m:2,t:1,r:-4},drums:{g:6,c:1},kick:{g:6,b:2},bass:{g:4,m:1},voz:{g:4,r:-2}},rev:-2},
+ jazz:{label:'Jazz',ico:'🎷',lufs:-14,desc:'Mais dinâmica, piano e sopros abertos, compressão leve.',adj:{keys:{g:10,r:6,c:0},horn:{g:8,r:6},drums:{g:-4,c:0},bass:{g:-2,c:0},voz:{c:0,r:6}},rev:6},
+ blues:{label:'Blues',ico:'🎸',lufs:-12,desc:'Guitarra no meio, voz presente e baixo redondo.',adj:{guitar:{g:12,m:3,t:1,r:4},voz:{g:4,r:4,d:4},bass:{b:2,g:4},drums:{r:2},keys:{r:4}},rev:3},
+ funk:{label:'Funk',ico:'🕺',lufs:-10,desc:'Grave seco e forte, voz na cara e pouco reverb.',adj:{kick:{g:12,b:4},bass:{g:10,b:3},voz:{g:4,r:-6,d:2},hat:{g:6,t:2},guitar:{g:4,m:2}},rev:-4},
+ eletronica:{label:'Eletrônica',ico:'🎧',lufs:-9.5,desc:'Bumbo e baixo fortes, agudos nítidos e mix mais seca.',adj:{kick:{g:14,b:4},bass:{g:10,b:3},hat:{g:8,t:3},keys:{g:6,t:2},voz:{r:-4,d:4}},rev:-3},
+ orquestral:{label:'Orquestral',ico:'🎻',lufs:-16,desc:'Cordas e metais espaçosos, dinâmica ampla e muita ambiência.',adj:{strings:{g:16,r:16},horn:{g:10,r:10},keys:{g:6,r:10},drums:{g:-10,c:0},voz:{r:8},bass:{g:-4}},rev:12}};
+
 let undo=null;
 function apply(key){const B=window.APSMixBridge,st=S[key];if(!B){msg('Abra o estúdio para aplicar.');return;}
  const tracks=B.list();if(!tracks.length){msg('Importe ou grave pistas primeiro — depois toque no estilo.');return;}
