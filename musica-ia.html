@@ -10,10 +10,12 @@ h1{font-size:26px;margin:0 0 12px;color:#f4d99f;text-align:center}
 .hint{color:#dbcaab;font-size:14px;margin:0 0 18px;text-align:center}
 label.field{display:block;margin:0 0 12px;color:#f4d99f;font-weight:650;font-size:14px}
 input,select,textarea{width:100%;margin-top:6px;border-radius:12px;border:1px solid #455269;background:#1a1f2b;color:#f2f2f4;font:16px/1.4 system-ui;padding:12px}
+input[type=file]{padding:10px;background:#151a24}
 textarea{min-height:110px;resize:vertical}
 textarea#letra{min-height:90px}
 button{display:block;width:100%;min-height:56px;border-radius:14px;background:#dcba78;color:#16181d;font-size:18px;font-weight:800;border:0;margin:16px 0 0;cursor:pointer}
 button:disabled{opacity:.5;cursor:wait}
+button.secondary{background:transparent;color:#e7c07b;border:1px solid #b99755;font-size:15px;min-height:48px}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
 .actions button{flex:1;min-height:50px;font-size:15px;min-width:140px}
 #abrirDaw{background:#7dba7d}
@@ -25,14 +27,44 @@ nav{text-align:center;margin-bottom:18px;font-size:14px}
 nav a{color:#e7c07b}
 .lyrics{background:#171c28;border:1px solid #455269;border-radius:14px;padding:12px;white-space:pre-wrap;color:#d5dce8;font-size:14px}
 .cost{font-size:12px;color:#aeb6c5;text-align:center;margin-top:18px}
+.ref-box{background:#141923;border:1px solid #3d4a63;border-radius:16px;padding:14px;margin:0 0 18px}
+.ref-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.ref-head strong{color:#f4d99f}
+.badge{display:inline-block;background:#5b3b16;color:#ffd99a;border:1px solid #c9a05a;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.ref-warn{color:#ffe1a3;font-size:14px;margin:0 0 12px;line-height:1.45}
+.ref-info{color:#d5dce8;font-size:13px;margin:0 0 8px}
+.ref-result{background:#171c28;border:1px solid #455269;border-radius:14px;padding:12px;margin-top:12px}
+.ref-result h2{font-size:15px;color:#f0d49a;margin:0 0 8px}
+.ref-result dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;color:#d5dce8}
+.ref-result dt{color:#e7c07b;font-weight:700}
+#analisarRef{margin-top:10px}
 </style></head><body><main>
 <div class="brand">APS</div>
 <nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./separador.html">✂ Separador</a></nav>
 <h1>Criar música com IA</h1>
 <p class="notice" id="notice">Música gerada por IA (Google Lyria), com marca d'água SynthID</p>
 <p class="hint">Descreva o ritmo, os instrumentos e o clima. Não pedimos imitação da voz de artistas reais. O resultado nunca é uma gravação original.</p>
+<section class="ref-box" id="refBox">
+  <div class="ref-head">
+    <strong>Usar uma gravação como referência</strong>
+    <span class="badge">Plano premium</span>
+  </div>
+  <p class="ref-warn">A IA cria uma música <strong>nova</strong>, só inspirada no que você enviar. Isso <strong>não edita</strong> a sua gravação e não troca o som dos instrumentos dela.</p>
+  <label class="field">Áudio do estúdio (até 2 minutos e 10 MB, MP3, WAV, M4A, OGG ou FLAC)
+    <input id="refFile" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/aac,audio/ogg,audio/flac,audio/webm,audio/*">
+  </label>
+  <p id="refFileInfo" class="ref-info" hidden></p>
+  <audio id="refPreview" controls hidden></audio>
+  <button id="analisarRef" type="button" class="secondary" disabled>Ouvir e descrever a gravação</button>
+  <div id="refResult" class="ref-result" hidden>
+    <h2>O que a IA ouviu</h2>
+    <dl id="refDesc"></dl>
+    <p class="ref-warn">Esse texto só serve para criar uma música nova. A gravação original permanece como está.</p>
+    <button id="limparRef" type="button" class="secondary">Remover a referência</button>
+  </div>
+</section>
 <label class="field">O que você quer ouvir
-<textarea id="prompt" maxlength="2000" placeholder="Ex.: forró pé de serra instrumental com sanfona, zabumba e triângulo"></textarea></label>
+<textarea id="prompt" maxlength="2000" placeholder="Ex.: forró pé de serra instrumental com sanfona, zabumba e triângulo. Com uma referência, este texto é opcional."></textarea></label>
 <label class="field">Estilo
 <select id="estilo">
 <option value="livre">Livre (uso o texto acima)</option>
@@ -61,7 +93,7 @@ nav a{color:#e7c07b}
 <label class="field">Letra (opcional)
 <textarea id="letra" maxlength="4000" placeholder="Se quiser voz e letra, escreva aqui. Deixe em branco para instrumental."></textarea></label>
 <button id="gerar" type="button">♫ Criar música</button>
-<p id="status" role="status" aria-live="polite">O limite do estúdio é de 20 músicas por dia.</p>
+<p id="status" role="status" aria-live="polite">O limite do estúdio é de 20 músicas por dia. A referência, no plano premium, analisa no máximo 15 gravações por dia.</p>
 <audio id="player" controls hidden></audio>
 <div class="actions">
 <button id="baixar" type="button" disabled>Baixar</button>
@@ -72,7 +104,7 @@ nav a{color:#e7c07b}
 <h2 style="font-size:16px;color:#f0d49a;margin:22px 0 8px">Letra ou estrutura</h2>
 <div class="lyrics" id="lyrics"></div>
 </section>
-<p class="cost">Clipe ~US$ 0,04 · música completa ~US$ 0,08 · 20 gerações por dia · áudio com marca d'água SynthID do Google.</p>
+<p class="cost">Clipe ~US$ 0,04 · música completa ~US$ 0,08 · com referência some cerca de US$ 0,002 pela análise · 20 gerações e 15 análises por dia · áudio com marca d'água SynthID do Google. A música criada nunca é a sua gravação editada.</p>
 </main>
-<script type="module" src="./aps-lyria.js?v=453"></script>
+<script type="module" src="./aps-lyria.js?v=454"></script>
 </body></html>
