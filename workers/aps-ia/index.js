@@ -1,13 +1,18 @@
 /**
- * APS IA — backend de comandos de mixagem (OpenAI).
+ * APS IA — backend de comandos de mixagem (Gemini, com OpenAI opcional).
  * Não processa áudio; só devolve ajustes validados contra o que a DAW realmente tem.
  */
 const MAX_BODY = 48 * 1024;
 const RATE_PER_HOUR = 15;
 const DAILY_CAP_USD = 2;
-const MODEL = 'gpt-4o-mini';
-const PRICE_IN = 0.15 / 1_000_000;
-const PRICE_OUT = 0.60 / 1_000_000;
+
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_PRICE_IN = 0.30 / 1_000_000;
+const GEMINI_PRICE_OUT = 2.50 / 1_000_000;
+
+const OPENAI_MODEL = 'gpt-4o-mini';
+const OPENAI_PRICE_IN = 0.15 / 1_000_000;
+const OPENAI_PRICE_OUT = 0.60 / 1_000_000;
 
 const ALLOWED_HOSTS = new Set(['apsaudio.com.br', 'www.apsaudio.com.br']);
 
@@ -231,11 +236,22 @@ function systemPrompt() {
     'Parâmetros booleanos (comp, masterComp): use 1 para ligado e 0 para desligado.',
     'amp: 0=clean não se aplica; use apenas se o processador amp existir — neste schema value é número, então NÃO use amp.',
     'Faixas: gain 0-150, pan -100-100 (negativo = esquerda), bass/mid/treble -12 a 12 dB, midFreq 200-3000 Hz, hpf 20-500 Hz, reverb 0-40, delay 0-35, drive 0-50, ratio 1-8, masterGain 0-125.',
+    'No master só existem masterGain e masterComp (liga/desliga). Não existe ratio no master.',
+    'gain é uma escala 0-150, não é dB. Se pedirem +3 dB no volume, aumente o gain proporcionalmente (cerca de 1,41 vezes o valor atual, sem sair da faixa), em vez de somar 3.',
+    'Se o pedido for desfazer ou undo, deixe actions vazio e explique em cannot que o desfazer é o botão da DAW, porque você não guarda o estado anterior.',
     'Se o pedido pedir algo que estes processadores não fazem (gerar instrumento, separar stems, afinar, quantizar, criar MIDI, trocar arranjo, guitarra isolada que não existe na sessão), coloque em "cannot".',
     'Combine o pedido com o estilo musical quando houver (forró, piseiro, samba etc.), mas só altere pistas existentes.',
     'Não invente target_id. Se não houver pista correspondente (ex.: pediu sanfona e não há), explique em cannot.',
     'summary: 1 a 3 frases sobre o que será aplicado.'
   ].join(' ');
+}
+
+function preferredProvider(env) {
+  const forced = String(env.IA_PROVIDER || '').toLowerCase();
+  if (forced === 'openai' || forced === 'gemini') return forced;
+  if (env.GEMINI_API_KEY) return 'gemini';
+  if (env.OPENAI_API_KEY) return 'openai';
+  return null;
 }
 
 async function callOpenAI(env, comando, estado) {
@@ -245,7 +261,7 @@ async function callOpenAI(env, comando, estado) {
     throw err;
   }
   const body = {
-    model: MODEL,
+    model: OPENAI_MODEL,
     temperature: 0.3,
     response_format: {
       type: 'json_schema',
@@ -287,8 +303,83 @@ async function callOpenAI(env, comando, estado) {
   const prompt = Number(usage.prompt_tokens) || 0;
   const completion = Number(usage.completion_tokens) || 0;
   const total = Number(usage.total_tokens) || prompt + completion;
-  const cost = prompt * PRICE_IN + completion * PRICE_OUT;
-  return { parsed, usage: { prompt, completion, total, cost, model: MODEL } };
+  const cost = prompt * OPENAI_PRICE_IN + completion * OPENAI_PRICE_OUT;
+  return { parsed, usage: { prompt, completion, total, cost, model: OPENAI_MODEL } };
+}
+
+async function callGemini(env, comando, estado) {
+  if (!env.GEMINI_API_KEY) {
+    const err = new Error('Chave da Gemini ausente no servidor');
+    err.status = 503;
+    throw err;
+  }
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt() }] },
+    contents: [{
+      role: 'user',
+      parts: [{ text: JSON.stringify({ comando, estado: summarizeEstado(estado) }) }]
+    }],
+    generationConfig: {
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+      responseJsonSchema: SCHEMA,
+      thinkingConfig: { thinkingLevel: 'MINIMAL' }
+    }
+  };
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': env.GEMINI_API_KEY
+      },
+      body: JSON.stringify(body)
+    }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || `Gemini HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status === 429 ? 429 : 502;
+    throw err;
+  }
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const text = parts.map((p) => p.text || '').join('');
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const err = new Error('A IA devolveu um formato inválido');
+    err.status = 502;
+    throw err;
+  }
+  const um = data.usageMetadata || {};
+  const prompt = Number(um.promptTokenCount) || 0;
+  const completion = Number(um.candidatesTokenCount) || 0;
+  const thoughts = Number(um.thoughtsTokenCount) || 0;
+  const total = Number(um.totalTokenCount) || prompt + completion + thoughts;
+  const cost = prompt * GEMINI_PRICE_IN + (completion + thoughts) * GEMINI_PRICE_OUT;
+  return { parsed, usage: { prompt, completion: completion + thoughts, total, cost, model: GEMINI_MODEL } };
+}
+
+async function callModel(env, comando, estado) {
+  const first = preferredProvider(env);
+  if (!first) {
+    const err = new Error('Nenhuma chave de IA configurada no servidor');
+    err.status = 503;
+    throw err;
+  }
+  try {
+    return first === 'gemini'
+      ? await callGemini(env, comando, estado)
+      : await callOpenAI(env, comando, estado);
+  } catch (e) {
+    if (first === 'gemini' && env.OPENAI_API_KEY) {
+      return await callOpenAI(env, comando, estado);
+    }
+    throw e;
+  }
 }
 
 export default {
@@ -301,7 +392,12 @@ export default {
 
     const url = new URL(request.url);
     if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/health')) {
-      return json({ ok: true, service: 'aps-ia', route: '/comando' }, 200, origin || '');
+      return json({
+        ok: true,
+        service: 'aps-ia',
+        route: '/comando',
+        provider: preferredProvider(env) || 'none'
+      }, 200, origin || '');
     }
 
     if (url.pathname !== '/comando' || request.method !== 'POST') {
@@ -341,7 +437,7 @@ export default {
     }
 
     try {
-      const { parsed, usage } = await callOpenAI(env, comando, estado);
+      const { parsed, usage } = await callModel(env, comando, estado);
       const whitelist = collectWhitelist(estado);
       const { actions, dropped } = validateActions(parsed.actions, whitelist);
       const cannot = [...(Array.isArray(parsed.cannot) ? parsed.cannot : []), ...dropped]
