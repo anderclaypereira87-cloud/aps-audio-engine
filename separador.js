@@ -2,7 +2,7 @@
 const PROXY = 'https://aps-mvsep.aps-audio.workers.dev';
 const DEFAULT_MVSEP_TOKEN = 'vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
-let working=false,transferring=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='';
+let working=false,transferring=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='',handedFile=null,waitingHandoff=null;
 const PENDING_JOB_KEY='aps_mvsep_pending_v1';
 
 const STEM_MAP={
@@ -85,7 +85,7 @@ function showCloudStatus(data,job){
 function stopPreview(){try{player?.pause();}catch{}player=null;}
 async function preview(blob){stopPreview();const u=URL.createObjectURL(blob);const a=new Audio(u);player=a;a.onended=()=>URL.revokeObjectURL(u);await a.play();}
 function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-function prefix(){return(resultName||$('song').files[0]?.name||'APS').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,40)||'APS';}
+function prefix(){return(resultName||$('song').files[0]?.name||handedFile?.name||'APS').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,40)||'APS';}
 function showResult(blobsByStem,selected=selectedInstruments()){
  const box=$('result');box.replaceChildren();
  let shown=0;
@@ -220,7 +220,7 @@ function downloadAll(){
 async function main(){
  if(working||transferring)return;
  pendingJob=readPendingJob();
- const file=$('song').files[0];if(!pendingJob&&!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
+ const file=$('song').files[0]||handedFile;if(!pendingJob&&!file){phase('Escolha um arquivo de áudio primeiro.',0,true);return;}
  const selected=pendingJob?.instruments||selectedInstruments();if(!selected.length){phase('Selecione pelo menos um instrumento.',0,true);return;}
  const controller=new AbortController();activeController=controller;
  working=true;syncControls();$('resultsPanel').hidden=true;stopPreview();resultBlobs=null;
@@ -245,8 +245,10 @@ $('cancel').addEventListener('click',()=>activeController?.abort());
 $('newSeparation')?.addEventListener('click',()=>{
  if(working||transferring)return;
  if(pendingJob)forgetJob(pendingJob.hash);
- $('song').value='';$('song').dispatchEvent(new Event('change'));
- syncControls();phase('Escolha a música para iniciar outra separação.',0);
+ $('song').value='';handedFile=null;$('song').dispatchEvent(new Event('change'));
+ syncControls();
+ if(waitingHandoff){if(applyHandoff(waitingHandoff,{fromPending:true}))readHandoffRow(true).catch(()=>{});return;}
+ phase('Escolha a música para iniciar outra separação.',0);
 });
 $('openDaw')?.addEventListener('click',openInDaw);
 $('downloadAll')?.addEventListener('click',downloadAll);
@@ -263,3 +265,111 @@ if(pendingJob){
  syncControls();
  phase(pendingJob.status==='done'?'Toque em Reabrir resultado para baixar novamente suas pistas.':'Pedido salvo. Toque em Continuar separação para consultar o resultado sem reenviar a música.',20);
 }
+
+const HANDOFF_DB='aps-separator-handoff-v1';
+const HANDOFF_MAX_AGE_MS=30*60*1000;
+const SEPARATOR_MAX_SECONDS=300;
+function formatHandoffDuration(seconds){
+ const total=Math.max(0,Math.round(Number(seconds)||0));
+ return Math.floor(total/60)+' min '+String(total%60).padStart(2,'0')+' s';
+}
+function wantedAudioImport(){
+ const params=new URLSearchParams(location.search);
+ if(params.get('importAudio')!=='1')return false;
+ params.delete('importAudio');
+ const qs=params.toString();
+ const url=location.pathname+(qs?'?'+qs:'')+location.hash;
+ try{history.replaceState({},'',url);}catch{}
+ return true;
+}
+function openHandoffDb(){
+ return new Promise((resolve,reject)=>{
+  if(!window.indexedDB)return reject(Error('Este navegador não permite a transferência automática.'));
+  const r=indexedDB.open(HANDOFF_DB,1);
+  r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains('sessions'))r.result.createObjectStore('sessions');};
+  r.onsuccess=()=>resolve(r.result);
+  r.onerror=()=>reject(r.error);
+ });
+}
+async function readHandoffRow(consume){
+ let db;
+ try{
+  db=await openHandoffDb();
+  return await new Promise((resolve,reject)=>{
+   const tx=db.transaction('sessions',consume?'readwrite':'readonly');
+   const store=tx.objectStore('sessions');
+   const get=store.get('latest');
+   get.onsuccess=()=>{
+    const row=get.result||null;
+    if(consume&&row)store.delete('latest');
+    resolve(row);
+   };
+   get.onerror=()=>reject(get.error);
+  });
+ }finally{db?.close();}
+}
+function showChosenSong(file){
+ const status=$('apsChosenSong'),btn=$('fileBtn');
+ if(!file)return;
+ if(status)status.textContent='Selecionado: '+file.name;
+ if(btn){
+  btn.textContent='✔ '+file.name;
+  btn.classList.add('has-file');
+ }
+}
+function assignSongFile(file){
+ const picker=$('song');
+ handedFile=file;
+ try{
+  const dt=new DataTransfer();
+  dt.items.add(file);
+  picker.files=dt.files;
+ }catch{}
+ picker.dispatchEvent(new Event('change'));
+ if(!picker.files?.length)showChosenSong(file);
+}
+function applyHandoff(row,{fromPending=false}={}){
+ if(!row?.blob||!(row.blob instanceof Blob)||!row.blob.size){
+  phase('Não encontrei a música enviada da página de IA. Escolha o arquivo de novo.',0,true);
+  waitingHandoff=null;
+  return false;
+ }
+ if(row.createdAt&&Date.now()-Number(row.createdAt)>HANDOFF_MAX_AGE_MS){
+  phase('A música enviada da página de IA expirou. Gere ou envie o arquivo de novo.',0,true);
+  waitingHandoff=null;
+  return false;
+ }
+ const name=row.name||'musica-ia.mp3';
+ const file=new File([row.blob],name,{type:row.type||row.blob.type||'audio/mpeg'});
+ assignSongFile(file);
+ waitingHandoff=null;
+ const duration=Number(row.duration);
+ const overLimit=Number.isFinite(duration)&&duration>SEPARATOR_MAX_SECONDS;
+ const label=Number.isFinite(duration)?' ('+formatHandoffDuration(duration)+')':'';
+ if(overLimit){
+  phase('Música da criação com IA carregada'+label+'. O separador usa no máximo 5 minutos por vez. Escolha os instrumentos e toque em Separar agora.',0,true);
+ }else{
+  phase((fromPending?'Pedido anterior encerrado. ':'')+'Música da criação com IA carregada'+label+'. Escolha os instrumentos e toque em Separar agora. A contagem do plano gratuito segue a mesma de sempre.',0);
+ }
+ return true;
+}
+async function importAudioHandoff(){
+ if(!wantedAudioImport())return;
+ try{
+  const row=await readHandoffRow(false);
+  if(!row){
+   phase('Não encontrei a música enviada da página de IA. Escolha o arquivo de novo.',0,true);
+   return;
+  }
+  if(pendingJob){
+   waitingHandoff=row;
+   phase('Há uma separação salva neste aparelho. Toque em Escolher outra música para carregar a música da IA, ou continue o pedido anterior.',20);
+   return;
+  }
+  if(applyHandoff(row))await readHandoffRow(true);
+ }catch(e){
+  phase('Não foi possível carregar a música da criação com IA. Escolha o arquivo manualmente.',0,true);
+  console.error(e);
+ }
+}
+importAudioHandoff();
