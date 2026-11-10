@@ -376,7 +376,15 @@ async function callModel(env, comando, estado) {
       : await callOpenAI(env, comando, estado);
   } catch (e) {
     if (first === 'gemini' && env.OPENAI_API_KEY) {
-      return await callOpenAI(env, comando, estado);
+      try {
+        return await callOpenAI(env, comando, estado);
+      } catch (fallbackErr) {
+        const err = new Error(
+          (e.message || 'Falha na Gemini') + ' (reserva OpenAI: ' + (fallbackErr.message || 'falhou') + ')'
+        );
+        err.status = e.status || 502;
+        throw err;
+      }
     }
     throw e;
   }
