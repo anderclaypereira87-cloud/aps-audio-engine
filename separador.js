@@ -1,6 +1,5 @@
 // APS Separador · MVSEP via Cloudflare Worker proxy
 const PROXY = 'https://aps-mvsep.aps-audio.workers.dev';
-const DEFAULT_MVSEP_TOKEN = 'vQOURmyYsPeSJrSwWTvoEUj1CghfVj';
 const $=id=>document.getElementById(id);
 let working=false,transferring=false,resultBlobs=null,player=null,activeController=null,pendingJob=null,resultName='',handedFile=null,waitingHandoff=null;
 const PENDING_JOB_KEY='aps_mvsep_pending_v1';
@@ -118,11 +117,10 @@ async function runCloud(file,{signal}={}){
  let saved=readPendingJob();
  if(!saved){
   if(!file)throw Error('Escolha um arquivo de áudio primeiro.');
-  const token=localStorage.getItem('aps_mvsep_token')||DEFAULT_MVSEP_TOKEN;
+  // A credencial do MVSEP deve ser configurada como segredo no Worker Cloudflare.
   phase('Enviando música…',10);
   const form=new FormData();
   form.append('audiofile',file,file.name);
-  form.append('api_token',token);
   form.append('sep_type','20');
   form.append('output_format','0');
   const res=await fetch(PROXY+'/create',{method:'POST',body:form,signal});
