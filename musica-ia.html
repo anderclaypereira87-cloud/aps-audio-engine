@@ -14,9 +14,10 @@ textarea{min-height:110px;resize:vertical}
 textarea#letra{min-height:90px}
 button{display:block;width:100%;min-height:56px;border-radius:14px;background:#dcba78;color:#16181d;font-size:18px;font-weight:800;border:0;margin:16px 0 0;cursor:pointer}
 button:disabled{opacity:.5;cursor:wait}
-.actions{display:flex;gap:10px}
-.actions button{flex:1;min-height:50px;font-size:15px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions button{flex:1;min-height:50px;font-size:15px;min-width:140px}
 #abrirDaw{background:#7dba7d}
+#abrirSeparador{background:#6aa7c9}
 #status{min-height:28px;font-size:14px;color:#dbcaab;text-align:center;margin:12px 0}
 #status.err{color:#f0a3a3}
 audio{width:100%;margin-top:8px}
@@ -65,6 +66,7 @@ nav a{color:#e7c07b}
 <div class="actions">
 <button id="baixar" type="button" disabled>Baixar</button>
 <button id="abrirDaw" type="button" disabled>Abrir na DAW</button>
+<button id="abrirSeparador" type="button" disabled>Abrir no separador</button>
 </div>
 <section id="lyricsBox" hidden>
 <h2 style="font-size:16px;color:#f0d49a;margin:22px 0 8px">Letra ou estrutura</h2>
@@ -72,5 +74,5 @@ nav a{color:#e7c07b}
 </section>
 <p class="cost">Clipe ~US$ 0,04 · música completa ~US$ 0,08 · 20 gerações por dia · áudio com marca d'água SynthID do Google.</p>
 </main>
-<script type="module" src="./aps-lyria.js"></script>
+<script type="module" src="./aps-lyria.js?v=453"></script>
 </body></html>

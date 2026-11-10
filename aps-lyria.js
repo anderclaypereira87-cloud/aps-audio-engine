@@ -55,6 +55,7 @@ async function gerar() {
   $('gerar').disabled = true;
   $('baixar').disabled = true;
   $('abrirDaw').disabled = true;
+  $('abrirSeparador').disabled = true;
   setStatus(modo === 'completa' ? 'Criando a música completa… isso pode levar cerca de um minuto.' : 'Criando o clipe de 30 segundos…');
   $('player').hidden = true;
   $('lyricsBox').hidden = true;
@@ -93,6 +94,7 @@ async function gerar() {
     }
     $('baixar').disabled = false;
     $('abrirDaw').disabled = false;
+    $('abrirSeparador').disabled = false;
     setStatus('Pronto. Isto é uma música gerada por IA, não uma gravação original.');
   } catch (e) {
     setStatus(e.message || 'Não foi possível gerar a música.', true);
@@ -123,6 +125,7 @@ async function abrirDaw() {
   transferring = true;
   $('abrirDaw').disabled = true;
   $('baixar').disabled = true;
+  $('abrirSeparador').disabled = true;
   setStatus('Abrindo a música na DAW de gravação…');
   let db;
   try {
@@ -162,6 +165,75 @@ async function abrirDaw() {
     transferring = false;
     $('abrirDaw').disabled = false;
     $('baixar').disabled = false;
+    $('abrirSeparador').disabled = false;
+  } finally {
+    db?.close();
+  }
+}
+
+
+const SEPARATOR_MAX_SECONDS = 300;
+
+function songDuration() {
+  const dur = $('player')?.duration;
+  return Number.isFinite(dur) && dur > 0 ? dur : null;
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(0, Math.round(seconds));
+  const m = Math.floor(total / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return m + ' min ' + s + ' s';
+}
+
+async function abrirSeparador() {
+  if (transferring) return;
+  transferring = true;
+  $('abrirSeparador').disabled = true;
+  $('abrirDaw').disabled = true;
+  $('baixar').disabled = true;
+  setStatus('Abrindo a música no separador…');
+  let db;
+  try {
+    if (!window.indexedDB) throw Error('Este navegador não permite a transferência automática.');
+    const blob = await audioBlob();
+    const ext = (blob.type || '').includes('wav') ? 'wav' : 'mp3';
+    const duration = songDuration();
+    db = await new Promise((resolve, reject) => {
+      const r = indexedDB.open('aps-separator-handoff-v1', 1);
+      r.onupgradeneeded = () => {
+        if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions');
+      };
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    const row = {
+      id: Date.now() + '-' + Math.random().toString(36).slice(2),
+      name: current.name + '.' + ext,
+      type: blob.type || 'audio/mpeg',
+      blob,
+      url: current.url || null,
+      duration,
+      source: 'lyria',
+      createdAt: Date.now()
+    };
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('sessions', 'readwrite');
+      tx.objectStore('sessions').put(row, 'latest');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || Error('Não foi possível salvar a música para abrir no separador.'));
+    });
+    if (duration && duration > SEPARATOR_MAX_SECONDS) {
+      setStatus('Esta música tem ' + formatDuration(duration) + '. O separador usa no máximo 5 minutos por vez. Abrindo mesmo assim para você escolher o trecho.');
+    }
+    location.href = './separador.html?importAudio=1&v=453';
+  } catch (e) {
+    setStatus('Não foi possível abrir no separador: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
+    transferring = false;
+    $('abrirSeparador').disabled = false;
+    $('abrirDaw').disabled = false;
+    $('baixar').disabled = false;
   } finally {
     db?.close();
   }
@@ -172,6 +244,7 @@ function init() {
   $('gerar').addEventListener('click', gerar);
   $('baixar').addEventListener('click', baixar);
   $('abrirDaw').addEventListener('click', abrirDaw);
+  $('abrirSeparador').addEventListener('click', abrirSeparador);
 }
 
 init();
