@@ -1,149 +1,41 @@
-/**
- * APS Lyria — gera música com Google Lyria (Gemini API).
- * A chave fica só no secret GEMINI_API_KEY. Nunca registre o valor.
- */
-const MAX_BODY = 32 * 1024;
-const MAX_PROMPT = 2000;
-const MAX_LYRICS = 4000;
-const MAX_STYLE = 80;
-const DAILY_GLOBAL = 20;
-const PER_IP_HOUR = 5;
-const NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID';
-const ALLOWED_HOSTS = new Set(['apsaudio.com.br', 'www.apsaudio.com.br']);
-const STYLES = new Set([
-  'forró', 'forro', 'piseiro', 'sertanejo', 'pagode', 'axé', 'axe', 'arrocha',
-  'mpb', 'gospel', 'samba', 'frevo', 'xote', 'baião', 'baiao', 'rock', 'jazz',
-  'instrumental', 'brega', 'bossa nova', 'coco', 'maracatu'
-]);
-const ARTIST_BLOCK = /\b(imite|imitando|clone|clonar|voz do|voz da|voice of|in the style of|no estilo d[oa] cantor|no estilo d[oa] cantora|como o cantor|como a cantora)\b/i;
-
-function corsOrigin(request) {
-  const origin = request.headers.get('Origin');
-  if (!origin) return '';
-  try {
-    const u = new URL(origin);
-    if (ALLOWED_HOSTS.has(u.hostname)) return origin;
-    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return origin;
-  } catch { /* ignore */ }
-  return null;
-}
-
-function corsHeaders(origin) {
-  const h = {
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400'
-  };
-  if (origin) h['Access-Control-Allow-Origin'] = origin;
-  return h;
-}
-
-function json(body, status, origin) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders(origin) }
-  });
-}
-
-function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
-}
-
-async function hashIp(ip) {
-  const data = new TextEncoder().encode(ip);
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(buf)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function recifeStamp(d = new Date()) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Recife',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false
-  });
-  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
-  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: `${parts.year}-${parts.month}-${parts.day}T${parts.hour}` };
-}
-
-async function kvGetNum(env, key) {
-  if (!env.LIMITS) return 0;
-  const n = Number(await env.LIMITS.get(key));
-  return Number.isFinite(n) ? n : 0;
-}
-
-async function kvAdd(env, key, delta, ttl) {
-  if (!env.LIMITS) return 0;
-  const next = (await kvGetNum(env, key)) + delta;
-  await env.LIMITS.put(key, String(Math.max(0, next)), { expirationTtl: ttl });
-  return next;
-}
-
-function cleanText(value, max) {
-  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
-}
-
-function blockedArtistRequest(text) {
-  return ARTIST_BLOCK.test(text);
-}
-
-function buildPrompt(prompt, estilo, letra, modo) {
-  const parts = [];
-  if (estilo) parts.push(`Estilo musical: ${estilo}.`);
-  parts.push(prompt);
-  if (letra) {
-    parts.push('Use estas letras, com seções se estiverem marcadas:');
-    parts.push(letra);
-  } else if (/\binstrumental\b/i.test(prompt) || !letra) {
-    if (!letra) parts.push('Se o pedido for instrumental, gere só instrumentos, sem vocais.');
-  }
-  if (modo === 'completa') {
-    parts.push('Gere uma música completa, com começo, meio e fim.');
-  } else {
-    parts.push('Gere um clipe curto de cerca de 30 segundos.');
-  }
-  parts.push('Do not imitate or clone the voice, timbre or identifiable style of any real living or deceased artist, and do not reproduce copyrighted lyrics or melodies.');
-  return parts.join('\n');
-}
-
-function pickModel(modo) {
-  return modo === 'completa' ? 'lyria-3.5' : 'lyria-3-clip-preview';
-}
-
-function extractAudio(payload) {
-  const parts = payload?.candidates?.[0]?.content?.parts || [];
-  let lyrics = '';
-  let mime = 'audio/mpeg';
-  let b64 = '';
-  for (const part of parts) {
-    if (part.text) lyrics += (lyrics ? '\n' : '') + part.text;
-    const inline = part.inlineData || part.inline_data;
-    if (inline?.data) {
-      b64 = inline.data;
-      mime = inline.mimeType || inline.mime_type || mime;
-    }
-  }
-  return { lyrics: lyrics.slice(0, 8000), mime, b64 };
-}
-
-function mapGeminiError(status, err) {
-  const msg = String(err?.message || err?.status || '');
-  const low = msg.toLowerCase();
-  if (status === 429 || low.includes('quota') || low.includes('resource_exhausted') || low.includes('billing')) {
-    return { status: 429, error: 'A cota ou o faturamento do Google recusou esta geração. Tente mais tarde.' };
-  }
-  if (status === 400 && (low.includes('safety') || low.includes('blocked') || low.includes('prohibited'))) {
-    return { status: 400, error: 'O filtro de segurança do Google bloqueou este pedido. Evite imitar artistas reais ou letras protegidas.' };
-  }
-  if (status >= 500) return { status: 502, error: 'O serviço de música do Google está indisponível agora. Tente de novo em instantes.' };
-  return { status: 502, error: 'Não foi possível gerar a música agora. Tente novamente.' };
-}
-
-function validId(id) {
-  return typeof id === 'string' && /^[a-f0-9-]{16,64}$/i.test(id);
-}
+import {
+  MAX_AUDIO,
+  MAX_DURATION_SEC,
+  MAX_BODY,
+  REF_DAILY,
+  REF_PER_IP_HOUR,
+  DAILY_GLOBAL,
+  PER_IP_HOUR,
+  ANALYZE_MODEL,
+  NOTICE,
+  REF_NOTICE,
+  corsOrigin,
+  corsHeaders,
+  json,
+  clientIp,
+  hashIp,
+  recifeStamp,
+  kvGetNum,
+  kvAdd,
+  cleanText,
+  blockedArtistRequest,
+  normalizeMime,
+  uint8ToBase64,
+  wavDurationSeconds,
+  sanitizeDesc,
+  composeReferenceUserPrompt,
+  buildPrompt,
+  pickModel,
+  extractAudio,
+  extractJsonText,
+  mapGeminiError,
+  validId,
+  parseModo,
+  parseEstilo,
+  readGenerationFields,
+  referenceReady,
+  ANALYZE_PROMPT
+} from './lib.js';
 
 export default {
   async fetch(request, env) {
@@ -157,7 +49,7 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     if ((path === '/' || path === '/saude') && request.method === 'GET') {
-      return json({ ok: true, service: 'aps-lyria', notice: NOTICE, dailyCap: DAILY_GLOBAL }, 200, origin || '');
+      return json({ ok: true, service: 'aps-lyria', notice: NOTICE, dailyCap: DAILY_GLOBAL, referenciaCap: REF_DAILY }, 200, origin || '');
     }
 
     if (path.startsWith('/audio/') && request.method === 'GET') {
@@ -178,15 +70,17 @@ export default {
       return gerar(request, env, origin || '');
     }
 
+    if (path === '/referencia') {
+      if (request.method !== 'POST') return json({ ok: false, error: 'Use POST.' }, 405, origin || '');
+      if (origin === null) return json({ ok: false, error: 'Origem não permitida.' }, 403, '');
+      return referencia(request, env, origin || '');
+    }
+
     return json({ ok: false, error: 'Caminho não encontrado.' }, 404, origin || '');
   }
 };
 
 async function gerar(request, env, origin) {
-  if (!env.GEMINI_API_KEY) {
-    return json({ ok: false, error: 'O servidor de música ainda não está configurado.' }, 503, origin);
-  }
-
   const rawLen = Number(request.headers.get('Content-Length') || 0);
   if (rawLen > MAX_BODY) return json({ ok: false, error: 'Pedido grande demais.' }, 413, origin);
 
@@ -197,21 +91,233 @@ async function gerar(request, env, origin) {
     return json({ ok: false, error: 'Envie um JSON válido.' }, 400, origin);
   }
 
-  const prompt = cleanText(body.prompt, MAX_PROMPT);
-  const estiloRaw = cleanText(body.estilo, MAX_STYLE).toLowerCase();
-  const estilo = !estiloRaw || estiloRaw === 'livre' ? '' : estiloRaw;
-  const letra = cleanText(body.letra, MAX_LYRICS);
-  const modo = body.modo === 'completa' ? 'completa' : (body.modo === 'clip' || !body.modo ? 'clip' : null);
+  const extras = readGenerationFields(body);
+  if (extras.error) return json({ ok: false, error: extras.error }, 400, origin);
 
+  let prompt = extras.prompt;
+  let fromRef = false;
+  if (body.referencia) {
+    const desc = sanitizeDesc(body.referencia);
+    const ready = referenceReady(desc);
+    if (ready) return json({ ok: false, error: ready }, 400, origin);
+    prompt = composeReferenceUserPrompt(desc, extras.prompt);
+    fromRef = true;
+  }
   if (!prompt || prompt.length < 8) {
     return json({ ok: false, error: 'Escreva um pedido de música com pelo menos algumas palavras.' }, 400, origin);
   }
-  if (modo === null) return json({ ok: false, error: 'Modo inválido. Use clip ou completa.' }, 400, origin);
-  if (estilo && !STYLES.has(estilo)) {
-    return json({ ok: false, error: 'Estilo não reconhecido. Escolha um estilo da lista ou Livre.' }, 400, origin);
-  }
-  if (blockedArtistRequest(`${prompt} ${estilo} ${letra}`)) {
+  if (blockedArtistRequest(`${prompt} ${extras.estilo} ${extras.letra}`)) {
     return json({ ok: false, error: 'Não geramos imitações da voz ou do estilo de artistas reais. Descreva o ritmo, os instrumentos e o clima, sem citar cantores.' }, 400, origin);
+  }
+
+  return generateLyria(request, env, origin, {
+    prompt,
+    estilo: extras.estilo,
+    letra: extras.letra,
+    modo: extras.modo,
+    fromRef
+  });
+}
+
+
+
+async function referencia(request, env, origin) {
+  if (!env.GEMINI_API_KEY) {
+    return json({ ok: false, error: 'O servidor de música ainda não está configurado.' }, 503, origin);
+  }
+
+  const rawLen = Number(request.headers.get('Content-Length') || 0);
+  if (rawLen > MAX_AUDIO + 64 * 1024) return json({ ok: false, error: 'O arquivo é grande demais. Envie um áudio de até 10 MB e 2 minutos.' }, 413, origin);
+
+  let parsed;
+  try {
+    parsed = await readReferenciaBody(request);
+  } catch (err) {
+    return json({ ok: false, error: err.message || 'Não foi possível ler o áudio.' }, err.http || 400, origin);
+  }
+
+  if (blockedArtistRequest(`${parsed.prompt} ${parsed.estilo} ${parsed.letra}`)) {
+    return json({ ok: false, error: 'Não geramos imitações da voz ou do estilo de artistas reais. Descreva o ritmo, os instrumentos e o clima, sem citar cantores.' }, 400, origin);
+  }
+
+  const stamp = recifeStamp();
+  const ipHash = await hashIp(clientIp(request));
+  const refDayKey = `ref:${stamp.day}`;
+  const refIpKey = `refip:${ipHash}:${stamp.hour}`;
+  const usedRefDay = await kvGetNum(env, refDayKey);
+  const usedRefIp = await kvGetNum(env, refIpKey);
+  if (usedRefDay >= REF_DAILY) {
+    return json({ ok: false, error: `Limite diário de ${REF_DAILY} análises de gravação atingido. Tente amanhã.` }, 429, origin);
+  }
+  if (usedRefIp >= REF_PER_IP_HOUR) {
+    return json({ ok: false, error: 'Muitas análises neste período. Espere um pouco e tente de novo.' }, 429, origin);
+  }
+
+  await kvAdd(env, refDayKey, 1, 60 * 60 * 48);
+  await kvAdd(env, refIpKey, 1, 60 * 60 * 3);
+  let reservedRef = true;
+  try {
+    const desc = await analyzeAudio(env, parsed.bytes, parsed.mime);
+    reservedRef = false;
+    const ready = referenceReady(desc);
+    if (ready) return json({ ok: false, error: ready, descricao: desc }, 400, origin);
+
+    const payload = {
+      ok: true,
+      descricao: desc,
+      notice: REF_NOTICE,
+      aviso: 'Isto é só uma descrição de estilo para criar uma música nova com IA. Não é uma edição da sua gravação.'
+    };
+    if (!parsed.gerar) return json(payload, 200, origin);
+
+    const prompt = composeReferenceUserPrompt(desc, parsed.prompt);
+    const generated = await generateLyria(request, env, origin, {
+      prompt,
+      estilo: parsed.estilo,
+      letra: parsed.letra,
+      modo: parsed.modo,
+      fromRef: true
+    });
+    const data = await generated.json();
+    return json({ ...data, descricao: desc, notice: data.notice || REF_NOTICE }, generated.status, origin);
+  } catch (err) {
+    if (reservedRef) {
+      await kvAdd(env, refDayKey, -1, 60 * 60 * 48);
+      await kvAdd(env, refIpKey, -1, 60 * 60 * 3);
+    }
+    if (err?.mapped) return json({ ok: false, error: err.message }, err.http || 502, origin);
+    return json({ ok: false, error: err.message || 'Não foi possível analisar a gravação agora. Tente novamente.' }, err.http || 502, origin);
+  }
+}
+
+async function readReferenciaBody(request) {
+  const ctype = request.headers.get('Content-Type') || '';
+  let bytes;
+  let mime = '';
+  let name = '';
+  let prompt = '';
+  let estilo = '';
+  let letra = '';
+  let modo = 'clip';
+  let gerar = false;
+  let duration = NaN;
+
+  if (ctype.includes('multipart/form-data')) {
+    const form = await request.formData();
+    const file = form.get('audio');
+    if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
+      throw Object.assign(new Error('Envie um arquivo de áudio no campo audio.'), { http: 400 });
+    }
+    bytes = new Uint8Array(await file.arrayBuffer());
+    name = file.name || '';
+    mime = normalizeMime(file.type, name);
+    const fields = readGenerationFields({
+      prompt: form.get('prompt'),
+      estilo: form.get('estilo'),
+      letra: form.get('letra'),
+      modo: form.get('modo')
+    });
+    if (fields.error) throw Object.assign(new Error(fields.error), { http: 400 });
+    prompt = fields.prompt;
+    estilo = fields.estilo;
+    letra = fields.letra;
+    modo = fields.modo;
+    const flag = String(form.get('gerar') || '').toLowerCase();
+    gerar = flag === '1' || flag === 'true';
+    duration = Number(form.get('duracao'));
+  } else {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      throw Object.assign(new Error('Envie o áudio em multipart ou um JSON com audioBase64.'), { http: 400 });
+    }
+    const b64 = String(body.audioBase64 || '').replace(/\s+/g, '');
+    if (!b64) throw Object.assign(new Error('Envie um arquivo de áudio no campo audio.'), { http: 400 });
+    try {
+      const bin = atob(b64);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } catch {
+      throw Object.assign(new Error('O áudio enviado não pôde ser lido.'), { http: 400 });
+    }
+    name = cleanText(body.nome || body.name, 80);
+    mime = normalizeMime(body.mime, name);
+    const fields = readGenerationFields(body);
+    if (fields.error) throw Object.assign(new Error(fields.error), { http: 400 });
+    prompt = fields.prompt;
+    estilo = fields.estilo;
+    letra = fields.letra;
+    modo = fields.modo;
+    gerar = body.gerar === true || body.gerar === 1 || body.gerar === '1';
+    duration = Number(body.duracao);
+  }
+
+  if (!bytes?.byteLength) throw Object.assign(new Error('O arquivo de áudio veio vazio.'), { http: 400 });
+  if (bytes.byteLength > MAX_AUDIO) {
+    throw Object.assign(new Error('O arquivo é grande demais. Envie um áudio de até 10 MB e 2 minutos.'), { http: 413 });
+  }
+  if (!mime) {
+    throw Object.assign(new Error('Formato não aceito. Envie MP3, WAV, M4A, OGG ou FLAC.'), { http: 400 });
+  }
+
+  const wavDur = wavDurationSeconds(bytes);
+  if (Number.isFinite(wavDur)) duration = wavDur;
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw Object.assign(new Error('Não foi possível conferir a duração. Envie um arquivo de 1 segundo até 2 minutos.'), { http: 400 });
+  }
+  if (duration < 1) {
+    throw Object.assign(new Error('O áudio é curto demais. Envie uma gravação de pelo menos 1 segundo.'), { http: 400 });
+  }
+  if (duration > MAX_DURATION_SEC) {
+    throw Object.assign(new Error('A gravação pode ter no máximo 2 minutos.'), { http: 400 });
+  }
+
+  return { bytes, mime, name, prompt, estilo, letra, modo, gerar, duration };
+}
+
+async function analyzeAudio(env, bytes, mime) {
+  const upstream = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${ANALYZE_MODEL}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': env.GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mime, data: uint8ToBase64(bytes) } },
+            { text: ANALYZE_PROMPT }
+          ]
+        }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+      })
+    }
+  );
+  const payload = await upstream.json().catch(() => ({}));
+  if (!upstream.ok) {
+    const gMsg = String(payload?.error?.message || payload?.error?.status || '');
+    console.error(JSON.stringify({ googleStatus: upstream.status, googleMsg: gMsg.slice(0, 240), step: 'analise' }));
+    const mapped = mapGeminiError(upstream.status, payload.error || payload);
+    throw Object.assign(new Error(mapped.error), { http: mapped.status, mapped: true });
+  }
+  if (payload.promptFeedback?.blockReason) {
+    throw Object.assign(new Error('O filtro de segurança do Google bloqueou esta gravação. Tente outro áudio, sem imitar artistas reais.'), { http: 400, mapped: true });
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(extractJsonText(payload));
+  } catch {
+    throw Object.assign(new Error('A análise da gravação não veio em um formato utilizável. Tente de novo.'), { http: 502, mapped: true });
+  }
+  return sanitizeDesc(parsed);
+}
+
+async function generateLyria(request, env, origin, { prompt, estilo, letra, modo, fromRef }) {
+  if (!env.GEMINI_API_KEY) {
+    return json({ ok: false, error: 'O servidor de música ainda não está configurado.' }, 503, origin);
   }
 
   const stamp = recifeStamp();
@@ -252,7 +358,7 @@ async function gerar(request, env, origin) {
     const payload = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       const gMsg = String(payload?.error?.message || payload?.error?.status || '');
-      console.error(JSON.stringify({ googleStatus: upstream.status, googleMsg: gMsg.slice(0, 240) }));
+      console.error(JSON.stringify({ googleStatus: upstream.status, googleMsg: gMsg.slice(0, 240), step: 'gerar' }));
       const mapped = mapGeminiError(upstream.status, payload.error || payload);
       throw Object.assign(new Error(mapped.error), { http: mapped.status, mapped: true, refund: true });
     }
@@ -289,7 +395,8 @@ async function gerar(request, env, origin) {
       mode: modo,
       model,
       lyrics,
-      notice: NOTICE,
+      fromRef: !!fromRef,
+      notice: fromRef ? REF_NOTICE : NOTICE,
       audioBase64: url ? undefined : b64
     }, 200, origin);
   } catch (err) {
