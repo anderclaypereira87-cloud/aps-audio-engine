@@ -1,0 +1,22 @@
+{
+  "name": "aps-lyria",
+  "main": "index.js",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  },
+  "r2_buckets": [
+    {
+      "binding": "AUDIO",
+      "bucket_name": "aps-lyria-audio"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "LIMITS",
+      "id": "783fe236800b46cf88d4328813acb06d"
+    }
+  ]
+}
