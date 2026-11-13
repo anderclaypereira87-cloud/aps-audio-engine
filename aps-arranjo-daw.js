@@ -77,8 +77,15 @@
     const modo = $('apsArranjoModo')?.value || 'nova';
     const pedido = $('apsArranjoPedido')?.value.trim() || '';
     const letra = $('apsArranjoLetra')?.value.trim() || '';
+    const fidN = Number($('apsArranjoFidelidade')?.value || 3);
+    const fidelidade = ({ 1: 'baixa', 2: 'media', 3: 'alta' })[fidN] || 'alta';
+    const direitos = !!$('apsArranjoDireitos')?.checked;
     if (modo === 'estender' && !letra) {
       say('Para estender, escreva a letra que deve continuar a música.', 'error');
+      return;
+    }
+    if (!direitos) {
+      say('Para usar a pista, confirme que a gravação é sua ou que você tem o direito de usá-la.', 'error');
       return;
     }
     busy = true;
@@ -87,14 +94,16 @@
     try {
       const mp3 = await encodeMp3(track.buf);
       if (mp3.size > MAX_AUDIO) throw Error('A pista ficou grande demais depois da conversão.');
-      const finalidade = (modo === 'nova' && !letra) ? 'instrumento' : (modo === 'nova' ? 'referencia' : 'audio');
+      const finalidade = (modo === 'acompanhar' || modo === 'instrumento' || modo === 'estender')
+        ? 'audio'
+        : (letra ? (fidelidade === 'alta' ? 'melodia' : 'referencia') : 'instrumental');
       const form = new FormData();
       form.append('file', new File([mp3], 'pista.mp3', { type: 'audio/mpeg' }));
       form.append('finalidade', finalidade);
       const up = await fetch(API_BASE + '/enviar', { method: 'POST', body: form });
       const upData = await up.json().catch(() => ({}));
       if (!up.ok || !upData.ok) throw Error(upData.error || 'Não foi possível enviar a pista.');
-      const body = { modo, pedido, letra, arquivoId: upData.arquivoId, finalidade };
+      const body = { modo, pedido, letra, arquivoId: upData.arquivoId, finalidade, fidelidade, direitos };
       if (modo === 'instrumento') body.tipoPista = $('apsArranjoTipo')?.value || 'guitarra';
       if (modo === 'estender') body.extendEm = Math.max(8, track.buf.duration - 2);
       const gen = await fetch(API_BASE + '/gerar', {
@@ -137,6 +146,11 @@
     box.className = 'aps-arranjo-box';
     box.innerHTML = '<h3>♮ APS Arranjo</h3>' +
       '<p class="aps-arranjo-sub">Envia a pista selecionada e devolve um áudio <strong>novo</strong> gerado por IA. A gravação original não é editada nem substituída.</p>' +
+      '<label>Quanto a IA deve seguir a sua gravação' +
+      '<input id="apsArranjoFidelidade" type="range" min="1" max="3" step="1" value="3" aria-valuemin="1" aria-valuemax="3" aria-valuenow="3" aria-label="Fidelidade à gravação">' +
+      '<span class="aps-arranjo-fid"><span>Bem livre</span><span>No meio</span><span>Parecido com o original</span></span>' +
+      '<small id="apsArranjoFidHint">A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é um áudio novo, não a sua gravação editada.</small></label>' +
+      '<label class="aps-arranjo-rights"><input id="apsArranjoDireitos" type="checkbox"> <span>Esta gravação é minha, ou tenho o direito de usá-la. O arranjo é uma criação nova de IA e não substitui o original.</span></label>' +
       '<label>Tipo de arranjo' +
       '<select id="apsArranjoModo">' +
       '<option value="nova">Música ou instrumental novo</option>' +
@@ -161,6 +175,18 @@
     else host.prepend(box);
     $('apsArranjoGo').onclick = run;
     $('apsArranjoModo').onchange = syncTipo;
+    const hints = {
+      1: 'A IA usa a gravação só como inspiração e pode inventar bastante no arranjo.',
+      2: 'A IA segue o estilo, um andamento próximo e os instrumentos principais, mas pode variar o arranjo.',
+      3: 'A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é um áudio novo, não a sua gravação editada.'
+    };
+    const fid = $('apsArranjoFidelidade');
+    const hint = $('apsArranjoFidHint');
+    if (fid && hint) {
+      const upd = () => { fid.setAttribute('aria-valuenow', String(fid.value)); hint.textContent = hints[Number(fid.value)] || hints[3]; };
+      fid.addEventListener('input', upd);
+      upd();
+    }
     return true;
   }
 
@@ -175,7 +201,12 @@
     '.aps-arranjo-row button:disabled{opacity:.45}' +
     '.aps-arranjo-msg{font-size:12px;color:#ffe1a3;margin:8px 0 0;white-space:pre-wrap}' +
     '.aps-arranjo-msg[data-kind=error]{color:#f0b4b0}' +
-    '.aps-arranjo-msg[data-kind=ok]{color:#b4e4ba}';
+    '.aps-arranjo-msg[data-kind=ok]{color:#b4e4ba}' +
+    '.aps-arranjo-fid{display:flex;justify-content:space-between;gap:4px;font-size:11px;color:#dbcaab;font-weight:650;margin:4px 0}' +
+    '.aps-arranjo-box input[type=range]{width:100%;accent-color:#dcba78;margin:6px 0;height:24px}' +
+    '.aps-arranjo-box small{display:block;font-size:11px;color:#dbcaab;font-weight:500;margin:4px 0 8px}' +
+    '.aps-arranjo-rights{display:flex;align-items:flex-start;gap:8px;color:#ffe1a3;font-size:12px;font-weight:650;line-height:1.35}' +
+    '.aps-arranjo-rights input{width:auto;min-width:18px;min-height:18px;margin:2px 0 0;accent-color:#dcba78}';
   document.head.append(css);
 
   window.APSArranjoDaw = { endpoint: API_BASE, selectedTrack };

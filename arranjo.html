@@ -18,6 +18,7 @@ button.secondary{background:transparent;color:#8fd0c8;border:1px solid #5ea39a;f
 .actions{display:flex;gap:10px;flex-wrap:wrap}
 .actions button{flex:1;min-height:50px;font-size:15px;min-width:140px}
 #abrirDaw{background:#7dba7d}
+#abrirSeparador{background:#6aa7c9}
 .modes{display:grid;gap:8px;margin:0 0 16px}
 .modes label{display:flex;gap:10px;align-items:flex-start;background:#141923;border:1px solid #3d5560;border-radius:12px;padding:10px 12px;color:#d5ece9;font-size:14px;font-weight:600;cursor:pointer}
 .modes input{width:auto;margin:3px 0 0}
@@ -29,10 +30,20 @@ nav a{color:#8fd0c8}
 .cost{font-size:12px;color:#aeb6c5;text-align:center;margin-top:18px}
 .ref-box{background:#141923;border:1px solid #3d5560;border-radius:16px;padding:14px;margin:0 0 18px}
 .ref-warn{color:#c9f3ed;font-size:14px;margin:0 0 12px;line-height:1.45}
+.ref-info{color:#c5d5d3;font-size:13px;margin:0 0 8px}
 .badge{display:inline-block;background:#1b3d3a;color:#b8efe8;border:1px solid #5ea39a;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.fid-wrap{margin:12px 0 8px}
+.fid-wrap input[type=range]{width:100%;margin:10px 0 6px;accent-color:#7dcdc4;height:28px}
+.fid-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#c5d5d3;font-weight:650}
+.fid-labels span{flex:1;text-align:center;line-height:1.3}
+.fid-labels span:first-child{text-align:left}
+.fid-labels span:last-child{text-align:right;color:#b8efe8}
+#fidelidadeHint{margin:8px 0 0}
+.rights{display:flex;align-items:flex-start;gap:10px;margin:12px 0 4px;color:#c9f3ed;font-size:13px;font-weight:650;line-height:1.4}
+.rights input{width:auto;margin:3px 0 0;accent-color:#7dcdc4;min-width:20px;min-height:20px}
 </style></head><body><main>
 <div class="brand">APS</div>
-<nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./musica-ia.html">APS Maestro</a></nav>
+<nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./musica-ia.html">APS Maestro</a> · <a href="./separador.html">✂ Separador</a></nav>
 <h1>APS Arranjo</h1>
 <p class="notice" id="notice">APS Arranjo: áudio gerado por IA. É uma criação nova, não a sua gravação original.</p>
 <p class="hint">Envie uma música ou um instrumento. O Arranjo cria uma peça nova, acrescenta acompanhamento ou estende o áudio. O arquivo original permanece como está.</p>
@@ -47,6 +58,21 @@ nav a{color:#8fd0c8}
   </label>
   <p id="fileInfo" class="hint" hidden style="margin:8px 0 0;text-align:left"></p>
   <audio id="origPreview" controls hidden></audio>
+  <div class="fid-wrap" id="fidelityBox">
+    <label class="field" for="fidelidade">Quanto a IA deve seguir a sua gravação
+      <input id="fidelidade" type="range" min="1" max="3" step="1" value="3" aria-valuemin="1" aria-valuemax="3" aria-valuenow="3" aria-label="Fidelidade à gravação">
+    </label>
+    <div class="fid-labels" aria-hidden="true">
+      <span>Bem livre</span>
+      <span>No meio</span>
+      <span>Parecido com o original</span>
+    </div>
+    <p id="fidelidadeHint" class="ref-info">A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é um áudio novo, não a sua gravação editada.</p>
+  </div>
+  <label class="rights" for="refDireitos">
+    <input id="refDireitos" type="checkbox">
+    <span>Esta gravação é minha, ou tenho o direito de usá-la. O arranjo gerado é uma criação nova de IA e não substitui o original.</span>
+  </label>
 </section>
 <div class="modes" role="radiogroup" aria-label="Tipo de arranjo">
   <label><input type="radio" name="modo" value="nova" checked> Criar uma música ou um instrumental novo a partir deste áudio</label>
@@ -75,10 +101,11 @@ nav a{color:#8fd0c8}
 <audio id="player" controls hidden></audio>
 <div class="actions">
 <button id="baixar" type="button" disabled>Baixar o arranjo</button>
-<button id="abrirDaw" type="button" disabled>Abrir na DAW</button>
+<button id="abrirSeparador" type="button" disabled>Abrir no Separador</button>
+<button id="abrirDaw" type="button" disabled>Abrir no Estúdio (DAW)</button>
 </div>
-<p class="cost">Cada arranjo gasta crédito do estúdio · no máximo 8 por dia · o arquivo baixado e o que abre na DAW são criações de IA, nunca a gravação original.</p>
+<p class="cost">Cada arranjo gasta crédito do estúdio · no máximo 8 por dia · o arquivo baixado, o que abre no Separador e o que abre no Estúdio são criações de IA, nunca a gravação original.</p>
 </main>
 <script src="./aps-share.js?v=270" defer></script>
-<script type="module" src="./aps-arranjo.js?v=363"></script>
+<script type="module" src="./aps-arranjo.js?v=370"></script>
 </body></html>

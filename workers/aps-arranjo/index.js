@@ -22,6 +22,9 @@ import {
   normalizeMime,
   wavDurationSeconds,
   parsePurpose,
+  parseFidelidade,
+  parseDireitos,
+  composeFidelityPrompt,
   parseModo,
   parseTrackType,
   filenameForMime,
@@ -234,13 +237,23 @@ async function gerar(request, env, origin, url) {
   const arquivoId = cleanText(body.arquivoId || body.arquivo_id || '', 80);
   const finalidade = parsePurpose(body.finalidade || body.purpose || '', 'audio');
   const tipoPista = parseTrackType(body.tipoPista || body.tipo_pista || '');
+  const hasFid = body.fidelidade != null && String(body.fidelidade).trim() !== '';
+  const hasRights = body.direitos != null && String(body.direitos).trim() !== '';
+  const fidelidade = hasFid ? parseFidelidade(body.fidelidade) : null;
+  if (hasFid && !fidelidade) {
+    return json({ ok: false, error: 'Nível de fidelidade inválido. Use bem livre, no meio ou parecido com o original.' }, 400, origin);
+  }
+  const direitos = parseDireitos(body.direitos);
+  if (arquivoId && (hasFid || hasRights) && !direitos) {
+    return json({ ok: false, error: 'Para usar uma gravação, confirme que ela é sua ou que você tem o direito de usá-la.' }, 400, origin);
+  }
   if (blockedArtistRequest(`${pedido} ${estilo} ${letra}`)) {
     return json({ ok: false, error: 'Não geramos imitações da voz ou do estilo de artistas reais. Descreva o ritmo, os instrumentos e o clima, sem citar cantores.' }, 400, origin);
   }
 
   let built;
   try {
-    built = buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tipoPista, extendEm: body.extendEm ?? body.extend_em, direcao: body.direcao });
+    built = buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tipoPista, extendEm: body.extendEm ?? body.extend_em, direcao: body.direcao, fidelidade });
   } catch (err) {
     return json({ ok: false, error: err.message }, 400, origin);
   }
@@ -268,22 +281,46 @@ function defaultPrompt(pedido, estilo) {
   return cleanText(parts.join(', '), MAX_PROMPT) || 'natural musical accompaniment';
 }
 
-function buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tipoPista, extendEm, direcao }) {
+function buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tipoPista, extendEm, direcao, fidelidade }) {
+  const hasFid = fidelidade != null && String(fidelidade).trim() !== '';
+  let level = null;
+  if (hasFid) {
+    level = parseFidelidade(fidelidade);
+    if (!level) throw new Error('Nível de fidelidade inválido. Use bem livre, no meio ou parecido com o original.');
+  }
+
   if (modo === 'nova') {
     if (letra) {
       const payload = { lyrics: letra, model: DEFAULT_MODEL, n: 1 };
-      if (arquivoId) payload.reference_id = arquivoId;
-      else payload.prompt = defaultPrompt(pedido, estilo);
+      if (level) {
+        applySongAudioControl(payload, { arquivoId, finalidade, level, pedido, estilo });
+      } else if (arquivoId) {
+        payload.reference_id = arquivoId;
+      } else {
+        payload.prompt = defaultPrompt(pedido, estilo);
+      }
       return { path: '/v1/song/generate', payload, kind: 'musica' };
     }
     if (arquivoId && finalidade !== 'instrumental') {
+      // Sem fidelidade: caminho legado (easy-generate). Com fidelidade, fica no
+      // instrumental econômico e aplica referência / prompt conforme o nível.
+      if (level) {
+        const payload = { model: DEFAULT_MODEL, n: 1 };
+        applyInstrumentalControl(payload, { arquivoId, finalidade, level, pedido, estilo });
+        return { path: '/v1/instrumental/generate', payload, kind: 'instrumental' };
+      }
       const payload = { model: DEFAULT_MODEL, n: 1, reference_id: arquivoId };
       if (pedido || estilo) payload.prompt = defaultPrompt(pedido, estilo);
       return { path: '/v1/song/easy-generate', payload, kind: 'musica' };
     }
     const payload = { model: DEFAULT_MODEL, n: 1 };
-    if (arquivoId) payload.instrumental_id = arquivoId;
-    else payload.prompt = defaultPrompt(pedido, estilo);
+    if (level) {
+      applyInstrumentalControl(payload, { arquivoId, finalidade, level, pedido, estilo });
+    } else if (arquivoId) {
+      payload.instrumental_id = arquivoId;
+    } else {
+      payload.prompt = defaultPrompt(pedido, estilo);
+    }
     if (!payload.instrumental_id && !payload.prompt) {
       throw new Error('Envie um áudio ou descreva o que você quer ouvir.');
     }
@@ -298,7 +335,7 @@ function buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tip
     const payload = {
       generate_type: generateType,
       upload_audio_id: arquivoId,
-      prompt: defaultPrompt(pedido, estilo)
+      prompt: level ? composeFidelityPrompt(pedido, estilo, level) : defaultPrompt(pedido, estilo)
     };
     if (letra && generateType === 'Vocals') payload.lyrics = letra;
     return { path: '/v1/track/generate', payload, kind: 'musica' };
@@ -316,6 +353,7 @@ function buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tip
       extend_at: extendAt,
       model: DEFAULT_MODEL
     };
+    if (level) payload.prompt = composeFidelityPrompt(pedido, estilo, level);
     if (String(direcao || '').toLowerCase() === 'inicio') {
       payload.model = 'mureka-8';
       payload.extend_type = 'head';
@@ -324,6 +362,43 @@ function buildUpstream(modo, { pedido, letra, estilo, arquivoId, finalidade, tip
   }
 
   throw new Error('Escolha um tipo de arranjo.');
+}
+
+/** Alta: melody_id (purpose=melody) ou reference_id. Média: reference_id. Baixa: só o prompt.
+ *  prompt e reference_id/melody_id são mutuamente exclusivos no provedor. */
+function applySongAudioControl(payload, { arquivoId, finalidade, level, pedido, estilo }) {
+  if (!arquivoId || level === 'baixa') {
+    payload.prompt = composeFidelityPrompt(pedido, estilo, level || 'baixa');
+    delete payload.reference_id;
+    delete payload.melody_id;
+    return;
+  }
+  if (level === 'alta' && finalidade === 'melody') {
+    delete payload.prompt;
+    payload.melody_id = arquivoId;
+    delete payload.reference_id;
+    return;
+  }
+  if (finalidade === 'reference') {
+    delete payload.prompt;
+    payload.reference_id = arquivoId;
+    delete payload.melody_id;
+    return;
+  }
+  // Áudio curto ou finalidade genérica: só o prompt, para não pedir referência de um arquivo incompatível.
+  payload.prompt = composeFidelityPrompt(pedido, estilo, level);
+  delete payload.reference_id;
+  delete payload.melody_id;
+}
+
+function applyInstrumentalControl(payload, { arquivoId, finalidade, level, pedido, estilo }) {
+  if (!arquivoId || level === 'baixa' || finalidade !== 'instrumental') {
+    payload.prompt = composeFidelityPrompt(pedido, estilo, level || 'baixa');
+    delete payload.instrumental_id;
+    return;
+  }
+  payload.instrumental_id = arquivoId;
+  delete payload.prompt;
 }
 
 async function tarefa(request, env, origin, id, tipo, url) {
@@ -355,4 +430,4 @@ async function proxyAudio(raw, env, origin) {
   return new Response(res.body, { status: 200, headers });
 }
 
-export { buildUpstream, enforceLimits };
+export { buildUpstream, enforceLimits, applySongAudioControl, applyInstrumentalControl };

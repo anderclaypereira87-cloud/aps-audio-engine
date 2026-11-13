@@ -76,11 +76,27 @@ def main():
         page.on('pageerror', lambda e: errors.append(str(e)))
         attach_mock(page, mp3_path.read_bytes())
 
+        page.goto(f'{origin}/index.html', wait_until='domcontentloaded')
+        page.wait_for_selector('a.tool[href="./arranjo.html"]')
+        card = page.locator('a.tool[href="./arranjo.html"]')
+        assert 'APS Arranjo' in card.inner_text()
+        card.scroll_into_view_if_needed()
+        # O card antigo "Criar música com IA" ainda cita o provedor; isso só muda com OK do dono.
+        # O card novo do Arranjo não pode citar provedor.
+        card_text = card.inner_text()
+        for w in FORBIDDEN + ('Google',):
+            assert w not in card_text, f'card do Arranjo cita {w}'
+        leftover = [x for x in visible_leaks(page) if x not in ('Google', 'Lyria')]
+        leaks += [f'index:{x}' for x in leftover]
+        shot = SHOT_DIR / 'aps-arranjo-integ-01-index.png'
+        page.screenshot(path=str(shot), full_page=True)
+        shots.append(shot)
+
         page.goto(f'{origin}/painel.html', wait_until='domcontentloaded')
         page.wait_for_selector('text=APS Maestro')
         page.wait_for_selector('text=APS Arranjo')
         leaks += [f'painel:{x}' for x in visible_leaks(page)]
-        shot = SHOT_DIR / 'aps-arranjo-01-painel.png'
+        shot = SHOT_DIR / 'aps-arranjo-integ-02-painel.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
 
@@ -89,7 +105,7 @@ def main():
         assert 'APS Maestro' in page.inner_text('h1')
         assert page.query_selector('a[href="./arranjo.html"]')
         leaks += [f'maestro:{x}' for x in visible_leaks(page)]
-        shot = SHOT_DIR / 'aps-arranjo-02-maestro.png'
+        shot = SHOT_DIR / 'aps-arranjo-integ-03-maestro.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
 
@@ -97,18 +113,51 @@ def main():
         page.wait_for_selector('#gerar')
         assert 'APS Arranjo' in page.inner_text('h1')
         assert page.query_selector('a[href="./musica-ia.html"]')
+        assert page.query_selector('a[href="./separador.html"]')
+        assert page.query_selector('#fidelidade')
+        assert page.query_selector('#refDireitos')
+        assert page.query_selector('#abrirSeparador')
+        assert 'Bem livre' in page.inner_text('body')
+        assert 'Parecido com o original' in page.inner_text('body')
+        assert page.locator('#fidelidade').input_value() == '3'
         page.set_input_files('#audioFile', str(mp3_path))
         page.wait_for_timeout(400)
         page.fill('#pedido', 'acrescente um baixo suave')
-        shot = SHOT_DIR / 'aps-arranjo-03-pagina.png'
+        # Without rights, generation must be blocked
+        page.click('#gerar')
+        page.wait_for_timeout(400)
+        status_sem = page.inner_text('#status')
+        assert 'direito' in status_sem.lower()
+        shot = SHOT_DIR / 'aps-arranjo-integ-04-direitos.png'
+        page.screenshot(path=str(shot), full_page=True)
+        shots.append(shot)
+
+        page.locator('#fidelidade').fill('1')
+        page.wait_for_timeout(200)
+        hint_baixa = page.inner_text('#fidelidadeHint')
+        assert 'inspiração' in hint_baixa.lower() or 'inspiracao' in hint_baixa.lower()
+        shot = SHOT_DIR / 'aps-arranjo-integ-05-bem-livre.png'
+        page.screenshot(path=str(shot), full_page=True)
+        shots.append(shot)
+
+        page.locator('#fidelidade').fill('3')
+        page.wait_for_timeout(200)
+        hint_alta = page.inner_text('#fidelidadeHint')
+        assert 'andamento' in hint_alta.lower()
+        page.check('#refDireitos')
+        shot = SHOT_DIR / 'aps-arranjo-integ-06-parecido.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
         page.click('#gerar')
         page.wait_for_function("() => !document.getElementById('baixar').disabled", timeout=20000)
         status = page.inner_text('#status')
         assert 'áudio novo' in status.lower() or 'gravação original' in status.lower()
+        assert page.locator('#abrirSeparador').is_enabled()
+        assert page.locator('#abrirDaw').is_enabled()
+        assert 'Abrir no Separador' in page.inner_text('#abrirSeparador')
+        assert 'Abrir no Estúdio' in page.inner_text('#abrirDaw')
         leaks += [f'arranjo:{x}' for x in visible_leaks(page)]
-        shot = SHOT_DIR / 'aps-arranjo-04-resultado.png'
+        shot = SHOT_DIR / 'aps-arranjo-integ-07-resultado.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
 
@@ -152,11 +201,11 @@ def main():
         assert 'APS Arranjo' in page.inner_text('#apsArranjoBox')
         leaks += [f'daw:{x}' for x in visible_leaks(page)]
         page.locator('#apsArranjoBox').scroll_into_view_if_needed()
-        shot = SHOT_DIR / 'aps-arranjo-05-daw.png'
+        shot = SHOT_DIR / 'aps-arranjo-integ-08-daw.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
         page.locator('#apsIaBox').scroll_into_view_if_needed()
-        shot = SHOT_DIR / 'aps-arranjo-06-daw-maestro.png'
+        shot = SHOT_DIR / 'aps-arranjo-integ-09-daw-maestro.png'
         page.screenshot(path=str(shot), full_page=True)
         shots.append(shot)
         browser.close()
