@@ -240,8 +240,8 @@
     const box = document.createElement('section');
     box.id = 'apsIaBox';
     box.className = 'aps-ia-cmd';
-    box.innerHTML = '<h3>✦ Comando de mixagem · IA</h3>' +
-      '<p class="aps-ia-cmd-sub">Descreva o som em português. A IA sugere volume, EQ, compressão, reverb, delay, saturação e panorama — só o que esta DAW já processa. O áudio não é enviado.</p>' +
+    box.innerHTML = '<h3>✦ APS Maestro · comando de mixagem</h3>' +
+      '<p class="aps-ia-cmd-sub">APS Maestro ouve o seu pedido em português e sugere volume, EQ, compressão, reverb, delay, saturação e panorama — só o que esta DAW já processa. O áudio não é enviado.</p>' +
       '<textarea id="apsIaInput" maxlength="1400" rows="3" placeholder="Ex.: Faça uma mixagem de forró com sanfona destacada, zabumba forte e triângulo definido"></textarea>' +
       '<div class="aps-ia-cmd-row">' +
       '<button type="button" id="apsIaAsk">✦ Analisar comando</button>' +

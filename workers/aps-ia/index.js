@@ -353,7 +353,7 @@ function preferredProvider(env) {
 
 async function callOpenAI(env, comando, estado) {
   if (!env.OPENAI_API_KEY) {
-    const err = new Error('Chave da OpenAI ausente no servidor');
+    const err = new Error('O serviço de comandos ainda não está configurado.');
     err.status = 503;
     throw err;
   }
@@ -382,7 +382,7 @@ async function callOpenAI(env, comando, estado) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data?.error?.message || `OpenAI HTTP ${res.status}`;
+    const msg = 'Não foi possível consultar o comando agora.';
     const err = new Error(msg);
     err.status = res.status === 429 ? 429 : 502;
     throw err;
@@ -406,7 +406,7 @@ async function callOpenAI(env, comando, estado) {
 
 async function callGemini(env, comando, estado) {
   if (!env.GEMINI_API_KEY) {
-    const err = new Error('Chave da Gemini ausente no servidor');
+    const err = new Error('O serviço de comandos ainda não está configurado.');
     err.status = 503;
     throw err;
   }
@@ -436,7 +436,7 @@ async function callGemini(env, comando, estado) {
   );
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data?.error?.message || `Gemini HTTP ${res.status}`;
+    const msg = 'Não foi possível consultar o comando agora.';
     const err = new Error(msg);
     err.status = res.status === 429 ? 429 : 502;
     throw err;
@@ -474,7 +474,7 @@ async function callModel(env, comando, estado) {
 
 async function callOpenAIJson(env, { system, user, schema, name, temperature }) {
   if (!env.OPENAI_API_KEY) {
-    const err = new Error('Chave da OpenAI ausente no servidor');
+    const err = new Error('O serviço de comandos ainda não está configurado.');
     err.status = 503;
     throw err;
   }
@@ -500,7 +500,7 @@ async function callOpenAIJson(env, { system, user, schema, name, temperature }) 
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data?.error?.message || `OpenAI HTTP ${res.status}`;
+    const msg = 'Não foi possível consultar o comando agora.';
     const err = new Error(msg);
     err.status = res.status === 429 ? 429 : 502;
     throw err;
@@ -524,7 +524,7 @@ async function callOpenAIJson(env, { system, user, schema, name, temperature }) 
 
 async function callGeminiJson(env, { system, user, schema, temperature }) {
   if (!env.GEMINI_API_KEY) {
-    const err = new Error('Chave da Gemini ausente no servidor');
+    const err = new Error('O serviço de comandos ainda não está configurado.');
     err.status = 503;
     throw err;
   }
@@ -551,7 +551,7 @@ async function callGeminiJson(env, { system, user, schema, temperature }) {
   );
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data?.error?.message || `Gemini HTTP ${res.status}`;
+    const msg = 'Não foi possível consultar o comando agora.';
     const err = new Error(msg);
     err.status = res.status === 429 ? 429 : 502;
     throw err;

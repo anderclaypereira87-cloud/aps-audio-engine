@@ -1,11 +1,11 @@
-/* APS Audio Engine — criação de música com Google Lyria.
+/* APS Audio Engine — APS Maestro, criação de música com IA.
    Aviso obrigatório: nunca apresentar o resultado como gravação original. */
 const PROD_API = 'https://aps-lyria.aps-audio.workers.dev';
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? `${location.protocol}//${location.hostname}:8787`
   : PROD_API;
-const NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID';
-const REF_NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
+const NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova, não a sua gravação original.';
+const REF_NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
 const MAX_AUDIO = 10 * 1024 * 1024;
 const MAX_DURATION_SEC = 120;
 
@@ -362,8 +362,8 @@ async function baixar() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(href), 2000);
     setStatus(current.fromRef
-      ? 'Download iniciado. Lembrete: é uma música nova gerada por IA, inspirada na sua gravação, com marca d\'água SynthID.'
-      : 'Download iniciado no aparelho. Lembrete: música gerada por IA, com marca d\'água SynthID.');
+      ? 'Download iniciado. Lembrete: é uma música nova gerada por IA, inspirada na sua gravação, não o áudio original.'
+      : 'Download iniciado no aparelho. Lembrete: música gerada por IA, não a sua gravação original.');
   } catch (e) {
     setStatus(e.message || 'Não foi possível baixar.', true);
   }
@@ -381,7 +381,7 @@ async function abrirDaw() {
     if (!window.indexedDB) throw Error('Este navegador não permite a transferência automática.');
     const blob = await audioBlob();
     const ext = (blob.type || '').includes('wav') ? 'wav' : 'mp3';
-    const suffix = current.fromRef ? ' (IA inspirada)' : ' (IA Lyria)';
+    const suffix = current.fromRef ? ' (APS Maestro IA inspirada)' : ' (APS Maestro IA)';
     const stems = [{
       id: 'other',
       name: current.name + '.' + ext,
@@ -409,7 +409,7 @@ async function abrirDaw() {
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error || Error('Não foi possível salvar a música para abrir no estúdio.'));
     });
-    location.href = './daw.html?modulo=gravacao&importStems=1&v=454';
+    location.href = './daw.html?modulo=gravacao&importStems=1&v=455';
   } catch (e) {
     setStatus('Não foi possível abrir na DAW: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
     transferring = false;
@@ -469,7 +469,7 @@ async function abrirSeparador() {
     if (duration && duration > SEPARATOR_MAX_SECONDS) {
       setStatus('Esta música tem ' + formatDuration(duration) + '. O separador usa no máximo 5 minutos por vez. Abrindo mesmo assim para você escolher o trecho.');
     }
-    location.href = './separador.html?importAudio=1&v=454';
+    location.href = './separador.html?importAudio=1&v=455';
   } catch (e) {
     setStatus('Não foi possível abrir no separador: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
     transferring = false;
