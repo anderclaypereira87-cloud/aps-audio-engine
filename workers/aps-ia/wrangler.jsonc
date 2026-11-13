@@ -1,0 +1,12 @@
+{
+  "name": "aps-ia",
+  "main": "index.js",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": true,
+  "kv_namespaces": [
+    {
+      "binding": "LIMITS",
+      "id": "c42ac6954f56445c85bae986d69367a9"
+    }
+  ]
+}
