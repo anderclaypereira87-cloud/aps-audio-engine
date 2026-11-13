@@ -2,6 +2,7 @@
  * APS IA — backend de comandos de mixagem (Gemini).
  * A OpenAI permanece no código, mas só entra se IA_PROVIDER=openai.
  * Não processa áudio; só devolve ajustes validados contra o que a DAW realmente tem.
+ * POST /comando — ações de mixagem. POST /eq — duas curvas de EQ gráfico (A = pedido, B = sugestão).
  */
 const MAX_BODY = 48 * 1024;
 const RATE_PER_HOUR = 15;
@@ -74,6 +75,100 @@ const SCHEMA = {
     summary: { type: 'string' }
   }
 };
+
+const EQ_TYPES = ['peaking', 'lowshelf', 'highshelf', 'highpass', 'lowpass'];
+const EQ_BAND = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['type', 'f', 'g', 'q'],
+  properties: {
+    type: { type: 'string', enum: EQ_TYPES },
+    f: { type: 'number' },
+    g: { type: 'number' },
+    q: { type: 'number' }
+  }
+};
+const EQ_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['curveA', 'curveB', 'summary'],
+  properties: {
+    curveA: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['label', 'bands'],
+      properties: {
+        label: { type: 'string' },
+        bands: { type: 'array', items: EQ_BAND }
+      }
+    },
+    curveB: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['label', 'bands', 'reason'],
+      properties: {
+        label: { type: 'string' },
+        bands: { type: 'array', items: EQ_BAND },
+        reason: { type: 'string' }
+      }
+    },
+    summary: { type: 'string' }
+  }
+};
+
+function clampNum(n, lo, hi) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return lo;
+  return Math.min(hi, Math.max(lo, v));
+}
+
+function sanitizeEqBands(raw) {
+  const src = Array.isArray(raw) ? raw : (Array.isArray(raw?.bands) ? raw.bands : []);
+  return src.slice(0, 10).map((b) => {
+    if (!b || !Number.isFinite(Number(b.f))) return null;
+    return {
+      type: EQ_TYPES.includes(b.type) ? b.type : 'peaking',
+      f: clampNum(b.f, 20, 20000),
+      g: clampNum(b.g == null ? 0 : b.g, -18, 18),
+      q: clampNum(b.q == null ? 1 : b.q, 0.1, 18)
+    };
+  }).filter(Boolean);
+}
+
+function eqSystemPrompt() {
+  return [
+    'Você é o assistente de equalização do APS Audio Engine.',
+    'Responda sempre em português do Brasil, de forma curta e clara.',
+    'Você NÃO gera áudio e NÃO recebe o áudio bruto, só um resumo de espectro (energias relativas por banda) e os parâmetros atuais da pista.',
+    'Devolva exatamente duas curvas de EQ gráfico/paramétrico, cada uma com 6 a 10 bandas.',
+    'Bandas padrão sugeridas: lowshelf 60 Hz, peaking em 125, 250, 500, 1000, 2000 e 4000 Hz, highshelf 8000 Hz. Você pode deslocar a frequência se o pedido citar um Hz específico (ex.: 300 Hz).',
+    'Cada banda tem type (peaking, lowshelf, highshelf, highpass ou lowpass), f (20-20000), g (-18 a 18 dB) e q (0.1 a 18).',
+    'curveA: tradução literal do pedido do usuário, mesmo que seja agressiva. label curto.',
+    'curveB: a curva que VOCÊ recomenda, com prática de mixagem (ganhos mais suaves, preservar corpo, evitar estridência). reason: 1 frase em PT-BR. label curto.',
+    'summary: 1 ou 2 frases dizendo o que cada curva faz.',
+    'Os graves/médios/agudos clássicos da pista já estão aplicados; estas curvas são o EQ gráfico extra, em dB de ganho por banda.',
+    'Use o espectro (db relativo ao pico) para não empilhar boost onde a pista já está cheia, e para justificar cortes de "embolado".',
+    'Não invente stems nem altere volume, reverb, compressão ou outros processadores.'
+  ].join(' ');
+}
+
+function summarizeEqEstado(estado) {
+  const track = estado?.track || estado?.tracks?.[0] || {};
+  const spectrum = estado?.spectrum || {};
+  const bands = Array.isArray(spectrum.bands) ? spectrum.bands.slice(0, 16).map((b) => ({
+    f: Number(b.f) || 0,
+    db: Number(b.db) || 0
+  })) : [];
+  return {
+    track: {
+      id: track.id,
+      name: track.name,
+      type: track.type,
+      params: track.params || track
+    },
+    spectrum: { bands }
+  };
+}
 
 function corsOrigin(request) {
   const origin = request.headers.get('Origin');
@@ -377,6 +472,139 @@ async function callModel(env, comando, estado) {
     : await callOpenAI(env, comando, estado);
 }
 
+async function callOpenAIJson(env, { system, user, schema, name, temperature }) {
+  if (!env.OPENAI_API_KEY) {
+    const err = new Error('Chave da OpenAI ausente no servidor');
+    err.status = 503;
+    throw err;
+  }
+  const body = {
+    model: OPENAI_MODEL,
+    temperature: temperature ?? 0.3,
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: name || 'aps_json', strict: true, schema }
+    },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ]
+  };
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || `OpenAI HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status === 429 ? 429 : 502;
+    throw err;
+  }
+  const textResp = data?.choices?.[0]?.message?.content;
+  let parsed;
+  try {
+    parsed = JSON.parse(textResp);
+  } catch {
+    const err = new Error('A IA devolveu um formato inválido');
+    err.status = 502;
+    throw err;
+  }
+  const usage = data.usage || {};
+  const prompt = Number(usage.prompt_tokens) || 0;
+  const completion = Number(usage.completion_tokens) || 0;
+  const total = Number(usage.total_tokens) || prompt + completion;
+  const cost = prompt * OPENAI_PRICE_IN + completion * OPENAI_PRICE_OUT;
+  return { parsed, usage: { prompt, completion, total, cost, model: OPENAI_MODEL } };
+}
+
+async function callGeminiJson(env, { system, user, schema, temperature }) {
+  if (!env.GEMINI_API_KEY) {
+    const err = new Error('Chave da Gemini ausente no servidor');
+    err.status = 503;
+    throw err;
+  }
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: {
+      temperature: temperature ?? 0.4,
+      responseMimeType: 'application/json',
+      responseJsonSchema: schema,
+      thinkingConfig: { thinkingLevel: 'MINIMAL' }
+    }
+  };
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': env.GEMINI_API_KEY
+      },
+      body: JSON.stringify(body)
+    }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || `Gemini HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status === 429 ? 429 : 502;
+    throw err;
+  }
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const textResp = parts.map((p) => p.text || '').join('');
+  let parsed;
+  try {
+    parsed = JSON.parse(textResp);
+  } catch {
+    const err = new Error('A IA devolveu um formato inválido');
+    err.status = 502;
+    throw err;
+  }
+  const um = data.usageMetadata || {};
+  const prompt = Number(um.promptTokenCount) || 0;
+  const completion = Number(um.candidatesTokenCount) || 0;
+  const thoughts = Number(um.thoughtsTokenCount) || 0;
+  const total = Number(um.totalTokenCount) || prompt + completion + thoughts;
+  const cost = prompt * GEMINI_PRICE_IN + (completion + thoughts) * GEMINI_PRICE_OUT;
+  return { parsed, usage: { prompt, completion: completion + thoughts, total, cost, model: GEMINI_MODEL } };
+}
+
+async function callModelJson(env, opts) {
+  const first = preferredProvider(env);
+  if (!first) {
+    const err = new Error('Nenhuma chave de IA configurada no servidor');
+    err.status = 503;
+    throw err;
+  }
+  return first === 'gemini' ? await callGeminiJson(env, opts) : await callOpenAIJson(env, opts);
+}
+
+async function callEqModel(env, comando, estado) {
+  return callModelJson(env, {
+    system: eqSystemPrompt(),
+    user: JSON.stringify({ comando, estado: summarizeEqEstado(estado) }),
+    schema: EQ_SCHEMA,
+    name: 'aps_eq_curves',
+    temperature: 0.4
+  });
+}
+
+function usagePayload(usage) {
+  return {
+    model: usage.model,
+    prompt_tokens: usage.prompt,
+    completion_tokens: usage.completion,
+    total_tokens: usage.total,
+    estimated_usd: Number(usage.cost.toFixed(6))
+  };
+}
+
 export default {
   async fetch(request, env) {
     const origin = corsOrigin(request);
@@ -391,12 +619,15 @@ export default {
         ok: true,
         service: 'aps-ia',
         route: '/comando',
+        routes: ['/comando', '/eq'],
         provider: preferredProvider(env) || 'none'
       }, 200, origin || '');
     }
 
-    if (url.pathname !== '/comando' || request.method !== 'POST') {
-      return json({ error: 'Use POST /comando' }, 404, origin || '');
+    const isComando = url.pathname === '/comando' && request.method === 'POST';
+    const isEq = url.pathname === '/eq' && request.method === 'POST';
+    if (!isComando && !isEq) {
+      return json({ error: 'Use POST /comando ou POST /eq' }, 404, origin || '');
     }
     if (origin === null) return json({ error: 'Origem não permitida' }, 403, '');
 
@@ -414,7 +645,7 @@ export default {
     }
 
     const comando = String(payload.comando || payload.command || '').trim();
-    if (comando.length < 4) return json({ error: 'Escreva um comando de mixagem.' }, 400, origin);
+    if (comando.length < 4) return json({ error: isEq ? 'Descreva o que quer no som, em português.' : 'Escreva um comando de mixagem.' }, 400, origin);
     if (comando.length > 2000) return json({ error: 'Comando longo demais.' }, 400, origin);
 
     const estado = payload.estado || payload.state || {};
@@ -429,6 +660,36 @@ export default {
     const spent = await kvGetNum(env, costKey);
     if (spent >= DAILY_CAP_USD) {
       return json({ error: 'Limite diário de uso da IA atingido. Tente amanhã.' }, 429, origin);
+    }
+
+    if (isEq) {
+      try {
+        const { parsed, usage } = await callEqModel(env, comando, estado);
+        const curveABands = sanitizeEqBands(parsed.curveA);
+        const curveBBands = sanitizeEqBands(parsed.curveB);
+        if (!curveABands.length || !curveBBands.length) {
+          return json({ error: 'A IA devolveu curvas incompletas.' }, 502, origin);
+        }
+        await kvAdd(env, hourKey, 1, 2 * 3600);
+        await kvAdd(env, costKey, usage.cost, 3 * 24 * 3600);
+        return json({
+          ok: true,
+          curveA: {
+            label: String(parsed.curveA?.label || 'Seu pedido').slice(0, 80),
+            bands: curveABands
+          },
+          curveB: {
+            label: String(parsed.curveB?.label || 'Sugestão da IA').slice(0, 80),
+            bands: curveBBands,
+            reason: String(parsed.curveB?.reason || '').slice(0, 280)
+          },
+          summary: String(parsed.summary || 'Duas curvas prontas para ouvir e escolher.').slice(0, 500),
+          usage: usagePayload(usage),
+          limits: { daily_cap_usd: DAILY_CAP_USD, rate_per_hour: RATE_PER_HOUR }
+        }, 200, origin);
+      } catch (e) {
+        return json({ error: e.message || 'Falha ao consultar a IA' }, e.status || 500, origin);
+      }
     }
 
     try {
