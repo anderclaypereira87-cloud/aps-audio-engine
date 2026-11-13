@@ -23,6 +23,8 @@ import {
   uint8ToBase64,
   wavDurationSeconds,
   sanitizeDesc,
+  parseFidelidade,
+  parseDireitos,
   composeReferenceUserPrompt,
   buildPrompt,
   pickModel,
@@ -93,14 +95,25 @@ async function gerar(request, env, origin) {
 
   const extras = readGenerationFields(body);
   if (extras.error) return json({ ok: false, error: extras.error }, 400, origin);
+  const hasFidelityField = body.fidelidade != null && String(body.fidelidade).trim() !== '';
+  const hasRightsField = body.direitos != null && String(body.direitos).trim() !== '';
+  const fidelidade = hasFidelityField ? parseFidelidade(body.fidelidade) : null;
+  if (hasFidelityField && !fidelidade) {
+    return json({ ok: false, error: 'Nível de fidelidade inválido. Use bem livre, no meio ou parecido com o original.' }, 400, origin);
+  }
+  const direitos = parseDireitos(body.direitos);
+  const newClient = hasFidelityField || hasRightsField;
 
   let prompt = extras.prompt;
   let fromRef = false;
   if (body.referencia) {
+    if (newClient && !direitos) {
+      return json({ ok: false, error: 'Para usar uma gravação de referência, confirme que ela é sua ou que você tem o direito de usá-la.' }, 400, origin);
+    }
     const desc = sanitizeDesc(body.referencia);
     const ready = referenceReady(desc);
     if (ready) return json({ ok: false, error: ready }, 400, origin);
-    prompt = composeReferenceUserPrompt(desc, extras.prompt);
+    prompt = composeReferenceUserPrompt(desc, extras.prompt, fidelidade);
     fromRef = true;
   }
   if (!prompt || prompt.length < 8) {
@@ -139,6 +152,9 @@ async function referencia(request, env, origin) {
   if (blockedArtistRequest(`${parsed.prompt} ${parsed.estilo} ${parsed.letra}`)) {
     return json({ ok: false, error: 'Não geramos imitações da voz ou do estilo de artistas reais. Descreva o ritmo, os instrumentos e o clima, sem citar cantores.' }, 400, origin);
   }
+  if (parsed.newClient && !parsed.direitos) {
+    return json({ ok: false, error: 'Para usar uma gravação de referência, confirme que ela é sua ou que você tem o direito de usá-la.' }, 400, origin);
+  }
 
   const stamp = recifeStamp();
   const ipHash = await hashIp(clientIp(request));
@@ -170,7 +186,7 @@ async function referencia(request, env, origin) {
     };
     if (!parsed.gerar) return json(payload, 200, origin);
 
-    const prompt = composeReferenceUserPrompt(desc, parsed.prompt);
+    const prompt = composeReferenceUserPrompt(desc, parsed.prompt, parsed.fidelidade);
     const generated = await generateLyria(request, env, origin, {
       prompt,
       estilo: parsed.estilo,
@@ -201,6 +217,9 @@ async function readReferenciaBody(request) {
   let modo = 'clip';
   let gerar = false;
   let duration = NaN;
+  let fidelidade = null;
+  let direitos = false;
+  let newClient = false;
 
   if (ctype.includes('multipart/form-data')) {
     const form = await request.formData();
@@ -222,6 +241,18 @@ async function readReferenciaBody(request) {
     estilo = fields.estilo;
     letra = fields.letra;
     modo = fields.modo;
+    const fidRaw = form.get('fidelidade');
+    const dirRaw = form.get('direitos');
+    const hasFid = fidRaw != null && String(fidRaw).trim() !== '';
+    const hasDir = dirRaw != null && String(dirRaw).trim() !== '';
+    newClient = hasFid || hasDir;
+    if (hasFid) {
+      fidelidade = parseFidelidade(fidRaw);
+      if (!fidelidade) {
+        throw Object.assign(new Error('Nível de fidelidade inválido. Use bem livre, no meio ou parecido com o original.'), { http: 400 });
+      }
+    }
+    direitos = parseDireitos(dirRaw);
     const flag = String(form.get('gerar') || '').toLowerCase();
     gerar = flag === '1' || flag === 'true';
     duration = Number(form.get('duracao'));
@@ -249,6 +280,16 @@ async function readReferenciaBody(request) {
     estilo = fields.estilo;
     letra = fields.letra;
     modo = fields.modo;
+    const hasFid = body.fidelidade != null && String(body.fidelidade).trim() !== '';
+    const hasDir = body.direitos != null && String(body.direitos).trim() !== '';
+    newClient = hasFid || hasDir;
+    if (hasFid) {
+      fidelidade = parseFidelidade(body.fidelidade);
+      if (!fidelidade) {
+        throw Object.assign(new Error('Nível de fidelidade inválido. Use bem livre, no meio ou parecido com o original.'), { http: 400 });
+      }
+    }
+    direitos = parseDireitos(body.direitos);
     gerar = body.gerar === true || body.gerar === 1 || body.gerar === '1';
     duration = Number(body.duracao);
   }
@@ -273,7 +314,7 @@ async function readReferenciaBody(request) {
     throw Object.assign(new Error('A gravação pode ter no máximo 2 minutos.'), { http: 400 });
   }
 
-  return { bytes, mime, name, prompt, estilo, letra, modo, gerar, duration };
+  return { bytes, mime, name, prompt, estilo, letra, modo, gerar, duration, fidelidade, direitos, newClient };
 }
 
 async function analyzeAudio(env, bytes, mime) {
