@@ -7,6 +7,16 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
 const NOTICE = 'APS Arranjo: áudio gerado por IA. É uma criação nova, não a sua gravação original.';
 const MAX_AUDIO = 10 * 1024 * 1024;
 const MAX_DURATION_SEC = 480;
+const SEPARATOR_MAX_SECONDS = 300;
+const SCRIPT_V = '370';
+
+const FIDELIDADE_HINTS = {
+  1: 'A IA usa a gravação só como inspiração e pode inventar bastante no arranjo.',
+  2: 'A IA segue o estilo, um andamento próximo e os instrumentos principais, mas pode variar o arranjo.',
+  3: 'A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é um áudio novo, não a sua gravação editada.'
+};
+
+const FIDELIDADE_LEVEL = { 1: 'baixa', 2: 'media', 3: 'alta' };
 
 const $ = (id) => document.getElementById(id);
 
@@ -58,6 +68,55 @@ function selectedModo() {
 function syncModo() {
   const modo = selectedModo();
   $('tipoField').hidden = modo !== 'instrumento';
+}
+
+function fidelidadeLevel() {
+  const n = Number($('fidelidade')?.value || 3);
+  return FIDELIDADE_LEVEL[n] || 'alta';
+}
+
+function updateFidelidadeHint() {
+  const el = $('fidelidade');
+  const hint = $('fidelidadeHint');
+  if (!el || !hint) return;
+  const n = Number(el.value || 3);
+  el.setAttribute('aria-valuenow', String(n));
+  hint.textContent = FIDELIDADE_HINTS[n] || FIDELIDADE_HINTS[3];
+}
+
+function direitosOk() {
+  return !!$('refDireitos')?.checked;
+}
+
+function isShortRef() {
+  return audioDuration != null && audioDuration > 0 && audioDuration < 30;
+}
+
+function finalidadeForUpload(modo, letra, level) {
+  const short = isShortRef();
+  if (modo === 'acompanhar' || modo === 'instrumento' || modo === 'estender') return 'audio';
+  if (letra) {
+    if (level === 'alta') return 'melodia';
+    return short ? 'audio' : 'referencia';
+  }
+  if (level === 'baixa' || short) return 'audio';
+  return 'instrumental';
+}
+
+function setResultButtons(enabled) {
+  const on = !!enabled && !busy && !transferring;
+  if ($('baixar')) $('baixar').disabled = !on;
+  if ($('abrirDaw')) $('abrirDaw').disabled = !on;
+  if ($('abrirSeparador')) $('abrirSeparador').disabled = !on;
+}
+
+function setBusyUi(on) {
+  busy = !!on;
+  if ($('gerar')) $('gerar').disabled = !!on || transferring;
+  if ($('audioFile')) $('audioFile').disabled = !!on || transferring;
+  if ($('fidelidade')) $('fidelidade').disabled = !!on || transferring;
+  if ($('refDireitos')) $('refDireitos').disabled = !!on || transferring;
+  if (on) setResultButtons(false);
 }
 
 function decodeDuration(file) {
@@ -116,7 +175,11 @@ async function loadFile(file) {
   const dur = audioDuration ? ' · ' + formatDuration(audioDuration) : '';
   $('fileInfo').hidden = false;
   $('fileInfo').textContent = 'Original: ' + (file.name || 'áudio') + ' · ' + formatSize(file.size) + dur + '. Este arquivo não será alterado.';
-  setStatus('Áudio original carregado. Escolha o tipo de arranjo e crie uma versão nova com IA.');
+  if (isShortRef()) {
+    setStatus('Áudio original carregado (' + formatDuration(audioDuration) + '). Para ficar mais parecido com a gravação, envie um trecho de pelo menos 30 segundos. Você já pode criar o arranjo mesmo assim.');
+  } else {
+    setStatus('Áudio original carregado. Escolha o tipo de arranjo, a fidelidade e crie uma versão nova com IA.');
+  }
 }
 
 async function pollTask(id, tipo) {
@@ -137,10 +200,12 @@ async function pollTask(id, tipo) {
 }
 
 async function gerar() {
-  if (busy) return;
+  if (busy || transferring) return;
   const modo = selectedModo();
   const pedido = $('pedido').value.trim();
   const letra = $('letra').value.trim();
+  const fidelidade = fidelidadeLevel();
+  const direitos = direitosOk();
   if (modo === 'estender' && !letra) {
     setStatus('Para estender a música, escreva a letra que deve continuar.', true);
     return;
@@ -153,29 +218,27 @@ async function gerar() {
     setStatus('Envie o áudio de partida para este tipo de arranjo.', true);
     return;
   }
+  if (audioFile && !direitos) {
+    setStatus('Para usar uma gravação, confirme que ela é sua ou que você tem o direito de usá-la.', true);
+    return;
+  }
 
-  busy = true;
-  $('gerar').disabled = true;
-  $('baixar').disabled = true;
-  $('abrirDaw').disabled = true;
-  $('audioFile').disabled = true;
+  setBusyUi(true);
   setStatus('Enviando o áudio e pedindo um arranjo novo…');
   try {
     let arquivoId = '';
-    let finalidade = 'audio';
+    const finalidade = finalidadeForUpload(modo, letra, fidelidade);
     if (audioFile) {
-      if (modo === 'nova' && !letra) finalidade = 'instrumental';
-      if (modo === 'nova' && letra) finalidade = 'referencia';
       const encoded = await fileToMp3(audioFile);
       const form = new FormData();
       form.append('file', encoded, encoded.name);
-      form.append('finalidade', finalidade === 'referencia' ? 'referencia' : finalidade);
+      form.append('finalidade', finalidade);
       const up = await fetch(API_BASE + '/enviar', { method: 'POST', body: form });
       const upData = await up.json().catch(() => ({}));
       if (!up.ok || !upData.ok) throw Error(upData.error || 'Não foi possível enviar o áudio.');
       arquivoId = upData.arquivoId;
     }
-    const body = { modo, pedido, letra, arquivoId, finalidade };
+    const body = { modo, pedido, letra, arquivoId, finalidade, fidelidade, direitos };
     if (modo === 'instrumento') body.tipoPista = $('tipoPista').value;
     if (modo === 'estender' && audioDuration) body.extendEm = Math.max(8, audioDuration - 2);
     const gen = await fetch(API_BASE + '/gerar', {
@@ -203,15 +266,12 @@ async function gerar() {
     };
     $('player').src = objectUrl;
     $('player').hidden = false;
-    $('baixar').disabled = false;
-    $('abrirDaw').disabled = false;
     setStatus('Arranjo pronto. Isto é um áudio novo, gerado por IA — não é a sua gravação original.');
   } catch (e) {
     setStatus(e.message || 'Não foi possível criar o arranjo agora.', true);
   } finally {
-    busy = false;
-    $('gerar').disabled = false;
-    $('audioFile').disabled = false;
+    setBusyUi(false);
+    if (current?.blob) setResultButtons(true);
   }
 }
 
@@ -232,15 +292,41 @@ function baixar() {
   setStatus('Download iniciado. Lembrete: este arquivo é uma criação de IA, não a sua gravação original.');
 }
 
+async function openIdb(name) {
+  if (!window.indexedDB) throw Error('Este navegador não permite a transferência automática.');
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open(name, 1);
+    r.onupgradeneeded = () => {
+      if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions');
+    };
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+function putLatest(db, row) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('sessions', 'readwrite');
+    tx.objectStore('sessions').put(row, 'latest');
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || Error('Não foi possível salvar o arranjo.'));
+  });
+}
+
+function songDuration() {
+  const dur = $('player')?.duration;
+  return Number.isFinite(dur) && dur > 0 ? dur : (audioDuration || null);
+}
+
 async function abrirDaw() {
   if (transferring || !current?.blob) return;
   transferring = true;
-  $('abrirDaw').disabled = true;
-  $('baixar').disabled = true;
-  setStatus('Abrindo o arranjo na DAW como uma pista nova…');
+  setResultButtons(false);
+  if ($('gerar')) $('gerar').disabled = true;
+  setStatus('Abrindo o arranjo no Estúdio como uma pista nova…');
   let db;
   try {
-    if (!window.indexedDB) throw Error('Este navegador não permite a transferência automática.');
     const ext = (current.mime || '').includes('wav') ? 'wav' : 'mp3';
     const stems = [{
       id: 'other',
@@ -248,33 +334,54 @@ async function abrirDaw() {
       type: current.mime || 'audio/mpeg',
       blob: current.blob
     }];
-    db = await new Promise((resolve, reject) => {
-      const r = indexedDB.open('aps-stems-transfer-v1', 1);
-      r.onupgradeneeded = () => {
-        if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions');
-      };
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    const row = {
+    db = await openIdb('aps-stems-transfer-v1');
+    await putLatest(db, {
       id: Date.now() + '-' + Math.random().toString(36).slice(2),
       name: 'APS Arranjo IA',
       stems,
       createdAt: Date.now()
-    };
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction('sessions', 'readwrite');
-      tx.objectStore('sessions').put(row, 'latest');
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error || Error('Não foi possível salvar o arranjo para abrir no estúdio.'));
     });
-    location.href = './daw.html?modulo=gravacao&importStems=1&v=363';
+    location.href = './daw.html?modulo=gravacao&importStems=1&v=' + SCRIPT_V;
   } catch (e) {
-    setStatus('Não foi possível abrir na DAW: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
+    setStatus('Não foi possível abrir no Estúdio: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
     transferring = false;
-    $('abrirDaw').disabled = false;
-    $('baixar').disabled = false;
+    if ($('gerar')) $('gerar').disabled = false;
+    setResultButtons(true);
+  } finally {
+    db?.close();
+  }
+}
+
+async function abrirSeparador() {
+  if (transferring || !current?.blob) return;
+  transferring = true;
+  setResultButtons(false);
+  if ($('gerar')) $('gerar').disabled = true;
+  setStatus('Abrindo o arranjo no Separador…');
+  let db;
+  try {
+    const ext = (current.mime || '').includes('wav') ? 'wav' : 'mp3';
+    const duration = songDuration();
+    db = await openIdb('aps-separator-handoff-v1');
+    await putLatest(db, {
+      id: Date.now() + '-' + Math.random().toString(36).slice(2),
+      name: current.name + '.' + ext,
+      type: current.mime || 'audio/mpeg',
+      blob: current.blob,
+      url: current.url || null,
+      duration,
+      source: 'arranjo',
+      createdAt: Date.now()
+    });
+    if (duration && duration > SEPARATOR_MAX_SECONDS) {
+      setStatus('Este arranjo tem ' + formatDuration(duration) + '. O separador usa no máximo 5 minutos por vez. Abrindo mesmo assim para você escolher o trecho.');
+    }
+    location.href = './separador.html?importAudio=1&v=' + SCRIPT_V;
+  } catch (e) {
+    setStatus('Não foi possível abrir no Separador: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
+    transferring = false;
+    if ($('gerar')) $('gerar').disabled = false;
+    setResultButtons(true);
   } finally {
     db?.close();
   }
@@ -288,6 +395,18 @@ function init() {
   $('gerar').addEventListener('click', gerar);
   $('baixar').addEventListener('click', baixar);
   $('abrirDaw').addEventListener('click', abrirDaw);
+  if ($('abrirSeparador')) $('abrirSeparador').addEventListener('click', abrirSeparador);
+  if ($('fidelidade')) {
+    $('fidelidade').addEventListener('input', updateFidelidadeHint);
+    updateFidelidadeHint();
+  }
+  if ($('refDireitos')) {
+    $('refDireitos').addEventListener('change', () => {
+      if ($('refDireitos').checked && $('status').classList.contains('err') && /direito/i.test($('status').textContent)) {
+        setStatus('Direito confirmado. Você já pode criar o arranjo.');
+      }
+    });
+  }
 }
 
 init();

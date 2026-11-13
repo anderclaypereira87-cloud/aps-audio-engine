@@ -195,6 +195,38 @@ function wavDurationSeconds(bytes) {
   return null;
 }
 
+
+function parseFidelidade(value) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return 'media';
+  if (raw === 'alta' || raw === 'parecido' || raw === 'parecido com o original') return 'alta';
+  if (raw === 'media' || raw === 'média' || raw === 'meio' || raw === 'equilibrado' || raw === 'no meio') return 'media';
+  if (raw === 'baixa' || raw === 'livre' || raw === 'bem livre') return 'baixa';
+  const n = Number(raw);
+  if (n === 3 || n === 100) return 'alta';
+  if (n === 2 || n === 50) return 'media';
+  if (n === 1 || n === 0) return 'baixa';
+  return null;
+}
+
+function parseDireitos(value) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  return value === true || value === 1 || raw === '1' || raw === 'true' || raw === 'on' || raw === 'sim';
+}
+
+function composeFidelityPrompt(pedido, estilo, level) {
+  const user = [cleanText(pedido, MAX_PROMPT), cleanText(estilo, 80)].filter(Boolean).join(', ');
+  let guide;
+  if (level === 'alta') {
+    guide = 'Create a new original piece that closely follows the uploaded recording in tempo, key, instrumentation, structure and groove. Do not change the tempo or key. Do not add instruments that were not in the reference. This is NOT an edit, remix, restoration or copy of the recording and must not be presented as the original audio.';
+  } else if (level === 'media') {
+    guide = 'Create a new original piece guided by the uploaded recording. Keep a similar genre, a nearby tempo, a compatible key and the main instruments, but you may vary the arrangement. This is not an edit, remix or copy of the original recording.';
+  } else {
+    guide = 'Create a new original piece only inspired by the style of the uploaded recording. You may invent freely in the arrangement, as long as a recognizable mood remains. Do not reproduce lyrics, melody or recognizable passages from the recording. This is not an edit or copy of the original.';
+  }
+  return cleanText([guide, user].filter(Boolean).join(' '), MAX_PROMPT) || 'original musical piece';
+}
+
 function parsePurpose(value, fallback = 'audio') {
   const key = String(value || '').trim().toLowerCase();
   return PURPOSES[key] || PURPOSES[fallback] || 'audio';
@@ -231,6 +263,9 @@ function mapUpstreamError(status, payload) {
   }
   if (status === 413 || /too large|size limit/.test(low)) {
     return { status: 413, error: 'O arquivo é grande demais. Envie um áudio de até 10 MB.' };
+  }
+  if (/duration|too short|minimum|at least \d+\s*sec|shorter than/.test(low)) {
+    return { status: 400, error: 'Para seguir de perto a gravação, envie um áudio de pelo menos 30 segundos, em MP3 ou M4A.' };
   }
   if (status >= 500) {
     return { status: 502, error: 'O serviço de arranjo está indisponível agora. Tente de novo em instantes.' };
@@ -369,6 +404,9 @@ export {
   normalizeMime,
   wavDurationSeconds,
   parsePurpose,
+  parseFidelidade,
+  parseDireitos,
+  composeFidelityPrompt,
   parseModo,
   parseTrackType,
   filenameForMime,

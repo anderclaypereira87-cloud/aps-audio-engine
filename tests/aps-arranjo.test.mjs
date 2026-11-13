@@ -11,7 +11,10 @@ import {
   publicTask,
   parseModo,
   parseTrackType,
-  blockedArtistRequest
+  blockedArtistRequest,
+  parseFidelidade,
+  parseDireitos,
+  composeFidelityPrompt
 } from '../workers/aps-arranjo/lib.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -198,4 +201,148 @@ test('interface visível não cita o provedor e separa Maestro de Arranjo', () =
 test('pedido grande demais é recusado', async () => {
   const res = await call('/gerar', { method: 'POST', body: 'x'.repeat(40 * 1024), headers: { 'Content-Length': String(40 * 1024) } });
   assert.equal(res.status, 413);
+});
+
+test('fidelidade alta com letra usa a melodia e não mistura com o prompt', () => {
+  const alta = buildUpstream('nova', {
+    pedido: 'mais sanfona', letra: '[Verse]\nOi', estilo: '', arquivoId: 'm1',
+    finalidade: 'melody', fidelidade: 'alta'
+  });
+  assert.equal(alta.path, '/v1/song/generate');
+  assert.equal(alta.payload.melody_id, 'm1');
+  assert.equal('prompt' in alta.payload, false);
+  assert.equal('reference_id' in alta.payload, false);
+  assert.equal(alta.payload.n, 1);
+  assert.equal(alta.payload.model, 'mureka-7.6');
+
+  const media = buildUpstream('nova', {
+    pedido: 'varia o arranjo', letra: '[Verse]\nOi', estilo: '', arquivoId: 'r1',
+    finalidade: 'reference', fidelidade: 'media'
+  });
+  assert.equal(media.payload.reference_id, 'r1');
+  assert.equal('prompt' in media.payload, false);
+  assert.equal('melody_id' in media.payload, false);
+
+  const baixa = buildUpstream('nova', {
+    pedido: 'clima de forró', letra: '[Verse]\nOi', estilo: '', arquivoId: 'x1',
+    finalidade: 'reference', fidelidade: 'baixa'
+  });
+  assert.equal('reference_id' in baixa.payload, false);
+  assert.equal('melody_id' in baixa.payload, false);
+  assert.match(baixa.payload.prompt, /inspired|invent freely|livre|inspir/i);
+  assert.match(baixa.payload.prompt, /forró|forro/i);
+});
+
+test('fidelidade no instrumental: alta envia o áudio, baixa só o prompt', () => {
+  const alta = buildUpstream('nova', {
+    pedido: '', letra: '', estilo: '', arquivoId: 'i1',
+    finalidade: 'instrumental', fidelidade: 'alta'
+  });
+  assert.equal(alta.path, '/v1/instrumental/generate');
+  assert.equal(alta.payload.instrumental_id, 'i1');
+  assert.equal('prompt' in alta.payload, false);
+  assert.equal(alta.payload.n, 1);
+
+  const baixa = buildUpstream('nova', {
+    pedido: 'invente um clima novo', letra: '', estilo: '', arquivoId: 'i2',
+    finalidade: 'instrumental', fidelidade: 'baixa'
+  });
+  assert.equal(baixa.path, '/v1/instrumental/generate');
+  assert.equal('instrumental_id' in baixa.payload, false);
+  assert.match(baixa.payload.prompt, /invente um clima novo/i);
+  assert.equal(baixa.payload.model, 'mureka-7.6');
+  assert.equal(baixa.payload.n, 1);
+});
+
+test('fidelidade no acompanhamento vai no prompt e mantém o áudio de partida', () => {
+  const alta = buildUpstream('acompanhar', {
+    pedido: 'bass', letra: '', estilo: '', arquivoId: '7',
+    finalidade: 'audio', fidelidade: 'alta'
+  });
+  assert.equal(alta.path, '/v1/track/generate');
+  assert.equal(alta.payload.upload_audio_id, '7');
+  assert.match(alta.payload.prompt, /closely follows|tempo|key/i);
+});
+
+test('gerar com áudio exige a confirmação de direitos', async () => {
+  const res = await call('/gerar', {
+    method: 'POST',
+    body: JSON.stringify({
+      modo: 'nova', pedido: 'forró', arquivoId: 'abc', finalidade: 'instrumental',
+      fidelidade: 'alta', direitos: false
+    })
+  });
+  const data = await res.json();
+  assert.equal(res.status, 400);
+  assert.match(data.error, /direito/i);
+  assert.doesNotMatch(JSON.stringify(data), /mureka|gemini|lyria|openai|google/i);
+});
+
+test('gerar rejeita fidelidade inválida', async () => {
+  const res = await call('/gerar', {
+    method: 'POST',
+    body: JSON.stringify({ modo: 'nova', pedido: 'forró instrumental', fidelidade: 'xyz' })
+  });
+  const data = await res.json();
+  assert.equal(res.status, 400);
+  assert.match(data.error, /fidelidade inválido/i);
+});
+
+test('parse de fidelidade e direitos', () => {
+  assert.equal(parseFidelidade('alta'), 'alta');
+  assert.equal(parseFidelidade('parecido com o original'), 'alta');
+  assert.equal(parseFidelidade(3), 'alta');
+  assert.equal(parseFidelidade('bem livre'), 'baixa');
+  assert.equal(parseFidelidade('no meio'), 'media');
+  assert.equal(parseFidelidade('foo'), null);
+  assert.equal(parseDireitos('1'), true);
+  assert.equal(parseDireitos('0'), false);
+  const p = composeFidelityPrompt('sanfona', 'forró', 'alta');
+  assert.match(p, /sanfona/);
+  assert.match(p, /closely follows|tempo/i);
+});
+
+test('página inicial tem o card do APS Arranjo e a interface pede direitos', () => {
+  const index = readFileSync(join(root, 'index.html'), 'utf8');
+  assert.match(index, /href="\.\/arranjo\.html"/);
+  assert.match(index, /<strong>APS Arranjo<\/strong>/);
+  // O nome antigo no card do Maestro permanece até o dono autorizar a troca.
+  assert.match(index, /Criar música com IA/);
+  const arranjo = readFileSync(join(root, 'arranjo.html'), 'utf8');
+  assert.match(arranjo, /id="fidelidade"/);
+  assert.match(arranjo, /Bem livre/);
+  assert.match(arranjo, /Parecido com o original/);
+  assert.match(arranjo, /id="refDireitos"/);
+  assert.match(arranjo, /id="abrirSeparador"/);
+  assert.match(arranjo, /Abrir no Separador/);
+  assert.match(arranjo, /Abrir no Estúdio \(DAW\)/);
+  assert.match(arranjo, /aps-arranjo\.js\?v=370/);
+  const js = readFileSync(join(root, 'aps-arranjo.js'), 'utf8');
+  assert.match(js, /aps-separator-handoff-v1/);
+  assert.match(js, /separador\.html\?importAudio=1/);
+  assert.match(js, /fidelidade/);
+  assert.match(js, /direitos/);
+  const daw = readFileSync(join(root, 'aps-arranjo-daw.js'), 'utf8');
+  assert.match(daw, /apsArranjoFidelidade/);
+  assert.match(daw, /apsArranjoDireitos/);
+});
+
+test('áudio curto ou finalidade genérica não força referência incompatível', () => {
+  const mediaCurto = buildUpstream('nova', {
+    pedido: 'forró', letra: '[Verse]\nOi', estilo: '', arquivoId: 'a1',
+    finalidade: 'audio', fidelidade: 'media'
+  });
+  assert.equal(mediaCurto.path, '/v1/song/generate');
+  assert.equal('reference_id' in mediaCurto.payload, false);
+  assert.equal('melody_id' in mediaCurto.payload, false);
+  assert.ok(mediaCurto.payload.prompt);
+
+  const instCurto = buildUpstream('nova', {
+    pedido: 'baixo suave', letra: '', estilo: '', arquivoId: 'a2',
+    finalidade: 'audio', fidelidade: 'alta'
+  });
+  assert.equal(instCurto.path, '/v1/instrumental/generate');
+  assert.equal('instrumental_id' in instCurto.payload, false);
+  assert.ok(instCurto.payload.prompt);
+  assert.match(instCurto.payload.prompt, /closely follows|tempo/i);
 });
