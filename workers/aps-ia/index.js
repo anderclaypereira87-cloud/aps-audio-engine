@@ -1,5 +1,6 @@
 /**
- * APS IA — backend de comandos de mixagem (Gemini, com OpenAI opcional).
+ * APS IA — backend de comandos de mixagem (Gemini).
+ * A OpenAI permanece no código, mas só entra se IA_PROVIDER=openai.
  * Não processa áudio; só devolve ajustes validados contra o que a DAW realmente tem.
  */
 const MAX_BODY = 48 * 1024;
@@ -248,9 +249,10 @@ function systemPrompt() {
 
 function preferredProvider(env) {
   const forced = String(env.IA_PROVIDER || '').toLowerCase();
-  if (forced === 'openai' || forced === 'gemini') return forced;
+  if (forced === 'openai') return env.OPENAI_API_KEY ? 'openai' : null;
+  if (forced === 'gemini') return env.GEMINI_API_KEY ? 'gemini' : null;
+  // Padrão: só Gemini. A OpenAI fica inativa até alguém pedir IA_PROVIDER=openai.
   if (env.GEMINI_API_KEY) return 'gemini';
-  if (env.OPENAI_API_KEY) return 'openai';
   return null;
 }
 
@@ -370,24 +372,9 @@ async function callModel(env, comando, estado) {
     err.status = 503;
     throw err;
   }
-  try {
-    return first === 'gemini'
-      ? await callGemini(env, comando, estado)
-      : await callOpenAI(env, comando, estado);
-  } catch (e) {
-    if (first === 'gemini' && env.OPENAI_API_KEY) {
-      try {
-        return await callOpenAI(env, comando, estado);
-      } catch (fallbackErr) {
-        const err = new Error(
-          (e.message || 'Falha na Gemini') + ' (reserva OpenAI: ' + (fallbackErr.message || 'falhou') + ')'
-        );
-        err.status = e.status || 502;
-        throw err;
-      }
-    }
-    throw e;
-  }
+  return first === 'gemini'
+    ? await callGemini(env, comando, estado)
+    : await callOpenAI(env, comando, estado);
 }
 
 export default {
