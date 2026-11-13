@@ -220,7 +220,7 @@ test('a página tem o controle de fidelidade, o aviso de direitos e nunca trata 
   assert.match(html, /Bem livre/);
   assert.match(html, /id="refDireitos"/);
   assert.match(html, /não substitui o original/);
-  assert.match(html, /aps-lyria\.js\?v=455/);
+  assert.match(html, /aps-lyria\.js\?v=456/);
   assert.match(client, /fidelidade/);
   assert.match(client, /direitos/);
   assert.match(client, /FIDELIDADE_LEVEL/);

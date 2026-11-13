@@ -2,6 +2,8 @@
  * APS Lyria — gera música com Google Lyria (Gemini API).
  * A chave fica só no secret GEMINI_API_KEY. Nunca registre o valor.
  */
+import { lyriaAccepted, resolveStyle } from '../../aps-estilos-data.js';
+
 const MAX_BODY = 32 * 1024;
 const MAX_AUDIO = 10 * 1024 * 1024;
 const MAX_DURATION_SEC = 120;
@@ -16,11 +18,7 @@ const ANALYZE_MODEL = 'gemini-3.5-flash-lite';
 const NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova, não a sua gravação original.';
 const REF_NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
 const ALLOWED_HOSTS = new Set(['apsaudio.com.br', 'www.apsaudio.com.br']);
-const STYLES = new Set([
-  'forró', 'forro', 'piseiro', 'sertanejo', 'pagode', 'axé', 'axe', 'arrocha',
-  'mpb', 'gospel', 'samba', 'frevo', 'xote', 'baião', 'baiao', 'rock', 'jazz',
-  'instrumental', 'brega', 'bossa nova', 'coco', 'maracatu'
-]);
+const STYLES = lyriaAccepted();
 const ARTIST_BLOCK = /\b(imite|imitando|clone|clonar|voz do|voz da|voice of|in the style of|no estilo d[oa] cantor|no estilo d[oa] cantora|como o cantor|como a cantora)\b/i;
 const MIME_MAP = {
   'audio/wav': 'audio/wav',
@@ -362,12 +360,15 @@ function parseEstilo(value) {
 
 function readGenerationFields(body) {
   const prompt = cleanText(body?.prompt, MAX_PROMPT);
-  const estilo = parseEstilo(body?.estilo);
+  const estiloRaw = parseEstilo(body?.estilo);
   const letra = cleanText(body?.letra, MAX_LYRICS);
   const modo = parseModo(body?.modo);
   if (modo === null) return { error: 'Modo inválido. Use clip ou completa.' };
-  if (estilo && !STYLES.has(estilo)) {
-    return { error: 'Estilo não reconhecido. Escolha um estilo da lista ou Livre.' };
+  let estilo = estiloRaw;
+  if (estiloRaw) {
+    const hit = resolveStyle(estiloRaw);
+    if (!hit) return { error: 'Estilo não reconhecido. Escolha um estilo da lista ou Livre.' };
+    estilo = hit.prompt;
   }
   return { prompt, estilo, letra, modo };
 }

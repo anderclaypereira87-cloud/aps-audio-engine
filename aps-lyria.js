@@ -1,5 +1,6 @@
 /* APS Audio Engine — APS Maestro, criação de música com IA.
    Aviso obrigatório: nunca apresentar o resultado como gravação original. */
+import { fillEstiloSelect } from './aps-estilos-data.js';
 const PROD_API = 'https://aps-lyria.aps-audio.workers.dev';
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? `${location.protocol}//${location.hostname}:8787`
@@ -482,6 +483,7 @@ async function abrirSeparador() {
 }
 
 function init() {
+  fillEstiloSelect($('estilo'), { includeLivre: true, current: 'livre' });
   $('notice').textContent = NOTICE;
   $('gerar').addEventListener('click', gerar);
   $('baixar').addEventListener('click', baixar);
