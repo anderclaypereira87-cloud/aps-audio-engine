@@ -139,14 +139,16 @@ test('avisos da página e do cliente nunca apresentam o resultado como a gravaç
   assert.match(html, /não edita/i);
   assert.match(html, /música <strong>nova<\/strong>/i);
   assert.match(html, /Plano premium/);
-  assert.match(html, /SynthID/);
+  assert.match(html, /APS Maestro/);
+  assert.doesNotMatch(html, /Google Lyria|SynthID/i);
   assert.match(html, /id="baixar"/);
   assert.match(html, /id="abrirSeparador"/);
   assert.match(html, /id="abrirDaw"/);
   assert.doesNotMatch(html, /editar a sua gravação|gravação editada pela IA da sua música original/i);
   assert.match(REF_NOTICE, /criação nova inspirada/);
   assert.match(REF_NOTICE, /não uma edição do áudio original/);
-  assert.match(NOTICE, /SynthID/);
+  assert.match(NOTICE, /APS Maestro/);
+  assert.match(NOTICE, /não a sua gravação original/);
   assert.match(client, /não a sua gravação editada/);
   assert.match(client, /API_BASE \+ '\/referencia'/);
   assert.match(html, /id="analisarRef"/);

@@ -13,8 +13,8 @@ const PER_IP_HOUR = 5;
 const REF_DAILY = 15;
 const REF_PER_IP_HOUR = 3;
 const ANALYZE_MODEL = 'gemini-3.5-flash-lite';
-const NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID';
-const REF_NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
+const NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova, não a sua gravação original.';
+const REF_NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
 const ALLOWED_HOSTS = new Set(['apsaudio.com.br', 'www.apsaudio.com.br']);
 const STYLES = new Set([
   'forró', 'forro', 'piseiro', 'sertanejo', 'pagode', 'axé', 'axe', 'arrocha',
@@ -336,12 +336,12 @@ function mapGeminiError(status, err) {
   const msg = String(err?.message || err?.status || '');
   const low = msg.toLowerCase();
   if (status === 429 || low.includes('quota') || low.includes('resource_exhausted') || low.includes('billing')) {
-    return { status: 429, error: 'A cota ou o faturamento do Google recusou este pedido. Tente mais tarde.' };
+    return { status: 429, error: 'A cota do serviço de música recusou este pedido. Tente mais tarde.' };
   }
   if (status === 400 && (low.includes('safety') || low.includes('blocked') || low.includes('prohibited'))) {
-    return { status: 400, error: 'O filtro de segurança do Google bloqueou este pedido. Evite imitar artistas reais ou letras protegidas.' };
+    return { status: 400, error: 'O filtro de segurança bloqueou este pedido. Evite imitar artistas reais ou letras protegidas.' };
   }
-  if (status >= 500) return { status: 502, error: 'O serviço do Google está indisponível agora. Tente de novo em instantes.' };
+  if (status >= 500) return { status: 502, error: 'O serviço de música está indisponível agora. Tente de novo em instantes.' };
   return { status: 502, error: 'Não foi possível concluir este pedido agora. Tente novamente.' };
 }
 
