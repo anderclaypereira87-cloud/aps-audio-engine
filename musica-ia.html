@@ -38,6 +38,15 @@ nav a{color:#e7c07b}
 .ref-result dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;color:#d5dce8}
 .ref-result dt{color:#e7c07b;font-weight:700}
 #analisarRef{margin-top:10px}
+.fid-wrap{margin:12px 0 8px}
+.fid-wrap input[type=range]{width:100%;margin:10px 0 6px;accent-color:#dcba78;height:28px}
+.fid-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#d5dce8;font-weight:650}
+.fid-labels span{flex:1;text-align:center;line-height:1.3}
+.fid-labels span:first-child{text-align:left}
+.fid-labels span:last-child{text-align:right;color:#f4d99f}
+#fidelidadeHint{margin:8px 0 0}
+.rights{display:flex;align-items:flex-start;gap:10px;margin:12px 0 4px;color:#ffe1a3;font-size:13px;font-weight:650;line-height:1.4}
+.rights input{width:auto;margin:3px 0 0;accent-color:#dcba78;min-width:20px;min-height:20px}
 </style></head><body><main>
 <div class="brand">APS</div>
 <nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./separador.html">✂ Separador</a></nav>
@@ -55,6 +64,21 @@ nav a{color:#e7c07b}
   </label>
   <p id="refFileInfo" class="ref-info" hidden></p>
   <audio id="refPreview" controls hidden></audio>
+  <div class="fid-wrap" id="fidelityBox">
+    <label class="field" for="fidelidade">Quanto a IA deve seguir a sua gravação
+      <input id="fidelidade" type="range" min="1" max="3" step="1" value="3" aria-valuemin="1" aria-valuemax="3" aria-valuenow="3" aria-label="Fidelidade à gravação">
+    </label>
+    <div class="fid-labels" aria-hidden="true">
+      <span>Bem livre</span>
+      <span>No meio</span>
+      <span>Parecido com o original</span>
+    </div>
+    <p id="fidelidadeHint" class="ref-info">A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é uma música nova, não a sua gravação editada.</p>
+  </div>
+  <label class="rights" for="refDireitos">
+    <input id="refDireitos" type="checkbox">
+    <span>Esta gravação é minha, ou tenho o direito de usá-la. A música gerada é uma criação nova de IA, com marca d'água, e não substitui o original.</span>
+  </label>
   <button id="analisarRef" type="button" class="secondary" disabled>Ouvir e descrever a gravação</button>
   <div id="refResult" class="ref-result" hidden>
     <h2>O que a IA ouviu</h2>
@@ -106,5 +130,5 @@ nav a{color:#e7c07b}
 </section>
 <p class="cost">Clipe ~US$ 0,04 · música completa ~US$ 0,08 · com referência some cerca de US$ 0,002 pela análise · 20 gerações e 15 análises por dia · áudio com marca d'água SynthID do Google. A música criada nunca é a sua gravação editada.</p>
 </main>
-<script type="module" src="./aps-lyria.js?v=454"></script>
+<script type="module" src="./aps-lyria.js?v=455"></script>
 </body></html>
