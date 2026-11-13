@@ -1,12 +1,12 @@
-/* APS Audio Engine — criação de música com Google Lyria.
+/* APS Audio Engine — APS Maestro, criação de música com IA.
    Aviso obrigatório: nunca apresentar o resultado como gravação original. */
 import { fillEstiloSelect } from './aps-estilos-data.js';
 const PROD_API = 'https://aps-lyria.aps-audio.workers.dev';
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? `${location.protocol}//${location.hostname}:8787`
   : PROD_API;
-const NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID';
-const REF_NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
+const NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova, não a sua gravação original.';
+const REF_NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
 const MAX_AUDIO = 10 * 1024 * 1024;
 const MAX_DURATION_SEC = 120;
 
@@ -80,6 +80,8 @@ function setBusy(on) {
   $('analisarRef').disabled = on || !refFile;
   $('limparRef').disabled = on;
   $('refFile').disabled = on;
+  if ($('fidelidade')) $('fidelidade').disabled = on;
+  if ($('refDireitos')) $('refDireitos').disabled = on;
   if (on) {
     $('baixar').disabled = true;
     $('abrirDaw').disabled = true;
@@ -109,6 +111,9 @@ function showDescription(desc) {
     ['Tom ou clima', [desc.tom, desc.clima].filter(Boolean).join(' · ')],
     ['Instrumentos', Array.isArray(desc.instrumentos) ? desc.instrumentos.join(', ') : ''],
     ['Estrutura', desc.estrutura],
+    ['Harmonia', desc.acordes],
+    ['Groove', desc.groove],
+    ['Mixagem', desc.caracterMix],
     ['Resumo', desc.resumo]
   ];
   const dl = $('refDesc');
@@ -177,12 +182,36 @@ function loadRefFile(file) {
   };
 }
 
+const FIDELIDADE_HINTS = {
+  1: 'A IA usa a gravação só como inspiração e pode inventar bastante no arranjo.',
+  2: 'A IA segue o estilo, um andamento próximo e os instrumentos principais, mas pode variar o arranjo.',
+  3: 'A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é uma música nova, não a sua gravação editada.'
+};
+
+const FIDELIDADE_LEVEL = { 1: 'baixa', 2: 'media', 3: 'alta' };
+
+function fidelidadeLevel() {
+  const n = Number($('fidelidade')?.value || 3);
+  return FIDELIDADE_LEVEL[n] || 'alta';
+}
+
+function updateFidelidadeHint() {
+  const el = $('fidelidade');
+  const hint = $('fidelidadeHint');
+  if (!el || !hint) return;
+  const n = Number(el.value || 3);
+  el.setAttribute('aria-valuenow', String(n));
+  hint.textContent = FIDELIDADE_HINTS[n] || FIDELIDADE_HINTS[3];
+}
+
 function formFields() {
   return {
     prompt: $('prompt').value.replace(/\s+/g, ' ').trim(),
     estilo: $('estilo').value,
     letra: $('letra').value.trim(),
-    modo: $('modo').value === 'completa' ? 'completa' : 'clip'
+    modo: $('modo').value === 'completa' ? 'completa' : 'clip',
+    fidelidade: fidelidadeLevel(),
+    direitos: !!$('refDireitos')?.checked
   };
 }
 
@@ -192,16 +221,22 @@ async function analisar() {
     setStatus('Escolha primeiro uma gravação de até 2 minutos.', true);
     return;
   }
+  const fields = formFields();
+  if (!fields.direitos) {
+    setStatus('Para usar uma gravação de referência, confirme que ela é sua ou que você tem o direito de usá-la.', true);
+    return;
+  }
   setBusy(true);
   setStatus('A IA está ouvindo a sua gravação para descrever o estilo…');
   try {
-    const fields = formFields();
     const body = new FormData();
     body.append('audio', refFile, refFile.name || 'referencia.wav');
     body.append('prompt', fields.prompt);
     body.append('estilo', fields.estilo);
     body.append('letra', fields.letra);
     body.append('modo', fields.modo);
+    body.append('fidelidade', fields.fidelidade);
+    body.append('direitos', fields.direitos ? '1' : '0');
     body.append('duracao', String(refDuration || ''));
     body.append('gerar', '0');
     const res = await fetch(API_BASE + '/referencia', { method: 'POST', body });
@@ -263,6 +298,10 @@ async function gerar() {
     setStatus('Escreva o que você quer ouvir, com ritmo, instrumentos e clima.', true);
     return;
   }
+  if (usingRef && !fields.direitos) {
+    setStatus('Para usar uma gravação de referência, confirme que ela é sua ou que você tem o direito de usá-la.', true);
+    return;
+  }
   setBusy(true);
   const wait = fields.modo === 'completa'
     ? 'Criando a música completa… isso pode levar cerca de um minuto.'
@@ -276,7 +315,7 @@ async function gerar() {
       res = await fetch(API_BASE + '/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...fields, referencia: refDesc })
+        body: JSON.stringify({ ...fields, referencia: refDesc, fidelidade: fields.fidelidade, direitos: fields.direitos })
       });
     } else if (refFile) {
       const body = new FormData();
@@ -285,6 +324,8 @@ async function gerar() {
       body.append('estilo', fields.estilo);
       body.append('letra', fields.letra);
       body.append('modo', fields.modo);
+      body.append('fidelidade', fields.fidelidade);
+      body.append('direitos', fields.direitos ? '1' : '0');
       body.append('duracao', String(refDuration || ''));
       body.append('gerar', '1');
       res = await fetch(API_BASE + '/referencia', { method: 'POST', body });
@@ -322,8 +363,8 @@ async function baixar() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(href), 2000);
     setStatus(current.fromRef
-      ? 'Download iniciado. Lembrete: é uma música nova gerada por IA, inspirada na sua gravação, com marca d\'água SynthID.'
-      : 'Download iniciado no aparelho. Lembrete: música gerada por IA, com marca d\'água SynthID.');
+      ? 'Download iniciado. Lembrete: é uma música nova gerada por IA, inspirada na sua gravação, não o áudio original.'
+      : 'Download iniciado no aparelho. Lembrete: música gerada por IA, não a sua gravação original.');
   } catch (e) {
     setStatus(e.message || 'Não foi possível baixar.', true);
   }
@@ -341,7 +382,7 @@ async function abrirDaw() {
     if (!window.indexedDB) throw Error('Este navegador não permite a transferência automática.');
     const blob = await audioBlob();
     const ext = (blob.type || '').includes('wav') ? 'wav' : 'mp3';
-    const suffix = current.fromRef ? ' (IA inspirada)' : ' (IA Lyria)';
+    const suffix = current.fromRef ? ' (APS Maestro IA inspirada)' : ' (APS Maestro IA)';
     const stems = [{
       id: 'other',
       name: current.name + '.' + ext,
@@ -369,7 +410,7 @@ async function abrirDaw() {
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error || Error('Não foi possível salvar a música para abrir no estúdio.'));
     });
-    location.href = './daw.html?modulo=gravacao&importStems=1&v=454';
+    location.href = './daw.html?modulo=gravacao&importStems=1&v=455';
   } catch (e) {
     setStatus('Não foi possível abrir na DAW: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
     transferring = false;
@@ -429,7 +470,7 @@ async function abrirSeparador() {
     if (duration && duration > SEPARATOR_MAX_SECONDS) {
       setStatus('Esta música tem ' + formatDuration(duration) + '. O separador usa no máximo 5 minutos por vez. Abrindo mesmo assim para você escolher o trecho.');
     }
-    location.href = './separador.html?importAudio=1&v=454';
+    location.href = './separador.html?importAudio=1&v=455';
   } catch (e) {
     setStatus('Não foi possível abrir no separador: ' + (e.message || 'tente novamente. Você ainda pode baixar o arquivo.'), true);
     transferring = false;
@@ -451,6 +492,10 @@ function init() {
   $('analisarRef').addEventListener('click', analisar);
   $('limparRef').addEventListener('click', () => clearReference(false));
   $('refFile').addEventListener('change', (ev) => loadRefFile(ev.target.files?.[0] || null));
+  if ($('fidelidade')) {
+    $('fidelidade').addEventListener('input', updateFidelidadeHint);
+    updateFidelidadeHint();
+  }
 }
 
 init();

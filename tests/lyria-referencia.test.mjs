@@ -14,6 +14,8 @@ import {
   normalizeMime,
   sanitizeDesc,
   composeReferenceUserPrompt,
+  parseFidelidade,
+  parseDireitos,
   buildPrompt,
   wavDurationSeconds,
   referenceReady,
@@ -77,7 +79,11 @@ test('sanitizeDesc limpa campos e ignora letra se vier na resposta', () => {
     tom: 'Dó maior',
     clima: 'alegre',
     instrumentos: ['sanfona', 'zabumba', 'triângulo', '', 12],
-    estrutura: 'intro e refrão',
+    estrutura: 'intro 0:00-0:08 e refrão',
+    acordes: 'I-V-vi-IV',
+    groove: 'xote marcado no 2 e no 4',
+    contornoMelodia: 'frases curtas ascendentes',
+    caracterMix: 'sanfona na frente, grave da zabumba presente',
     resumo: 'Forró instrumental com sanfona e zabumba, andamento dançante.',
     eMusica: true,
     letra: 'não deve aparecer',
@@ -86,6 +92,9 @@ test('sanitizeDesc limpa campos e ignora letra se vier na resposta', () => {
   assert.equal(desc.genero, 'Forró pé de serra');
   assert.equal(desc.bpm, 98);
   assert.deepEqual(desc.instrumentos, ['sanfona', 'zabumba', 'triângulo']);
+  assert.equal(desc.acordes, 'I-V-vi-IV');
+  assert.equal(desc.groove, 'xote marcado no 2 e no 4');
+  assert.equal(desc.caracterMix, 'sanfona na frente, grave da zabumba presente');
   assert.equal(desc.eMusica, true);
   assert.equal('letra' in desc, false);
   assert.equal('lyrics' in desc, false);
@@ -130,14 +139,16 @@ test('avisos da página e do cliente nunca apresentam o resultado como a gravaç
   assert.match(html, /não edita/i);
   assert.match(html, /música <strong>nova<\/strong>/i);
   assert.match(html, /Plano premium/);
-  assert.match(html, /SynthID/);
+  assert.match(html, /APS Maestro/);
+  assert.doesNotMatch(html, /Google Lyria|SynthID/i);
   assert.match(html, /id="baixar"/);
   assert.match(html, /id="abrirSeparador"/);
   assert.match(html, /id="abrirDaw"/);
   assert.doesNotMatch(html, /editar a sua gravação|gravação editada pela IA da sua música original/i);
   assert.match(REF_NOTICE, /criação nova inspirada/);
   assert.match(REF_NOTICE, /não uma edição do áudio original/);
-  assert.match(NOTICE, /SynthID/);
+  assert.match(NOTICE, /APS Maestro/);
+  assert.match(NOTICE, /não a sua gravação original/);
   assert.match(client, /não a sua gravação editada/);
   assert.match(client, /API_BASE \+ '\/referencia'/);
   assert.match(html, /id="analisarRef"/);
@@ -150,4 +161,68 @@ test('avisos e limites do cliente coincidem com o servidor', () => {
   assert.match(client, /const MAX_DURATION_SEC = 120/);
   assert.match(html, /até 2 minutos e 10 MB/);
   assert.match(html, /15 análises por dia/);
+});
+
+const DESC = {
+  genero: 'forró',
+  bpm: 100,
+  tom: 'G major',
+  clima: 'festeiro',
+  instrumentos: ['sanfona', 'zabumba'],
+  estrutura: 'intro 0:00-0:08 e refrão 0:08-0:30',
+  acordes: 'I-V-vi-IV',
+  groove: 'xote no 2 e no 4',
+  contornoMelodia: 'frases curtas na sanfona',
+  caracterMix: 'sanfona na frente',
+  resumo: 'Forró pé de serra instrumental, dançante, com sanfona na frente.',
+  eMusica: true
+};
+
+test('parseFidelidade e parseDireitos aceitam os valores da tela', () => {
+  assert.equal(parseFidelidade(3), 'alta');
+  assert.equal(parseFidelidade('parecido com o original'), 'alta');
+  assert.equal(parseFidelidade(2), 'media');
+  assert.equal(parseFidelidade('1'), 'baixa');
+  assert.equal(parseFidelidade('bem livre'), 'baixa');
+  assert.equal(parseFidelidade(''), 'media');
+  assert.equal(parseFidelidade('xyz'), null);
+  assert.equal(parseDireitos(true), true);
+  assert.equal(parseDireitos('1'), true);
+  assert.equal(parseDireitos('on'), true);
+  assert.equal(parseDireitos('0'), false);
+  assert.equal(parseDireitos(''), false);
+});
+
+test('alta fidelidade trava BPM, tom, instrumentação e groove no pedido ao Lyria', () => {
+  const alta = composeReferenceUserPrompt(DESC, 'quero manter a sanfona', 'alta');
+  assert.match(alta, /bem parecida/i);
+  assert.match(alta, /Andamento exato: 100 BPM/);
+  assert.match(alta, /Tom ou escala \(mantenha\): G major/);
+  assert.match(alta, /Instrumentação travada: sanfona, zabumba/);
+  assert.match(alta, /Groove \(siga de perto\): xote no 2 e no 4/);
+  assert.match(alta, /Harmonia: I-V-vi-IV/);
+  assert.match(alta, /não deve ser apresentado como o áudio original/i);
+  assert.match(alta, /Não é uma edição|NÃO é uma edição/i);
+  assert.doesNotMatch(alta, /apenas inspirada nesta descrição de estilo/i);
+  const baixa = composeReferenceUserPrompt(DESC, '', 'baixa');
+  assert.match(baixa, /apenas inspirada nesta descrição de estilo/i);
+  assert.match(baixa, /Andamento aproximado: 100 BPM/);
+  assert.doesNotMatch(baixa, /Andamento exato/);
+  assert.doesNotMatch(baixa, /Instrumentação travada/);
+  const media = composeReferenceUserPrompt(DESC, '', 'media');
+  assert.match(media, /pode variar o arranjo/i);
+  assert.match(media, /Harmonia/);
+});
+
+test('a página tem o controle de fidelidade, o aviso de direitos e nunca trata o resultado como o original', () => {
+  assert.match(html, /id="fidelidade"/);
+  assert.match(html, /Parecido com o original/);
+  assert.match(html, /Bem livre/);
+  assert.match(html, /id="refDireitos"/);
+  assert.match(html, /não substitui o original/);
+  assert.match(html, /aps-lyria\.js\?v=456/);
+  assert.match(client, /fidelidade/);
+  assert.match(client, /direitos/);
+  assert.match(client, /FIDELIDADE_LEVEL/);
+  assert.match(client, /não a sua gravação editada/);
 });

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10141e"><title>APS Arranjo | APS</title>
+<style>
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:#0b1019;color:#f2f2f4;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:520px;margin:auto;padding:24px 16px 70px}
+.brand{color:#8fd0c8;font-weight:800;letter-spacing:.04em;text-align:center;margin-bottom:8px}
+h1{font-size:26px;margin:0 0 12px;color:#b8efe8;text-align:center}
+.notice{background:#142326;border:1px solid #5ea39a;border-radius:14px;padding:12px 14px;color:#c9f3ed;font-weight:700;text-align:center;margin:0 0 16px}
+.hint{color:#c5d5d3;font-size:14px;margin:0 0 18px;text-align:center}
+label.field{display:block;margin:0 0 12px;color:#b8efe8;font-weight:650;font-size:14px}
+input,select,textarea{width:100%;margin-top:6px;border-radius:12px;border:1px solid #3d5560;background:#1a1f2b;color:#f2f2f4;font:16px/1.4 system-ui;padding:12px}
+input[type=file]{padding:10px;background:#151a24}
+textarea{min-height:90px;resize:vertical}
+button{display:block;width:100%;min-height:56px;border-radius:14px;background:#7dcdc4;color:#10201e;font-size:18px;font-weight:800;border:0;margin:16px 0 0;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+button.secondary{background:transparent;color:#8fd0c8;border:1px solid #5ea39a;font-size:15px;min-height:48px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions button{flex:1;min-height:50px;font-size:15px;min-width:140px}
+#abrirDaw{background:#7dba7d}
+#abrirSeparador{background:#6aa7c9}
+.modes{display:grid;gap:8px;margin:0 0 16px}
+.modes label{display:flex;gap:10px;align-items:flex-start;background:#141923;border:1px solid #3d5560;border-radius:12px;padding:10px 12px;color:#d5ece9;font-size:14px;font-weight:600;cursor:pointer}
+.modes input{width:auto;margin:3px 0 0}
+#status{min-height:28px;font-size:14px;color:#c5d5d3;text-align:center;margin:12px 0}
+#status.err{color:#f0a3a3}
+audio{width:100%;margin-top:8px}
+nav{text-align:center;margin-bottom:18px;font-size:14px}
+nav a{color:#8fd0c8}
+.cost{font-size:12px;color:#aeb6c5;text-align:center;margin-top:18px}
+.ref-box{background:#141923;border:1px solid #3d5560;border-radius:16px;padding:14px;margin:0 0 18px}
+.ref-warn{color:#c9f3ed;font-size:14px;margin:0 0 12px;line-height:1.45}
+.ref-info{color:#c5d5d3;font-size:13px;margin:0 0 8px}
+.badge{display:inline-block;background:#1b3d3a;color:#b8efe8;border:1px solid #5ea39a;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.fid-wrap{margin:12px 0 8px}
+.fid-wrap input[type=range]{width:100%;margin:10px 0 6px;accent-color:#7dcdc4;height:28px}
+.fid-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#c5d5d3;font-weight:650}
+.fid-labels span{flex:1;text-align:center;line-height:1.3}
+.fid-labels span:first-child{text-align:left}
+.fid-labels span:last-child{text-align:right;color:#b8efe8}
+#fidelidadeHint{margin:8px 0 0}
+.rights{display:flex;align-items:flex-start;gap:10px;margin:12px 0 4px;color:#c9f3ed;font-size:13px;font-weight:650;line-height:1.4}
+.rights input{width:auto;margin:3px 0 0;accent-color:#7dcdc4;min-width:20px;min-height:20px}
+</style></head><body><main>
+<div class="brand">APS</div>
+<nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./musica-ia.html">APS Maestro</a> · <a href="./separador.html">✂ Separador</a></nav>
+<h1>APS Arranjo</h1>
+<p class="notice" id="notice">APS Arranjo: áudio gerado por IA. É uma criação nova, não a sua gravação original.</p>
+<p class="hint">Envie uma música ou um instrumento. O Arranjo cria uma peça nova, acrescenta acompanhamento ou estende o áudio. O arquivo original permanece como está.</p>
+<section class="ref-box">
+  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px">
+    <strong style="color:#b8efe8">Áudio de partida</strong>
+    <span class="badge">Criação nova</span>
+  </div>
+  <p class="ref-warn">O resultado <strong>não substitui</strong> e <strong>não edita</strong> a sua gravação. Ele entra como um áudio novo, feito por IA, e deve ser ouvido lado a lado com o original.</p>
+  <label class="field">Música ou instrumento (até 8 minutos e 10 MB, de preferência MP3 ou M4A)
+    <input id="audioFile" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/aac,audio/*">
+  </label>
+  <p id="fileInfo" class="hint" hidden style="margin:8px 0 0;text-align:left"></p>
+  <audio id="origPreview" controls hidden></audio>
+  <div class="fid-wrap" id="fidelityBox">
+    <label class="field" for="fidelidade">Quanto a IA deve seguir a sua gravação
+      <input id="fidelidade" type="range" min="1" max="3" step="1" value="3" aria-valuemin="1" aria-valuemax="3" aria-valuenow="3" aria-label="Fidelidade à gravação">
+    </label>
+    <div class="fid-labels" aria-hidden="true">
+      <span>Bem livre</span>
+      <span>No meio</span>
+      <span>Parecido com o original</span>
+    </div>
+    <p id="fidelidadeHint" class="ref-info">A IA tenta seguir de perto o andamento, o tom, os instrumentos e a estrutura. Mesmo assim, o resultado é um áudio novo, não a sua gravação editada.</p>
+  </div>
+  <label class="rights" for="refDireitos">
+    <input id="refDireitos" type="checkbox">
+    <span>Esta gravação é minha, ou tenho o direito de usá-la. O arranjo gerado é uma criação nova de IA e não substitui o original.</span>
+  </label>
+</section>
+<div class="modes" role="radiogroup" aria-label="Tipo de arranjo">
+  <label><input type="radio" name="modo" value="nova" checked> Criar uma música ou um instrumental novo a partir deste áudio</label>
+  <label><input type="radio" name="modo" value="acompanhar"> Acrescentar acompanhamento (ou voz, se houver letra)</label>
+  <label><input type="radio" name="modo" value="instrumento"> Acrescentar um instrumento</label>
+  <label><input type="radio" name="modo" value="estender"> Estender a música (pede letra)</label>
+</div>
+<label class="field" id="tipoField" hidden>Instrumento a acrescentar
+<select id="tipoPista">
+  <option value="guitarra">Guitarra</option>
+  <option value="baixo">Baixo</option>
+  <option value="teclado">Teclado</option>
+  <option value="bateria">Bateria</option>
+  <option value="cordas">Cordas</option>
+  <option value="sopros">Sopros</option>
+  <option value="metais">Metais</option>
+  <option value="percussao">Percussão</option>
+  <option value="sintetizador">Sintetizador</option>
+</select></label>
+<label class="field">O que você quer ouvir
+<textarea id="pedido" maxlength="1024" placeholder="Ex.: acrescente um baixo e uma sanfona, mantenha o clima de forró."></textarea></label>
+<label class="field">Letra (obrigatória só para estender ou para acrescentar voz)
+<textarea id="letra" maxlength="5000" placeholder="Opcional, exceto para estender a música."></textarea></label>
+<button id="gerar" type="button">♫ Criar arranjo</button>
+<p id="status" role="status" aria-live="polite">O limite do estúdio é de 8 arranjos por dia. Cada resultado é um áudio novo, gerado por IA.</p>
+<audio id="player" controls hidden></audio>
+<div class="actions">
+<button id="baixar" type="button" disabled>Baixar o arranjo</button>
+<button id="abrirSeparador" type="button" disabled>Abrir no Separador</button>
+<button id="abrirDaw" type="button" disabled>Abrir no Estúdio (DAW)</button>
+</div>
+<p class="cost">Cada arranjo gasta crédito do estúdio · no máximo 8 por dia · o arquivo baixado, o que abre no Separador e o que abre no Estúdio são criações de IA, nunca a gravação original.</p>
+</main>
+<script src="./aps-share.js?v=270" defer></script>
+<script type="module" src="./aps-arranjo.js?v=370"></script>
+</body></html>

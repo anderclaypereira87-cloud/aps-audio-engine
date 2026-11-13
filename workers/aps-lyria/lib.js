@@ -15,8 +15,8 @@ const PER_IP_HOUR = 5;
 const REF_DAILY = 15;
 const REF_PER_IP_HOUR = 3;
 const ANALYZE_MODEL = 'gemini-3.5-flash-lite';
-const NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID';
-const REF_NOTICE = 'Música gerada por IA (Google Lyria), com marca d\'água SynthID. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
+const NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova, não a sua gravação original.';
+const REF_NOTICE = 'APS Maestro: música gerada por IA. É uma criação nova inspirada na gravação, não uma edição do áudio original.';
 const ALLOWED_HOSTS = new Set(['apsaudio.com.br', 'www.apsaudio.com.br']);
 const STYLES = lyriaAccepted();
 const ARTIST_BLOCK = /\b(imite|imitando|clone|clonar|voz do|voz da|voice of|in the style of|no estilo d[oa] cantor|no estilo d[oa] cantora|como o cantor|como a cantora)\b/i;
@@ -57,10 +57,19 @@ const EXT_MAP = {
 };
 const ANALYZE_PROMPT = [
   'Ouça este áudio. Pode ser uma gravação ou uma exportação de estúdio.',
-  'Descreva só o estilo musical. Não transcreva nem cite letra. Não nomeie nem imite artistas reais.',
+  'Descreva só o estilo musical com o máximo de precisão técnica.',
+  'Não transcreva nem cite letra. Não nomeie nem imite artistas reais.',
+  'Não identifique obras protegidas de terceiros nem recites melodias reconhecíveis de hits.',
   'Responda APENAS um JSON com estas chaves:',
-  '{"genero": string|null, "bpm": number|null, "tom": string|null, "clima": string|null, "instrumentos": string[], "estrutura": string|null, "resumo": string, "eMusica": boolean}',
-  'resumo: 2 a 4 frases com ritmo, instrumentos, clima e arranjo, servindo de pedido para criar uma MÚSICA ORIGINAL NOVA em estilo parecido.',
+  '{"genero": string|null, "bpm": number|null, "tom": string|null, "clima": string|null, "instrumentos": string[], "estrutura": string|null, "acordes": string|null, "groove": string|null, "contornoMelodia": string|null, "caracterMix": string|null, "resumo": string, "eMusica": boolean}',
+  'bpm: andamento numérico o mais exato possível (40 a 300).',
+  'tom: tonalidade e modo no formato musical, por exemplo "G major" ou "D minor".',
+  'estrutura: seções com tempos aproximados, por exemplo "intro 0:00-0:12, verso 0:12-0:40, refrão 0:40-1:05".',
+  'acordes: progressão harmônica se for reconhecível, sem citar obra alheia.',
+  'groove: compassos, síncope, batida e caráter rítmico.',
+  'contornoMelodia: descreva o formato (ascendente, repetitivo, falas curtas), sem transcrever notas ou frases de obras de terceiros.',
+  'caracterMix: graves, agudos, espaço, compressão e caráter da mixagem.',
+  'resumo: 2 a 4 frases com ritmo, instrumentos, clima e arranjo, servindo de pedido para criar uma MÚSICA ORIGINAL NOVA.',
   'Se o áudio não for música, eMusica=false e explique em resumo.'
 ].join('\n');
 
@@ -192,24 +201,78 @@ function sanitizeDesc(raw) {
     tom: cleanText(src.tom, 40) || null,
     clima: cleanText(src.clima, 80) || null,
     instrumentos,
-    estrutura: cleanText(src.estrutura, 200) || null,
+    estrutura: cleanText(src.estrutura, 300) || null,
+    acordes: cleanText(src.acordes, 200) || null,
+    groove: cleanText(src.groove, 200) || null,
+    contornoMelodia: cleanText(src.contornoMelodia, 240) || null,
+    caracterMix: cleanText(src.caracterMix, 200) || null,
     resumo: cleanText(src.resumo, 800),
     eMusica: src.eMusica === false || src.eMusica === 'false' ? false : true
   };
 }
 
-function composeReferenceUserPrompt(desc, userPrompt) {
-  const parts = [
-    'Crie uma música original nova, apenas inspirada nesta descrição de estilo.',
-    'Não é uma edição, remix, restauração nem cópia da gravação de referência.',
-    'Não reproduza letra, melodia ou trechos reconhecíveis da gravação.'
-  ];
+function parseFidelidade(value) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return 'media';
+  if (raw === 'alta' || raw === 'parecido' || raw === 'parecido com o original') return 'alta';
+  if (raw === 'media' || raw === 'média' || raw === 'meio' || raw === 'equilibrado') return 'media';
+  if (raw === 'baixa' || raw === 'livre' || raw === 'bem livre') return 'baixa';
+  const n = Number(raw);
+  if (n === 3 || n === 100) return 'alta';
+  if (n === 2 || n === 50) return 'media';
+  if (n === 1 || n === 0) return 'baixa';
+  return null;
+}
+
+function parseDireitos(value) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  return value === true || value === 1 || raw === '1' || raw === 'true' || raw === 'on' || raw === 'sim';
+}
+
+function composeReferenceUserPrompt(desc, userPrompt, fidelidade) {
+  const omitted = arguments.length < 3 || fidelidade == null || fidelidade === '';
+  const level = omitted ? 'baixa' : (parseFidelidade(fidelidade) || 'baixa');
+  const parts = [];
+  if (level === 'alta') {
+    parts.push(
+      'Crie uma música original nova bem parecida com a descrição desta gravação de referência.',
+      'Trave com o máximo de fidelidade o andamento, o tom, a instrumentação, a estrutura e o groove descritos.',
+      'Não mude o andamento nem o tom. Não acrescente instrumentos que não estavam na referência.',
+      'Ainda assim, isto NÃO é uma edição, remix, restauração nem cópia da gravação, e não deve ser apresentado como o áudio original.',
+      'Não reproduza letra protegida nem a melodia de uma obra de terceiros.'
+    );
+  } else if (level === 'media') {
+    parts.push(
+      'Crie uma música original nova, guiada por esta descrição de referência.',
+      'Siga o mesmo gênero, um andamento próximo, um tom compatível, o clima e os instrumentos principais, mas pode variar o arranjo e inventar detalhes.',
+      'Não é uma edição, remix, restauração nem cópia da gravação de referência.',
+      'Não reproduza letra protegida nem a melodia de uma obra de terceiros.'
+    );
+  } else {
+    parts.push(
+      'Crie uma música original nova, apenas inspirada nesta descrição de estilo.',
+      'Pode inventar bastante no arranjo, desde que mantenha um clima reconhecível.',
+      'Não é uma edição, remix, restauração nem cópia da gravação de referência.',
+      'Não reproduza letra, melodia ou trechos reconhecíveis da gravação.'
+    );
+  }
   if (desc?.genero) parts.push(`Gênero: ${desc.genero}.`);
-  if (desc?.bpm) parts.push(`Andamento aproximado: ${desc.bpm} BPM.`);
-  if (desc?.tom) parts.push(`Tom ou modo: ${desc.tom}.`);
+  if (desc?.bpm) {
+    parts.push(level === 'alta' ? `Andamento exato: ${desc.bpm} BPM.` : `Andamento aproximado: ${desc.bpm} BPM.`);
+  }
+  if (desc?.tom) {
+    parts.push(level === 'alta' ? `Tom ou escala (mantenha): ${desc.tom}.` : `Tom ou modo: ${desc.tom}.`);
+  }
   if (desc?.clima) parts.push(`Clima: ${desc.clima}.`);
-  if (desc?.instrumentos?.length) parts.push(`Instrumentos: ${desc.instrumentos.join(', ')}.`);
+  if (desc?.instrumentos?.length) {
+    const inst = desc.instrumentos.join(', ');
+    parts.push(level === 'alta' ? `Instrumentação travada: ${inst}.` : `Instrumentos: ${inst}.`);
+  }
   if (desc?.estrutura) parts.push(`Estrutura: ${desc.estrutura}.`);
+  if (desc?.acordes && level !== 'baixa') parts.push(`Harmonia: ${desc.acordes}.`);
+  if (desc?.groove) parts.push(level === 'alta' ? `Groove (siga de perto): ${desc.groove}.` : `Groove: ${desc.groove}.`);
+  if (desc?.contornoMelodia && level === 'alta') parts.push(`Caráter melódico (sem copiar obra de terceiros): ${desc.contornoMelodia}.`);
+  if (desc?.caracterMix && level !== 'baixa') parts.push(`Caráter da mixagem: ${desc.caracterMix}.`);
   if (desc?.resumo) parts.push(`Descrição do estilo: ${desc.resumo}`);
   const extra = cleanText(userPrompt, MAX_PROMPT);
   if (extra) parts.push(`Pedido extra de quem criou: ${extra}`);
@@ -271,12 +334,12 @@ function mapGeminiError(status, err) {
   const msg = String(err?.message || err?.status || '');
   const low = msg.toLowerCase();
   if (status === 429 || low.includes('quota') || low.includes('resource_exhausted') || low.includes('billing')) {
-    return { status: 429, error: 'A cota ou o faturamento do Google recusou este pedido. Tente mais tarde.' };
+    return { status: 429, error: 'A cota do serviço de música recusou este pedido. Tente mais tarde.' };
   }
   if (status === 400 && (low.includes('safety') || low.includes('blocked') || low.includes('prohibited'))) {
-    return { status: 400, error: 'O filtro de segurança do Google bloqueou este pedido. Evite imitar artistas reais ou letras protegidas.' };
+    return { status: 400, error: 'O filtro de segurança bloqueou este pedido. Evite imitar artistas reais ou letras protegidas.' };
   }
-  if (status >= 500) return { status: 502, error: 'O serviço do Google está indisponível agora. Tente de novo em instantes.' };
+  if (status >= 500) return { status: 502, error: 'O serviço de música está indisponível agora. Tente de novo em instantes.' };
   return { status: 502, error: 'Não foi possível concluir este pedido agora. Tente novamente.' };
 }
 
@@ -351,6 +414,8 @@ export {
   uint8ToBase64,
   wavDurationSeconds,
   sanitizeDesc,
+  parseFidelidade,
+  parseDireitos,
   composeReferenceUserPrompt,
   buildPrompt,
   pickModel,

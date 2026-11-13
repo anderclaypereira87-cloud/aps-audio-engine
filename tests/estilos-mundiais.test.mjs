@@ -147,7 +147,7 @@ test('musica-ia e a DAW carregam o catálogo único, sem lista paralela', () => 
   const lyria = readFileSync(join(root, 'aps-lyria.js'), 'utf8');
   const estilos = readFileSync(join(root, 'aps-estilos.js'), 'utf8');
   const worker = readFileSync(join(root, 'workers/aps-lyria/lib.js'), 'utf8');
-  assert.match(html, /aps-lyria\.js\?v=455/);
+  assert.match(html, /aps-lyria\.js\?v=456/);
   assert.match(html, /<select id="estilo">/);
   assert.doesNotMatch(html, /<option value="forró">/);
   assert.match(lyria, /fillEstiloSelect/);
