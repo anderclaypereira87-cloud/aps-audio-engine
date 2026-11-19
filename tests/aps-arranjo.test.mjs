@@ -316,7 +316,7 @@ test('página inicial tem o card do APS Arranjo e a interface pede direitos', ()
   assert.match(arranjo, /id="abrirSeparador"/);
   assert.match(arranjo, /Abrir no Separador/);
   assert.match(arranjo, /Abrir no Estúdio \(DAW\)/);
-  assert.match(arranjo, /aps-arranjo\.js\?v=420/);
+  assert.match(arranjo, /aps-arranjo\.js\?v=432/);
   const js = readFileSync(join(root, 'aps-arranjo.js'), 'utf8');
   assert.match(js, /aps-separator-handoff-v1/);
   assert.match(js, /separador\.html\?importAudio=1/);

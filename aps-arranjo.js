@@ -5,8 +5,9 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
   ? `${location.protocol}//${location.hostname}:8788`
   : PROD_API;
 const NOTICE = 'APS Arranjo: áudio gerado por IA. É uma criação nova, não a sua gravação original.';
-const MAX_AUDIO = 10 * 1024 * 1024;
-const MAX_DURATION_SEC = 480;
+const MAX_AUDIO = 10 * 1024 * 1024; // limite do ENVIO à IA (worker); o arquivo local pode ser bem maior
+const MAX_DURATION_SEC = 480;      // limite do envio à IA (8 min): acima disso o app envia um MP3 do início
+const MAX_UPLOAD_BYTES = Math.floor(9.5 * 1024 * 1024);
 const SEPARATOR_MAX_SECONDS = 300;
 const SCRIPT_V = '370';
 
@@ -25,11 +26,13 @@ let objectUrl = null;
 let origPreviewUrl = null;
 let audioFile = null;
 let audioDuration = null;
+let audioUsedSec = null;
 let busy = false;
 let transferring = false;
 let acAn = null;       // análise (tom, andamento, acordes) do áudio original
 let acAnPromise = null;
 let acBuf = null;
+let acBig = null;
 
 function setStatus(msg, isError) {
   const el = $('status');
@@ -138,18 +141,27 @@ function decodeDuration(file) {
   });
 }
 
+let aiNote = '';
 async function fileToMp3(file) {
+  // Prepara o arquivo para a IA: MP3/M4A pequenos vão como estão; o resto (WAV, FLAC, OGG, AIFF, arquivos grandes ou longos)
+  // vira MP3 no aparelho, cortado em no máximo 8 min e ~9,5 MB. Nada é alterado no original.
+  aiNote = '';
   const mime = (file.type || '').toLowerCase();
   const name = (file.name || '').toLowerCase();
-  if (mime.includes('mpeg') || mime.includes('mp3') || name.endsWith('.mp3') || mime.includes('mp4') || name.endsWith('.m4a')) {
-    return file;
-  }
-  if (!window.APSShare?.mp3) throw Error('Este áudio precisa estar em MP3 ou M4A. Converta no aparelho ou use outro arquivo.');
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const buf = await ctx.decodeAudioData(await file.arrayBuffer());
-  try { await ctx.close(); } catch { /* ignore */ }
-  const blob = await window.APSShare.mp3(buf, { kbps: 192 });
-  return new File([blob], (file.name || 'audio').replace(/\.[^.]+$/, '') + '.mp3', { type: 'audio/mpeg' });
+  const isMp3 = mime.includes('mpeg') || mime.includes('mp3') || name.endsWith('.mp3');
+  const isM4a = mime.includes('mp4') || name.endsWith('.m4a');
+  const fits = file.size <= MAX_UPLOAD_BYTES && (!audioDuration || audioDuration <= MAX_DURATION_SEC);
+  if ((isMp3 || isM4a) && fits) return file;
+  if (!window.APSBigAudio) throw Error('O conversor de áudio não carregou. Recarregue a página.');
+  const r = await window.APSBigAudio.toMp3(file, {
+    maxSec: MAX_DURATION_SEC, maxBytes: MAX_UPLOAD_BYTES,
+    onProgress: (p) => setStatus('Convertendo o áudio para MP3 no aparelho… ' + Math.round(p * 100) + '%')
+  });
+  if (r.trimmed) aiNote = 'Seu áudio tem ' + formatDuration(r.totalSec) + '; a IA recebeu o trecho inicial de ' + formatDuration(r.usedSec) + ' em MP3 (' + r.kbps + ' kbps, ' + formatSize(r.bytes) + '). O arquivo original não foi alterado.';
+  else if (!(isMp3 || isM4a)) aiNote = 'Convertido para MP3 (' + r.kbps + ' kbps, ' + formatSize(r.bytes) + ') só para o envio; o original não foi alterado.';
+  else aiNote = 'Reconvertido para MP3 (' + r.kbps + ' kbps, ' + formatSize(r.bytes) + ') para caber no limite de envio.';
+  audioUsedSec = r.usedSec;
+  return new File([r.blob], (file.name || 'audio').replace(/\.[^.]+$/, '') + '.mp3', { type: 'audio/mpeg' });
 }
 
 async function loadFile(file) {
@@ -160,17 +172,14 @@ async function loadFile(file) {
   $('origPreview').removeAttribute('src');
   revokeOrig();
   if (!file) return;
-  if (file.size > MAX_AUDIO) {
-    setStatus('O arquivo é grande demais. Envie um áudio de até 10 MB.', true);
+  if (window.APSBigAudio && file.size > window.APSBigAudio.MAX_FILE) {
+    setStatus('Este arquivo é grande demais para o navegador (limite de 3 GB). Envie um WAV/MP3 menor ou um trecho.', true);
     $('audioFile').value = '';
     return;
   }
-  audioDuration = await decodeDuration(file);
-  if (audioDuration && audioDuration > MAX_DURATION_SEC) {
-    setStatus('O áudio pode ter no máximo 8 minutos.', true);
-    $('audioFile').value = '';
-    return;
-  }
+  audioUsedSec = null;
+  const bi = window.APSBigAudio ? await window.APSBigAudio.info(file) : { kind: 'other' };
+  audioDuration = bi.kind === 'wav' ? bi.duration : await decodeDuration(file);
   audioFile = file;
   startAnalysis(file);
   origPreviewUrl = URL.createObjectURL(file);
@@ -178,7 +187,7 @@ async function loadFile(file) {
   $('origPreview').hidden = false;
   const dur = audioDuration ? ' · ' + formatDuration(audioDuration) : '';
   $('fileInfo').hidden = false;
-  $('fileInfo').textContent = 'Original: ' + (file.name || 'áudio') + ' · ' + formatSize(file.size) + dur + '. Este arquivo não será alterado.';
+  $('fileInfo').textContent = 'Original: ' + (file.name || 'áudio') + ' · ' + formatSize(file.size) + dur + '. Este arquivo não será alterado.' + ((file.size > MAX_UPLOAD_BYTES || (audioDuration && audioDuration > MAX_DURATION_SEC)) ? ' Arquivo grande: o arranjo pelos acordes lê tudo no aparelho; para a IA, o app envia um MP3 de até 8 min (início do áudio).' : '');
   if (isShortRef()) {
     setStatus('Áudio original carregado (' + formatDuration(audioDuration) + '). Para ficar mais parecido com a gravação, envie um trecho de pelo menos 30 segundos. Você já pode criar o arranjo mesmo assim.');
   } else {
@@ -234,6 +243,7 @@ async function gerar() {
     const finalidade = finalidadeForUpload(modo, letra, fidelidade);
     if (audioFile) {
       const encoded = await fileToMp3(audioFile);
+      if (aiNote) setStatus(aiNote + ' Enviando…');
       const form = new FormData();
       form.append('file', encoded, encoded.name);
       form.append('finalidade', finalidade);
@@ -246,7 +256,7 @@ async function gerar() {
     const pedidoFull = (pedido + chordsHint()).slice(0, 1024);
     const body = { modo, pedido: pedidoFull, letra, arquivoId, finalidade, fidelidade, direitos };
     if (modo === 'instrumento') body.tipoPista = $('tipoPista').value;
-    if (modo === 'estender' && audioDuration) body.extendEm = Math.max(8, audioDuration - 2);
+    if (modo === 'estender' && audioDuration) body.extendEm = Math.max(8, Math.min(audioDuration, audioUsedSec || audioDuration) - 2);
     const gen = await fetch(API_BASE + '/gerar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -285,9 +295,26 @@ async function gerar() {
 
 
 // ---- Arranjo pelos acordes: lê tom, andamento e acordes do original (no aparelho) ----
-async function decodeFull(file) {
+const BIG_BYTES = 40 * 1024 * 1024;
+async function decodeFull(file, onProgress) {
+  // arquivos grandes/longos: leitura em blocos, mono, 22,05 kHz (memória pequena). Pequenos: decodificação completa, como antes.
+  if (window.APSBigAudio && (file.size > BIG_BYTES || (audioDuration && audioDuration > 480))) {
+    const r = await window.APSBigAudio.monoForAnalysis(file, { targetSr: 22050, onProgress: (p) => (onProgress || setStatus)('Lendo o áudio no aparelho… ' + Math.round(p * 100) + '%') });
+    acBig = r.info;
+    return r.buffer;
+  }
+  acBig = null;
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  try { return await ctx.decodeAudioData(await file.arrayBuffer()); } finally { try { await ctx.close(); } catch { /* ignore */ } }
+  try { return await ctx.decodeAudioData(await file.arrayBuffer()); }
+  catch (e) {
+    // o navegador não decodifica (ex.: AIFF): tenta a leitura própria em blocos (WAV/AIFF PCM)
+    if (window.APSBigAudio) {
+      const r = await window.APSBigAudio.monoForAnalysis(file, { targetSr: 22050, onProgress: (p) => (onProgress || setStatus)('Lendo o áudio no aparelho… ' + Math.round(p * 100) + '%') });
+      acBig = r.info;
+      return r.buffer;
+    }
+    throw e;
+  } finally { try { await ctx.close(); } catch { /* ignore */ } }
 }
 
 function startAnalysis(file) {
@@ -301,6 +328,7 @@ function startAnalysis(file) {
       acBuf = buf;
       const an = await window.APSArranjoAcordes.analyze(buf, { bpm: Number($('acBpm')?.value) || 0 });
       if (audioFile === mine) acAn = an;
+      if (acBig && audioFile === mine && !busy) setStatus('Áudio grande lido no aparelho e analisado (' + window.APSArranjoAcordes.describe(an) + '). Escolha o arranjo pelos acordes (sem IA) ou crie com IA (a IA recebe um MP3 de até 8 min do início).');
       return an;
     } catch (e) { console.warn('análise de acordes', e); return null; }
   })();
@@ -329,10 +357,11 @@ async function gerarPorAcordes() {
     const inst = $('acInst').value;
     setStatus('Tocando os acordes em ' + A.INSTR[inst] + '…');
     await new Promise((r) => setTimeout(r, 30));
-    const data = A.render(an, inst);
-    const blob = A.wav(data, 44100);
-    const mixData = A.mixWithOriginal(acBuf, data);
-    const mixBlob = A.wav(mixData, acBuf.sampleRate);
+    const rsr = an.duration > 15 * 60 ? 22050 : 44100;
+    const data = A.render(an, inst, { sr: rsr });
+    const blob = A.wav(data, rsr);
+    const mixData = A.mixWithOriginal(acBuf, data, { arrSr: rsr });
+    const mixBlob = A.wav(mixData, rsr);
     revokeUrl();
     objectUrl = URL.createObjectURL(blob);
     current = { blob, url: objectUrl, name: 'Arranjo pelos acordes', mime: 'audio/wav', notice: '', fileName: 'APS-Arranjo-acordes-' + inst, stemName: 'Arranjo pelos acordes · ' + A.INSTR[inst], mixBlob };

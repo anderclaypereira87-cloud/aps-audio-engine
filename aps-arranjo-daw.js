@@ -33,8 +33,15 @@
   }
 
   async function encodeMp3(buf) {
-    if (!window.APSShare?.mp3) throw Error('Não foi possível preparar o áudio da pista.');
-    return window.APSShare.mp3(buf, { kbps: 192 });
+    // MP3 no aparelho, cortado em no máximo 8 min e ~9,5 MB (limite do envio à IA)
+    if (!window.APSBigAudio?.bufferToMp3) {
+      if (!window.APSShare?.mp3) throw Error('Não foi possível preparar o áudio da pista.');
+      return { blob: await window.APSShare.mp3(buf, { kbps: 192 }), usedSec: buf.duration, trimmed: false, kbps: 192 };
+    }
+    return window.APSBigAudio.bufferToMp3(buf, {
+      maxSec: MAX_DURATION_SEC, maxBytes: Math.floor(9.5 * 1024 * 1024),
+      onProgress: (p) => say('Convertendo a pista para MP3 no aparelho… ' + Math.round(p * 100) + '%', 'info')
+    });
   }
 
   async function pollTask(id, tipo) {
@@ -70,10 +77,6 @@
       say('Selecione uma pista com áudio. O original não será alterado.', 'error');
       return;
     }
-    if (track.buf.duration > MAX_DURATION_SEC) {
-      say('A pista pode ter no máximo 8 minutos.', 'error');
-      return;
-    }
     const modo = $('apsArranjoModo')?.value || 'nova';
     const pedido = $('apsArranjoPedido')?.value.trim() || '';
     const letra = $('apsArranjoLetra')?.value.trim() || '';
@@ -92,8 +95,10 @@
     $('apsArranjoGo').disabled = true;
     say('Preparando a pista selecionada e pedindo um arranjo novo…', 'info');
     try {
-      const mp3 = await encodeMp3(track.buf);
+      const enc = await encodeMp3(track.buf);
+      const mp3 = enc.blob;
       if (mp3.size > MAX_AUDIO) throw Error('A pista ficou grande demais depois da conversão.');
+      if (enc.trimmed) say('A pista tem ' + Math.floor(track.buf.duration / 60) + ' min ' + Math.round(track.buf.duration % 60) + ' s; a IA recebe o trecho inicial de ' + Math.floor(enc.usedSec / 60) + ' min ' + Math.round(enc.usedSec % 60) + ' s em MP3 (' + enc.kbps + ' kbps). A pista original não é alterada. Enviando…', 'info');
       const finalidade = (modo === 'acompanhar' || modo === 'instrumento' || modo === 'estender')
         ? 'audio'
         : (letra ? (fidelidade === 'alta' ? 'melodia' : 'referencia') : 'instrumental');
@@ -105,7 +110,7 @@
       if (!up.ok || !upData.ok) throw Error(upData.error || 'Não foi possível enviar a pista.');
       const body = { modo, pedido, letra, arquivoId: upData.arquivoId, finalidade, fidelidade, direitos };
       if (modo === 'instrumento') body.tipoPista = $('apsArranjoTipo')?.value || 'guitarra';
-      if (modo === 'estender') body.extendEm = Math.max(8, track.buf.duration - 2);
+      if (modo === 'estender') body.extendEm = Math.max(8, Math.min(track.buf.duration, enc.usedSec || track.buf.duration) - 2);
       const gen = await fetch(API_BASE + '/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
