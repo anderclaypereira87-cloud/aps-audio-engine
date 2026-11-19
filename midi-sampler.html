@@ -59,11 +59,11 @@ footer{color:#7f8fa0;font-size:12px;text-align:center;padding:20px 8px 40px}
 </section>
 
 <section class="panel"><h2>5 · Reverb por convolução</h2>
-<div class="grid"><label>Ambiente<select id="rv"><option value="off">Sem reverb</option><option value="estudio">Estúdio (curto)</option><option value="sala">Sala média</option><option value="placa">Placa (brilhante)</option><option value="hall">Hall</option><option value="igreja">Igreja (longo)</option><option value="user">Meu IR (arquivo WAV)…</option></select></label>
-<label>Quantidade: <b id="wetV">25%</b><input id="wet" type="range" min="0" max="100" value="25"></label><label id="irWrap" hidden>Arquivo de IR<input id="fIR" type="file" accept="audio/*,.wav,.aif,.aiff,.flac" ></label></div></section>
+<div class="grid"><label>Ambiente<select id="rv"><option value="off">Sem reverb</option><option value="estudio">Estúdio (curto)</option><option value="sala">Sala média</option><option value="placa">Placa (brilhante)</option><option value="hall">Hall</option><option value="igreja">Igreja (longo)</option><option value="cab">🎸 AmpS (Baixo)…</option><option value="user">AmpS (seu arquivo)…</option></select></label>
+<label>Quantidade: <b id="wetV">25%</b><input id="wet" type="range" min="0" max="100" value="25"></label><div id="cabRow" class="grid" hidden style="grid-column:1/-1"><label>Marca<select id="cabBrand"></select></label><label>Modelo<select id="cabModel"></select></label><label>Microfone / captação<select id="cabIr"></select></label></div><label id="irWrap" hidden>Arquivo do AmpS (seu arquivo) · WAV/MP3<input id="fIR" type="file" accept="audio/*,.wav,.aif,.aiff,.flac" ></label></div></section>
 
 <section class="panel"><div class="row"><button id="play" class="primary" disabled>▶ Ouvir</button><button id="stop" disabled>■ Parar</button><button id="dlMidi" disabled>⬇ Baixar MIDI</button><button id="dlWav" disabled>⬇ Baixar áudio (WAV)</button><button id="toDaw" disabled>➜ Abrir no Estúdio (DAW)</button></div><p class="sub" id="outInfo"></p></section>
 </main>
 <footer>APS Audio Engine · MIDI e Sampler · Transcrição: Basic Pitch/Spotify (Apache 2.0) e YIN · Timbres: FluidR3_GM (CC BY 3.0) e kits MMSTUDIO do próprio usuário</footer>
-<script src="./aps-clean.js?v=250"></script><script src="./aps-vocal.js?v=370"></script><script src="./aps-instrument.js?v=370"></script><script src="./aps-transcribe.js?v=411"></script><script src="./aps-midi.js?v=431"></script><script src="./midi-sampler.js?v=431"></script>
+<script src="./aps-clean.js?v=250"></script><script src="./aps-vocal.js?v=370"></script><script src="./aps-instrument.js?v=370"></script><script src="./aps-transcribe.js?v=411"></script><script src="./aps-midi.js?v=433"></script><script src="./midi-sampler.js?v=433"></script>
 </body></html>
