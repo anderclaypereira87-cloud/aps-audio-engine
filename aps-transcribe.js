@@ -70,13 +70,13 @@ function splitDur(pos,len,unit,beatU){// pos/len em ticks (1 tick = 1/grid semí
  const out=[];while(len>0){let ok=null;for(const d of DUR){const L=d[0]*unit;if(L>len)continue;// não cruza o tempo para figuras curtas com ponto
    if(L<4*unit*beatU&&(pos%(4*unit*beatU))+L>4*unit*beatU&&d[2])continue;ok=d;break;}if(!ok){ok=[1,'16',0];}
   const L=Math.max(1,ok[0]*unit);out.push({d:ok[1],dots:ok[2],len:L,pos});pos+=L;len-=L;}return out;}
-function layout(qn,{grid=4,num=4,den=4,mode='poly'}){// devolve compassos com eventos {pos,len,notes:[ids],midis,rest,tieNext}
+function layout(qn,{grid=4,num=4,den=4,mode='poly',minM=1}){// devolve compassos com eventos {pos,len,notes:[ids],midis,rest,tieNext}
  const unit=grid/4;// ticks por semicolcheia (grid=4 -> 1, grid=2 -> .5)
  const T=Math.round(num*(4/den)*grid);
  // agrupa acordes: notas com mesmo início; duração do grupo = mediana, sem sobrepor próximo grupo
  const groups=[];for(const n of qn){let g=groups.at(-1);if(g&&g.qs===n.qs)g.ns.push(n);else groups.push({qs:n.qs,ns:[n]});}
  for(let i=0;i<groups.length;i++){const g=groups[i],nx=groups[i+1];let e=Math.max(...g.ns.map(n=>n.qe));if(mode==='drums')e=g.qs+Math.max(1,Math.round(grid/2));if(nx&&e>nx.qs)e=nx.qs;g.qe=Math.max(g.qs+1,e);}
- const last=groups.length?Math.max(...groups.map(g=>g.qe)):T,nm=Math.max(1,Math.ceil(last/T)),meas=[];
+ const last=groups.length?Math.max(...groups.map(g=>g.qe)):T,nm=Math.max(1,minM,Math.ceil(last/T)),meas=[];
  for(let m=0;m<nm;m++)meas.push([]);
  const push=(a,b,g)=>{// [a,b) possivelmente cruzando compassos
   while(a<b){const m=Math.floor(a/T),end=Math.min(b,(m+1)*T),pos=a-m*T;const segs=unit>=1?splitDur(pos,end-a,unit,1):splitDurG(pos,end-a,grid);for(const s of segs)meas[m].push({pos:s.pos,len:s.len,d:s.d,dots:s.dots,g,rest:!g});if(g){const evs=meas[m];}a=end;}};
@@ -88,6 +88,13 @@ function layout(qn,{grid=4,num=4,den=4,mode='poly'}){// devolve compassos com ev
  return{measures:meas,T};}
 function splitDurG(pos,len,grid){// grid 1 ou 2 (semínima/colcheia): ticks maiores
  const per16=4/grid;const out=[];let p=pos*per16,l=len*per16;for(const s of splitDur(p,l,1,1))out.push({pos:s.pos/per16,len:s.len/per16,d:s.d,dots:s.dots});return out;}
+// ---------- piano: divisão entre mão direita (clave de sol) e esquerda (clave de fá) ----------
+const SPLIT_MIDI=60;// Dó central
+function splitHands(q){const lowest=new Map();for(const n of q)lowest.set(n.qs,Math.min(lowest.get(n.qs)??999,n.midi));
+ const rh=[],lh=[];for(const n of q){const g=lowest.get(n.qs);// acorde inteiro na direita se a nota mais grave ainda é aguda (>= Sol3); senão cada nota vai para a mão do seu registro
+  (n.midi>=SPLIT_MIDI||(g>=55&&n.midi>=55)?rh:lh).push(n);}return{rh,lh};}
+// ---------- bateria: mãos (hastes para cima) e pés (haste para baixo) ----------
+function splitDrums(q){return{hands:q.filter(n=>n.piece!=='kick'),feet:q.filter(n=>n.piece==='kick')};}
 // ---------- grafia ----------
 function spell(midi,fifths){const flats=fifths<0,nm=(flats?FL:SH)[((midi%12)+12)%12],oct=Math.floor(midi/12)-1;return{step:nm[0],alter:nm[1]==='#'?1:nm[1]==='b'?-1:0,oct,vf:nm[0].toLowerCase()+(nm[1]||'')+'/'+oct,acc:nm[1]||''};}
 function keySigAlter(step,fifths){const sh='FCGDAEB',fl='BEADGCF';if(fifths>0)return sh.slice(0,fifths).includes(step)?1:0;if(fifths<0)return fl.slice(0,-fifths).includes(step)?-1:0;return 0;}
@@ -97,26 +104,46 @@ function tabPositions(midis,tuning,prev=3){// devolve [{str,fret}] (str 1 = mais
  for(const m of ms){let best=null;for(let s=0;s<S;s++){if(used.has(s))continue;const f=m-tuning[s];if(f<0||f>19)continue;const c=Math.abs(f-prev)+(f===0?-.5:0)+(f>12?3:0);if(!best||c<best.c)best={s,f,c};}
   if(best){used.add(best.s);res.push({str:S-best.s,fret:best.f,midi:m});}}return res;}
 // ---------- bateria ----------
-const DRUM={kick:{vf:'f/4',x:false,midi:36,step:'F',oct:4},snare:{vf:'c/5',x:false,midi:38,step:'C',oct:5},hat:{vf:'g/5/x2',x:true,midi:42,step:'G',oct:5}};
-function drumClassify(x,sr,onsets){const N=1024,out=[];const bandE=(t,f0,f1)=>{const a=Math.max(0,Math.floor(t*sr)),L=Math.min(N,x.length-a);if(L<64)return 0;// Goertzel aproximado por bandas via DFT esparsa
-  let e=0,c=0;for(let f=f0;f<f1;f*=1.25){let re=0,im=0;const w=2*Math.PI*f/sr;for(let i=0;i<L;i++){const v=x[a+i]*(.5-.5*Math.cos(2*Math.PI*i/L));re+=v*Math.cos(w*i);im-=v*Math.sin(w*i);}e+=re*re+im*im;c++;}return e/c;};
- const feats=onsets.map(t=>({t,lo:bandE(t,40,130),mid:bandE(t,160,1200),hi:bandE(t,5000,11000)}));
- const pk=k=>{const v=feats.map(f=>f[k]).sort((a,b)=>a-b);return v[Math.floor(v.length*.9)]||1e-12;};const L=pk('lo'),M=pk('mid'),H=pk('hi');
- for(const f of feats){const pcs=[];if(f.lo>L*.25&&f.lo/L>f.mid/M*.8)pcs.push('kick');if(f.mid>M*.3&&f.mid/M>f.lo/L*.6)pcs.push('snare');if(f.hi>H*.15&&!pcs.includes('snare'))pcs.push('hat');if(!pcs.length)pcs.push(f.hi/H>f.mid/M?'hat':'snare');for(const pc of pcs)out.push({start:f.t,end:f.t+.1,piece:pc,vel:.8,drum:true});}return out;}
+// Notação padrão de bateria (clave de percussão): bumbo = 1º espaço (F4), caixa = 3º espaço (C5), tons em E5/D5/A4, chimbal/pratos = X
+const DRUM={kick:{vf:'f/4',x:false,midi:36,step:'F',oct:4,name:'bumbo',foot:true},snare:{vf:'c/5',x:false,midi:38,step:'C',oct:5,name:'caixa'},hat:{vf:'g/5/x2',x:true,midi:42,step:'G',oct:5,name:'chimbal'},
+ ohat:{vf:'g/5/x2',x:true,midi:46,step:'G',oct:5,name:'chimbal aberto',open:true},ride:{vf:'f/5/x2',x:true,midi:51,step:'F',oct:5,name:'condução (ride)'},crash:{vf:'a/5/x2',x:true,midi:49,step:'A',oct:5,name:'prato de ataque (crash)'},
+ tomh:{vf:'e/5',x:false,midi:50,step:'E',oct:5,name:'tom agudo'},tomm:{vf:'d/5',x:false,midi:47,step:'D',oct:5,name:'tom médio'},tomf:{vf:'a/4',x:false,midi:41,step:'A',oct:4,name:'surdo (tom de chão)'}};
+const DRUM_ORDER=['kick','snare','hat','ohat','ride','crash','tomh','tomm','tomf'];
+function drumClassify(x,sr,onsets){const N=1024,out=[];
+ const band=(t,f0,f1,N2=N)=>{const a=Math.max(0,Math.floor(t*sr)),L=Math.min(N2,x.length-a);if(L<64)return 0;let e=0,c=0;for(let f=f0;f<f1;f*=1.25){let re=0,im=0;const w=2*Math.PI*f/sr;for(let i=0;i<L;i++){const v=x[a+i]*(.5-.5*Math.cos(2*Math.PI*i/L));re+=v*Math.cos(w*i);im-=v*Math.sin(w*i);}e+=re*re+im*im;c++;}return e/c;};
+ const feats=onsets.map(t=>({t,lo:band(t,40,130),mid:band(t,160,1200),hi:band(t,5000,11000),tl:band(t,90,200),tm:band(t,200,330),th:band(t,330,520),nz:band(t,2000,4500),late:band(t+.22,5000,11000,2048),now2:band(t,5000,11000,2048)}));
+ const pk=k=>{const v=feats.map(f=>f[k]).sort((a,b)=>a-b);return v[Math.floor(v.length*.9)]||1e-12;};const L=pk('lo'),M=pk('mid'),H=pk('hi'),NZ=pk('nz');
+ for(const f of feats){const pcs=[];const lo=f.lo/L,mid=f.mid/M,hi=f.hi/H,nz=f.nz/NZ;
+  const sustain=f.now2>0?f.late/f.now2:0; // prato: o brilho continua soando 220 ms depois
+  const tonal=nz<.35&&mid>.3; // tom: energia concentrada nos graves/médios, pouco ruído
+  if(hi>.15&&sustain>.3){pcs.push(hi>.9&&sustain>.55?'crash':'ride');}
+  if(lo>.25&&lo>mid*.8)pcs.push('kick');
+  if(tonal&&!(lo>.25&&lo>mid*.8)){const tot=f.tl+f.tm+f.th||1e-12,fl=f.tl/tot,fm=f.tm/tot;pcs.push(fl>.5?'tomf':fm>.4?'tomm':'tomh');}
+  else if(mid>.3&&mid>lo*.6&&nz>=.35)pcs.push('snare');
+  if(hi>(pcs.includes('kick')?.05:.15)&&!pcs.includes('snare')&&!pcs.includes('crash')&&!pcs.includes('ride')&&sustain<=.3)pcs.push('hat');
+  if(!pcs.length)pcs.push(hi>mid?'hat':'snare');
+  for(const pc of pcs)out.push({start:f.t,end:f.t+.1,piece:pc,vel:.8,drum:true});}
+ return out;}
 // ---------- MusicXML ----------
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const TYPE={w:'whole',h:'half',q:'quarter','8':'eighth','16':'16th'};
 function musicXML(score){// score:{title,bpm,num,den,grid,fifths,parts:[{name,ins,lay,chordsAt}]}
  const div=score.grid;let x='<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n<score-partwise version="3.1"><work><work-title>'+esc(score.title)+'</work-title></work><identification><creator type="composer">'+esc(score.composer||'')+'</creator><encoding><software>APS Audio Engine — criado por Anderclay Pereira Silva</software></encoding></identification><part-list>';
  score.parts.forEach((p,i)=>{x+='<score-part id="P'+(i+1)+'"><part-name>'+esc(p.name)+'</part-name>'+(p.ins.mode==='drums'?'':'<midi-instrument id="P'+(i+1)+'-I1"><midi-program>'+(p.ins.prog+1)+'</midi-program></midi-instrument>')+'</score-part>';});x+='</part-list>';
- score.parts.forEach((p,i)=>{x+='<part id="P'+(i+1)+'">';const dr=p.ins.mode==='drums';
-  p.lay.measures.forEach((evs,m)=>{x+='<measure number="'+(m+1)+'">';if(!m){x+='<attributes><divisions>'+div+'</divisions><key><fifths>'+(dr?0:score.fifths)+'</fifths></key><time><beats>'+score.num+'</beats><beat-type>'+score.den+'</beat-type></time><clef>'+(dr?'<sign>percussion</sign>':p.ins.clef==='bass'?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>'+(p.ins.oct8vb?'<clef-octave-change>-1</clef-octave-change>':''))+'</clef>'+(p.ins.wr?'<transpose><diatonic>-7</diatonic><chromatic>-12</chromatic><octave-change>-1</octave-change></transpose>':'')+'</attributes><direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>'+score.bpm+'</per-minute></metronome></direction-type><sound tempo="'+score.bpm+'"/></direction>';}
+ score.parts.forEach((p,i)=>{x+='<part id="P'+(i+1)+'">';const dr=p.ins.mode==='drums',sp=!!p.layR;
+  // faixas (vozes) da parte: piano = 2 pautas; bateria = mãos (haste ↑) e pés (haste ↓) na mesma pauta
+  const lanes=sp?[{lay:p.layR,staff:1,voice:1},{lay:p.layL,staff:2,voice:2}]:dr&&p.layH?[{lay:p.layH,voice:1,stem:'up'},{lay:p.layF,voice:2,stem:'down'}]:[{lay:p.lay,voice:1}];
+  const nM=Math.max(...lanes.map(l=>l.lay.measures.length)),Tm=score.num*(4/score.den)*score.grid;
+  for(let m=0;m<nM;m++){x+='<measure number="'+(m+1)+'">';if(!m){x+='<attributes><divisions>'+div+'</divisions><key><fifths>'+(dr?0:score.fifths)+'</fifths></key><time><beats>'+score.num+'</beats><beat-type>'+score.den+'</beat-type></time>'+(sp?'<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef>':'<clef>'+(dr?'<sign>percussion</sign><line>2</line>':p.ins.clef==='bass'?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>'+(p.ins.oct8vb?'<clef-octave-change>-1</clef-octave-change>':''))+'</clef>')+(p.ins.wr?'<transpose><diatonic>-7</diatonic><chromatic>-12</chromatic><octave-change>-1</octave-change></transpose>':'')+'</attributes><direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>'+score.bpm+'</per-minute></metronome></direction-type><sound tempo="'+score.bpm+'"/></direction>';}
    for(const c of (p.chordsAt?.[m]||[]))x+='<harmony><root><root-step>'+c.step+'</root-step>'+(c.alter?'<root-alter>'+c.alter+'</root-alter>':'')+'</root><kind text="'+esc(c.text)+'">'+c.kind+'</kind><offset>'+c.pos+'</offset></harmony>';
-   for(const e of evs){const tie=(e.tied?'<tie type="stop"/>':'')+(e.tie?'<tie type="start"/>':''),ntie=(e.tied?'<tied type="stop"/>':'')+(e.tie?'<tied type="start"/>':''),ty='<type>'+TYPE[e.d]+'</type>'+(e.dots?'<dot/>':'');
-    if(e.rest){x+='<note><rest/><duration>'+e.len+'</duration>'+ty+'</note>';continue;}
-    const ns=dr?[...new Set(e.g.ns.map(n=>n.piece||'snare'))].map(pc=>({dp:DRUM[pc]})):e.g.ns.map(n=>({sp:spell(n.midi+score.semi+p.ins.wr,score.fifths)}));
-    ns.forEach((n,k)=>{x+='<note>'+(k?'<chord/>':'');if(n.dp)x+='<unpitched><display-step>'+n.dp.step+'</display-step><display-octave>'+n.dp.oct+'</display-octave></unpitched>';else x+='<pitch><step>'+n.sp.step+'</step>'+(n.sp.alter?'<alter>'+n.sp.alter+'</alter>':'')+'<octave>'+n.sp.oct+'</octave></pitch>';x+='<duration>'+e.len+'</duration>'+tie+ty+(n.dp?.x?'<notehead>x</notehead>':'')+(ntie?'<notations>'+ntie+'</notations>':'')+'</note>';});}
-   x+='</measure>';});x+='</part>';});return x+'</score-partwise>';}
+   lanes.forEach((ln,li)=>{if(li)x+='<backup><duration>'+Tm+'</duration></backup>';const evs=ln.lay.measures[m]||[];
+    const vs='<voice>'+ln.voice+'</voice>',stf=ln.staff?'<staff>'+ln.staff+'</staff>':'';
+    for(const e of evs){const tie=(e.tied?'<tie type="stop"/>':'')+(e.tie?'<tie type="start"/>':''),ntie=(e.tied?'<tied type="stop"/>':'')+(e.tie?'<tied type="start"/>':''),ty='<type>'+TYPE[e.d]+'</type>'+(e.dots?'<dot/>':'');
+     if(e.rest){x+='<note><rest/><duration>'+e.len+'</duration>'+vs+ty+stf+'</note>';continue;}
+     const ns=dr?[...new Set(e.g.ns.map(n=>n.piece||'snare'))].map(pc=>({dp:DRUM[pc]||DRUM.snare})):e.g.ns.map(n=>({sp:spell(n.midi+score.semi+p.ins.wr,score.fifths)}));
+     ns.forEach((n,k)=>{x+='<note>'+(k?'<chord/>':'');if(n.dp)x+='<unpitched><display-step>'+n.dp.step+'</display-step><display-octave>'+n.dp.oct+'</display-octave></unpitched>';else x+='<pitch><step>'+n.sp.step+'</step>'+(n.sp.alter?'<alter>'+n.sp.alter+'</alter>':'')+'<octave>'+n.sp.oct+'</octave></pitch>';x+='<duration>'+e.len+'</duration>'+tie+vs+ty+(ln.stem?'<stem>'+ln.stem+'</stem>':'')+(n.dp?.x?'<notehead>x</notehead>':'')+stf+(ntie?'<notations>'+ntie+'</notations>':'')+'</note>';});}});
+   x+='</measure>';}x+='</part>';});
+ return x+'</score-partwise>';}
 // ---------- MIDI (SMF tipo 1) ----------
 function vlq(n){const b=[n&127];while(n>>=7)b.unshift((n&127)|128);return b;}
 function midiFile(score){const PPQ=480,tpq=PPQ/score.grid,trk=[];const str=s=>[...new TextEncoder().encode(s)];
@@ -126,5 +153,5 @@ function midiFile(score){const PPQ=480,tpq=PPQ/score.grid,trk=[];const str=s=>[.
  const out=[77,84,104,100,0,0,0,6,0,1,0,trk.length,PPQ>>8,PPQ&255];for(const t of trk)out.push(77,84,114,107,t.length>>>24&255,t.length>>16&255,t.length>>8&255,t.length&255,...t);return new Uint8Array(out);}
 // ---------- métricas (para testes) ----------
 function f1(ref,est,{tol=.05}={}){const used=new Set();let tp=0;for(const r of ref){let bi=-1,bd=1e9;est.forEach((e,i)=>{if(used.has(i)||e.midi!==r.midi)return;const d=Math.abs(e.start-r.start);if(d<=tol&&d<bd){bd=d;bi=i;}});if(bi>=0){used.add(bi);tp++;}}const p=tp/Math.max(1,est.length),r=tp/Math.max(1,ref.length);return{p,r,f:2*p*r/Math.max(1e-9,p+r),tp,nRef:ref.length,nEst:est.length};}
-root.APSTranscribe={INSTR,onsetEnv,onsetEnvFromNotes,tempo,niceBpm,key,keyName,fifthsFor,cleanup,drumClassify,quantize,layout,spell,keySigAlter,tabPositions,DRUM,musicXML,midiFile,f1,median,SH,FL};
+root.APSTranscribe={INSTR,onsetEnv,onsetEnvFromNotes,tempo,niceBpm,key,keyName,fifthsFor,cleanup,drumClassify,quantize,layout,spell,keySigAlter,tabPositions,DRUM,DRUM_ORDER,splitHands,splitDrums,musicXML,midiFile,f1,median,SH,FL};
 })(typeof window!=='undefined'?window:globalThis);
