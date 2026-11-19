@@ -81,30 +81,42 @@ const GM=[['acoustic_grand_piano','Piano de cauda','pluck'],['electric_piano_1',
 const FONTS=new Map();
 async function loadFont(id,ac,base='./vendor/soundfonts/FluidR3_GM/'){let f=FONTS.get(id);if(!f){const r=await fetch(base+id+'.json');if(!r.ok)throw Error('Timbre não encontrado: '+id);f={json:await r.json(),raw:new Map(),dec:new Map()};FONTS.set(id,f);}
  const roots=Object.keys(f.json.notes).map(Number);return{roots,get:async(root)=>{if(!f.dec.has(root)){const bin=atob(f.json.notes[root]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);f.dec.set(root,u.buffer);}return f.dec.get(root);}};}
-const DRUMMAP={36:['kick'],35:['kick'],37:['rim'],38:['snare'],40:['snare'],42:['hat'],44:['hat'],46:['open','hat'],49:['crash'],57:['crash'],51:['ride'],59:['ride'],55:['splash'],41:['floor'],43:['floor'],45:['tom2'],47:['tom2'],48:['tom1'],50:['tom1']};
-const PIECE_NOTE={kick:36,rim:37,snare:38,hat:42,open:46,crash:49,ride:51,splash:55,floor:43,tom2:47,tom1:50};
+const DRUMMAP={36:['kick'],35:['kick'],37:['rim'],38:['snare'],40:['snare'],42:['hat'],44:['pedal','hat'],46:['open','hat'],49:['crash'],57:['crash'],51:['ride'],53:['ride'],59:['ride'],55:['splash'],41:['floor'],43:['floor'],45:['tom2'],47:['tom2'],48:['tom1'],50:['tom1']};
+const PIECE_NOTE={kick:36,rim:37,snare:38,hat:42,pedal:44,open:46,crash:49,ride:51,splash:55,floor:43,tom2:47,tom1:50};
 const dec=async(ac,ab)=>ac.decodeAudioData(ab.slice(0));
+function kitPieces(kits,id){let K=kits[id];if(id==='combo'&&kits['aps-acustico']&&kits['aps-studio'])K={pieces:{...kits['aps-studio'].pieces,...kits['aps-acustico'].pieces}};if(!K)return null;const pieces={};for(const[p0,arr0]of Object.entries(K.pieces)){if(p0==='hat'){const pd=arr0.filter(a=>/p[ée]\b/i.test(a.label||'')),cl=arr0.filter(a=>!pd.includes(a));if(pd.length)pieces.pedal=pd;pieces.hat=cl.length?cl:arr0;}else pieces[p0]=arr0;}return pieces;}
 class Sampler{// um instrumento carregado para um AudioContext (real ou offline)
  constructor(ac,dest){this.ac=ac;this.dest=dest;this.inst=null;this.bufs=new Map();}
  async load(inst,needed=null){const ac=this.ac;this.inst=inst;this.bufs=new Map();
   if(inst.kind==='gm'){const f=await loadFont(inst.id,ac);this.font=f;const want=new Set((needed||f.roots).map(m=>f.roots.reduce((a,b)=>Math.abs(b-m)<Math.abs(a-m)?b:a)));for(const r of want){const db=await dec(ac,await f.get(r)),x=db.getChannelData(0);let pk=0;for(let i=0;i<Math.min(x.length,8000);i++)pk=Math.max(pk,Math.abs(x[i]));let k=0;while(k<x.length&&Math.abs(x[k])<pk*.02)k++;db.__lead=Math.max(0,(k-8)/db.sampleRate);this.bufs.set(r,db);}}
-  else if(inst.kind==='drums'){const kits=await (await fetch('./kits/kits.json')).json();const K=kits[inst.kit];if(!K)throw Error('Kit não encontrado.');this.kit={};for(const[p,arr]of Object.entries(K.pieces)){this.kit[p]=[];for(const a of arr){try{const r=await fetch('./'+a.file);const db=await dec(ac,await r.arrayBuffer());const x=db.getChannelData(0);let pk=0;for(let i=0;i<Math.min(x.length,20000);i++)pk=Math.max(pk,Math.abs(x[i]));let k=0;while(k<x.length&&Math.abs(x[k])<pk*.03)k++;db.__lead=Math.max(0,(k-4)/db.sampleRate);this.kit[p].push(db);}catch{}}}}
+  else if(inst.kind==='drums'){const kits=await (await fetch('./kits/kits.json')).json();const pieces=kitPieces(kits,inst.kit);if(!pieces)throw Error('Kit não encontrado.');this.kit={};this.labels={};for(const[p,arr]of Object.entries(pieces)){if(inst.piece&&inst.piece!==p)continue;this.kit[p]=[];this.labels[p]=[];arr.forEach((a,ai)=>{if(inst.sampleIdx!=null&&inst.sampleIdx>=0&&inst.piece===p&&ai!==inst.sampleIdx)return;this.labels[p].push(a.label||a.file);});for(const[ai,a]of arr.entries()){if(inst.sampleIdx!=null&&inst.sampleIdx>=0&&inst.piece===p&&ai!==inst.sampleIdx)continue;try{const r=await fetch('./'+a.file);const db=await dec(ac,await r.arrayBuffer());const x=db.getChannelData(0);let pk=0;for(let i=0;i<Math.min(x.length,20000);i++)pk=Math.max(pk,Math.abs(x[i]));let k=0;while(k<x.length&&Math.abs(x[k])<pk*.03)k++;db.__lead=Math.max(0,(k-4)/db.sampleRate);this.kit[p].push(db);}catch{}}}}
   else if(inst.kind==='regions'){for(const r of inst.regions){if(r.audio&&!r.buf)r.buf=await dec(ac,r.audio);this.bufs.set(r,r.buf);}}
   return this;}
  // toca uma nota: n={midi,vel(0..1),start,dur}
  play(n,at=n.start){const ac=this.ac,inst=this.inst,v=Math.max(.05,Math.min(1,n.vel??.8)),g=ac.createGain(),dest=this.dest;g.connect(dest);
   const shape=(s,len,rel,kind,base,vel)=>{};void shape;
-  if(inst.kind==='gm'){const f=this.font,m=n.midi+(inst.transpose||0),r=f.roots.reduce((a,b)=>Math.abs(b-m)<Math.abs(a-m)?b:a),b=this.bufs.get(r)||[...this.bufs.values()][0],s=ac.createBufferSource(),rate=Math.pow(2,(m-r)/12),d=Math.max(.05,n.dur),pluck=inst.style==='pluck',rel=pluck?.35:.12;
+  if(inst.kind==='gm'){const f=this.font,m=n.midi+(inst.transpose||0),r=f.roots.reduce((a,b)=>Math.abs(b-m)<Math.abs(a-m)?b:a),b=this.bufs.get(r)||[...this.bufs.values()][0],s=ac.createBufferSource(),rate=Math.pow(2,(m-r)/12+(n.fine||0)/1200),d=Math.max(.05,n.dur),pluck=inst.style==='pluck',rel=pluck?.35:.12;
    s.buffer=b;s.playbackRate.value=rate;if(!pluck&&d>b.duration*.7){s.loop=true;s.loopStart=b.duration*.35;s.loopEnd=b.duration*.85;}
    // camadas de velocidade (emuladas): ganho em curva + filtro mais aberto quando toca forte
    const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800+Math.pow(v,1.3)*16000;lp.Q.value=.3;s.connect(lp).connect(g);
    const gain=Math.pow(v,1.25)*(pluck?.95:.8);g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(gain,at+.004);g.gain.setValueAtTime(gain,at+d);g.gain.linearRampToValueAtTime(0,at+d+rel);s.start(at,b.__lead||0);s.stop(at+d+rel+.05);return;}
-  if(inst.kind==='drums'){const lst=DRUMMAP[n.midi]||['snare'],piece=lst.find(p=>this.kit[p]?.length)||'snare',arr=this.kit[piece]||this.kit.snare||[];if(!arr.length)return;
-   // camadas de velocidade: golpes mais fortes escolhem as amostras mais fortes (ordem por energia)
-   const sorted=arr.length>1?[...arr].sort((a,b)=>energy(a)-energy(b)):arr,idx=Math.min(sorted.length-1,Math.floor(Math.pow(v,.9)*sorted.length)),b=sorted[idx],s=ac.createBufferSource();s.buffer=b;g.gain.value=.35+v*.75;s.connect(g);s.start(at,b.__lead||0);return;}
+  if(inst.kind==='drums'){const lst=DRUMMAP[n.midi]||['snare'];if(inst.piece&&!lst.includes(inst.piece))return;const piece=lst.find(p=>this.kit[p]?.length);if(!piece)return;const arr=this.kit[piece];if(!arr?.length)return;
+   // camadas de velocidade (golpes mais fortes usam as amostras mais fortes) + round-robin dentro de cada faixa
+   const sorted=arr.length>1?[...arr].sort((a,b)=>energy(a)-energy(b)):arr,T=Math.max(1,Math.min(3,Math.ceil(sorted.length/2))),per=sorted.length/T,tier=Math.min(T-1,Math.floor(Math.pow(v,.9)*T)),lo=Math.floor(tier*per),hi=Math.max(lo+1,Math.floor((tier+1)*per)),rr=(this.rr=this.rr||{}),c=rr[piece]=((rr[piece]||0)+1),b=sorted[Math.min(sorted.length-1,lo+(c%(hi-lo)))],s=ac.createBufferSource();s.buffer=b;if(n.fine)s.playbackRate.value=Math.pow(2,n.fine/1200);g.gain.value=.35+v*.75;s.connect(g);s.start(at,b.__lead||0);return;}
   if(inst.kind==='regions'){const vel=Math.round(v*127),rs=inst.regions.filter(r=>n.midi>=r.lokey&&n.midi<=r.hikey&&vel>=r.lovel&&vel<=r.hivel);const r=rs[0]||inst.regions.reduce((a,b)=>Math.abs(b.root-n.midi)<Math.abs(a.root-n.midi)?b:a,inst.regions[0]);if(!r?.buf)return;
-   const s=ac.createBufferSource();s.buffer=r.buf;s.playbackRate.value=Math.pow(2,((n.midi-r.root)*(r.fixed?0:1)+(r.tune||0)/100)/12);g.gain.value=Math.pow(10,(r.volume||0)/20)*(.4+v*.7);s.connect(g);const d=Math.max(.05,n.dur);
+   const s=ac.createBufferSource();s.buffer=r.buf;s.playbackRate.value=Math.pow(2,((n.midi-r.root)*(r.fixed?0:1)+((r.tune||0)+(n.fine||0))/100)/12);g.gain.value=Math.pow(10,(r.volume||0)/20)*(.4+v*.7);s.connect(g);const d=Math.max(.05,n.dur);
    if(!r.oneshot){g.gain.setValueAtTime(g.gain.value,at+d);g.gain.linearRampToValueAtTime(0,at+d+.15);s.start(at);s.stop(at+d+.2);}else s.start(at);return;}}
+}
+// camadas: vários instrumentos/conjuntos de amostras numa mesma trilha MIDI. Cada camada: volume, pan, transposição, ajuste fino,
+// faixa de teclas (split) e faixa de velocidade. inst={kind:'layers',layers:[{inst,vol,pan,trans,fine,lokey,hikey,lovel,hivel,mute}]}
+class LayerSampler{
+ constructor(ac,dest){this.ac=ac;this.dest=dest;this.subs=[];this.inst=null;}
+ async load(inst,needed=null){const ac=this.ac;this.inst=inst;this.subs=[];
+  for(const L of inst.layers||[]){if(L.mute||!L.inst)continue;const g=ac.createGain();g.gain.value=Math.max(0,L.vol??1);let out=g;if(ac.createStereoPanner){const p=ac.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,L.pan||0));g.connect(p);out=p;}out.connect(this.dest);
+   const sp=new Sampler(ac,g),sub=L.inst,sh=(L.trans||0)+(sub.transpose||0);await sp.load(sub,sub.kind==='gm'&&needed?[...new Set(needed.map(m=>m+sh))]:null);this.subs.push({L,sp,sh});}
+  return this;}
+ play(n,at=n.start){const vel=Math.round((n.vel??.8)*127);for(const{L,sp}of this.subs){if(n.midi<(L.lokey??0)||n.midi>(L.hikey??127)||vel<(L.lovel??0)||vel>(L.hivel??127))continue;const isDr=L.inst.kind==='drums',sub=L.inst;sp.play({...n,midi:isDr?n.midi:n.midi+(L.trans||0),fine:L.fine||0},at);}}
+ get kit(){return null;}
 }
 const ENERGY=new WeakMap();function energy(b){let e=ENERGY.get(b);if(e==null){const x=b.getChannelData(0);e=0;for(let i=0;i<Math.min(x.length,6000);i++)e+=x[i]*x[i];ENERGY.set(b,e);}return e;}
 // cadeia: instrumento -> (seco + reverb) -> master
@@ -113,10 +125,10 @@ function makeBus(ac,{reverb={kind:'off',wet:.25,ir:null},volume=.9}={}){const ma
  const dry=ac.createGain();inp.connect(dry).connect(master);let wet=null,conv=null;
  if(reverb&&reverb.kind&&reverb.kind!=='off'){conv=ac.createConvolver();conv.buffer=reverb.kind==='user'&&reverb.ir?fitBuf(ac,reverb.ir):makeIR(ac,reverb.kind);wet=ac.createGain();wet.gain.value=reverb.wet??.25;inp.connect(conv).connect(wet).connect(master);dry.gain.value=1-.35*(reverb.wet??.25);}
  return{input:inp,master,conv,wet};}
-async function renderOffline(notes,inst,{reverb,volume,sr=44100,tail=2.5}={}){const AC=root.OfflineAudioContext||root.webkitOfflineAudioContext,end=Math.max(1,...notes.map(n=>n.end))+tail,ac=new AC(2,Math.ceil(end*sr),sr),bus=makeBus(ac,{reverb,volume}),S=new Sampler(ac,bus.input);
- await S.load(inst,inst.kind==='gm'?[...new Set(notes.map(n=>n.midi+(inst.transpose||0)))]:null);for(const n of notes)S.play({midi:n.midi,vel:n.vel,start:n.start,dur:n.end-n.start});return ac.startRendering();}
+async function renderOffline(notes,inst,{reverb,volume,sr=44100,tail=2.5}={}){const AC=root.OfflineAudioContext||root.webkitOfflineAudioContext,end=Math.max(1,...notes.map(n=>n.end))+tail,ac=new AC(2,Math.ceil(end*sr),sr),bus=makeBus(ac,{reverb,volume}),S=inst.kind==='layers'?new LayerSampler(ac,bus.input):new Sampler(ac,bus.input);
+ await S.load(inst,inst.kind==='layers'?[...new Set(notes.map(n=>n.midi))]:inst.kind==='gm'?[...new Set(notes.map(n=>n.midi+(inst.transpose||0)))]:null);for(const n of notes)S.play({midi:n.midi,vel:n.vel,start:n.start,dur:n.end-n.start});return ac.startRendering();}
 function wav(buf){const ch=Math.min(2,buf.numberOfChannels),n=buf.length,sr=buf.sampleRate,ab=new ArrayBuffer(44+n*ch*2),v=new DataView(ab),w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};let pk=0;const C=[...Array(ch)].map((_,c)=>buf.getChannelData(c));for(const x of C)for(let i=0;i<n;i++)pk=Math.max(pk,Math.abs(x[i]));const g=pk>.98?.98/pk:1;
  w(0,'RIFF');v.setUint32(4,36+n*ch*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,ch,true);v.setUint32(24,sr,true);v.setUint32(28,sr*ch*2,true);v.setUint16(32,ch*2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*ch*2,true);
  let o=44;for(let i=0;i<n;i++)for(let c=0;c<ch;c++){const s=Math.max(-1,Math.min(1,C[c][i]*g));v.setInt16(o,s*32767,true);o+=2;}return new Blob([ab],{type:'audio/wav'});}
-root.APSMidi={noteName,parseNote,noteFromFilename,GRIDS,quantize,toMidiFile,parseMidi,yin,LiveMidi,makeIR,IR_KINDS,parseSfz,GM,Sampler,makeBus,renderOffline,wav,PIECE_NOTE,DRUMMAP};
+root.APSMidi={noteName,parseNote,noteFromFilename,GRIDS,quantize,toMidiFile,parseMidi,yin,LiveMidi,makeIR,IR_KINDS,parseSfz,GM,kitPieces,Sampler,LayerSampler,makeBus,renderOffline,wav,PIECE_NOTE,DRUMMAP};
 })(typeof window!=='undefined'?window:globalThis);

@@ -10,7 +10,7 @@ input[type=range]{padding:0}input[type=checkbox]{display:inline-block;width:auto
 button,.btn{background:#1d2630;color:#eef1f5;border:1px solid #3d4a5a;border-radius:8px;font-weight:700;cursor:pointer;padding:10px 13px;font:inherit;font-weight:700;display:inline-block}
 button.primary,.btn.primary{background:#e5c17f;color:#151515;border-color:#e5c17f}button.rec{background:#7a1f1f;border-color:#c24;color:#fff}button:disabled{opacity:.45;cursor:default}input[hidden]{display:none!important}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row label{display:flex;align-items:center}
-#roll{background:#0c0e15;border:1px solid #2c3746;border-radius:10px;height:340px;display:block;touch-action:none}
+#layers .lay{background:#10131c;border:1px solid #2c3746;border-radius:10px;padding:10px;margin-top:8px}#layers .lay .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:6px}#layers .lay input[type=number],#layers .lay input[type=text],#layers .lay select{width:100%}#roll{background:#0c0e15;border:1px solid #2c3746;border-radius:10px;height:340px;display:block;touch-action:none}
 #status{color:#c9f3ed;min-height:22px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px;border-bottom:1px solid #26303d;text-align:left}td input{margin:0;padding:5px}
 .badge{display:inline-block;background:#1b3d3a;color:#b8efe8;border:1px solid #5ea39a;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800}
 .lvl{height:8px;background:#1e2833;border-radius:9px;overflow:hidden}.lvl i{display:block;height:100%;width:0;background:#e5c17f}
@@ -49,7 +49,14 @@ footer{color:#7f8fa0;font-size:12px;text-align:center;padding:20px 8px 40px}
 <details style="margin-top:10px"><summary style="cursor:pointer;color:#e5c17f;font-weight:700">📦 Usar as minhas amostras (WAV/MP3) ou um kit SFZ</summary>
 <p class="sub">Selecione vários arquivos de uma vez (pode incluir o arquivo .sfz do kit). Amostras de bateria são reconhecidas pelo nome (bumbo/kick, caixa/snare, chimbal/hat, prato/crash…) e viram pads; amostras de notas (ex.: Piano_C4.wav, Sanfona_Sol3.mp3) são afinadas pela nota do nome ou detectadas automaticamente. Camadas de velocidade: dê faixas de velocidade diferentes à mesma nota. Arquivos .sf2 não são lidos diretamente: converta para SFZ.</p>
 <label class="btn">📂 Carregar amostras / SFZ<input id="fSamples" type="file" multiple accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.sfz" hidden></label>
-<div style="overflow-x:auto"><table id="samples"></table></div><div class="row" style="margin-top:8px"><button id="autoVel" disabled>Distribuir camadas de velocidade</button><button id="useSamples" class="primary" disabled>Usar estas amostras</button></div></details></section>
+<div style="overflow-x:auto"><table id="samples"></table></div><div class="row" style="margin-top:8px"><button id="autoVel" disabled>Distribuir camadas de velocidade</button><button id="useSamples" class="primary" disabled>Usar estas amostras</button></div></details>
+<details id="layerBox" style="margin-top:10px"><summary style="cursor:pointer;color:#e5c17f;font-weight:700">🎛️ Camadas — empilhar 2 ou mais timbres / amostras numa mesma trilha</summary>
+<p class="sub">Cada camada tem volume, pan, transposição, ajuste fino (cents), faixa de teclas (split) e faixa de velocidade. Na bateria, escolha a peça (ex.: Bumbo) e uma amostra fixa para empilhar dois bumbos. Depois, escolha “🎛️ Camadas” em Timbre. Salve a combinação como preset (guardado neste aparelho; exporte/importe em JSON).</p>
+<div id="layers"></div>
+<div class="row" style="margin-top:8px"><button id="addLayer">＋ Adicionar camada</button><button id="useLayers" class="primary">Usar estas camadas</button></div>
+<div class="grid" style="margin-top:10px"><label>Nome do preset<input id="presetName" placeholder="Ex.: Piano + cordas"></label><label>Presets salvos<select id="presetSel"></select></label></div>
+<div class="row" style="margin-top:8px"><button id="presetSave">💾 Salvar preset</button><button id="presetLoad">Carregar</button><button id="presetDel">Apagar</button><button id="presetExp">⬇ Exportar JSON</button><label class="btn">⬆ Importar JSON<input id="presetImp" type="file" accept=".json,application/json" hidden></label></div></details>
+</section>
 
 <section class="panel"><h2>5 · Reverb por convolução</h2>
 <div class="grid"><label>Ambiente<select id="rv"><option value="off">Sem reverb</option><option value="estudio">Estúdio (curto)</option><option value="sala">Sala média</option><option value="placa">Placa (brilhante)</option><option value="hall">Hall</option><option value="igreja">Igreja (longo)</option><option value="user">Meu IR (arquivo WAV)…</option></select></label>
@@ -58,5 +65,5 @@ footer{color:#7f8fa0;font-size:12px;text-align:center;padding:20px 8px 40px}
 <section class="panel"><div class="row"><button id="play" class="primary" disabled>▶ Ouvir</button><button id="stop" disabled>■ Parar</button><button id="dlMidi" disabled>⬇ Baixar MIDI</button><button id="dlWav" disabled>⬇ Baixar áudio (WAV)</button><button id="toDaw" disabled>➜ Abrir no Estúdio (DAW)</button></div><p class="sub" id="outInfo"></p></section>
 </main>
 <footer>APS Audio Engine · MIDI e Sampler · Transcrição: Basic Pitch/Spotify (Apache 2.0) e YIN · Timbres: FluidR3_GM (CC BY 3.0) e kits MMSTUDIO do próprio usuário</footer>
-<script src="./aps-clean.js?v=250"></script><script src="./aps-vocal.js?v=370"></script><script src="./aps-instrument.js?v=370"></script><script src="./aps-transcribe.js?v=411"></script><script src="./aps-midi.js?v=430"></script><script src="./midi-sampler.js?v=430"></script>
+<script src="./aps-clean.js?v=250"></script><script src="./aps-vocal.js?v=370"></script><script src="./aps-instrument.js?v=370"></script><script src="./aps-transcribe.js?v=411"></script><script src="./aps-midi.js?v=431"></script><script src="./midi-sampler.js?v=431"></script>
 </body></html>
