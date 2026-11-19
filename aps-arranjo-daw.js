@@ -132,6 +132,33 @@
     }
   }
 
+
+  async function runAcordes() {
+    if (busy) return;
+    const A = window.APSArranjoAcordes;
+    if (!A) { say('O módulo de acordes não carregou. Recarregue a página.', 'error'); return; }
+    const track = selectedTrack();
+    if (!track) { say('Selecione uma pista com áudio primeiro.', 'error'); return; }
+    busy = true;
+    const btn = $('apsArranjoAc'); if (btn) btn.disabled = true;
+    try {
+      const inst = $('apsArranjoAcInst').value;
+      const an = await A.analyze(track.buf, { onProgress: (m) => say(m, 'info') });
+      say('Tocando os acordes em ' + A.INSTR[inst] + '…', 'info');
+      await new Promise((r) => setTimeout(r, 30));
+      const data = A.render(an, inst);
+      const blob = A.wav(data, 44100);
+      const name = 'Arranjo pelos acordes · ' + A.INSTR[inst] + ' · ' + track.name;
+      await addGenerated(name, blob);
+      say('Pista nova criada: ' + name + '.\n' + A.describe(an) + '.\nAcordes: ' + A.chordLine(an, 32) + '\nÉ uma pista gerada no aparelho, sem IA. A pista original permanece; confira de ouvido.', 'ok');
+    } catch (e) {
+      say(e.message || 'Não foi possível criar o arranjo pelos acordes.', 'error');
+    } finally {
+      busy = false;
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function syncTipo() {
     const wrap = $('apsArranjoTipoWrap');
     if (wrap) wrap.hidden = ($('apsArranjoModo')?.value !== 'instrumento');
@@ -170,10 +197,15 @@
       '<textarea id="apsArranjoPedido" maxlength="1024" rows="2" placeholder="Ex.: acrescente um baixo e mantenha o clima da pista."></textarea>' +
       '<textarea id="apsArranjoLetra" maxlength="5000" rows="2" placeholder="Letra, se for estender ou acrescentar voz."></textarea>' +
       '<div class="aps-arranjo-row"><button type="button" id="apsArranjoGo">♮ Criar arranjo da pista</button></div>' +
+      '<div class="aps-arranjo-ac"><b>🎼 Pelos acordes da pista (no aparelho, sem IA, sem custo)</b>' +
+      '<small>Lê tom, andamento e acordes da pista selecionada e cria uma pista nova que toca esses acordes, no tempo do original.</small>' +
+      '<select id="apsArranjoAcInst"><option value="piano">Piano</option><option value="cordas">Cordas (orquestra)</option><option value="violao">Violão / guitarra</option><option value="baixo">Baixo</option><option value="orgao">Órgão / pad</option></select>' +
+      '<div class="aps-arranjo-row"><button type="button" id="apsArranjoAc">🎼 Criar pelos acordes</button></div></div>' +
       '<p id="apsArranjoMsg" class="aps-arranjo-msg" role="status">Selecione uma pista e peça um arranjo novo. O original permanece.</p>';
     if (host.id === 'apsBandMixer' && $('apsIaBox')) host.append(box);
     else host.prepend(box);
     $('apsArranjoGo').onclick = run;
+    $('apsArranjoAc').onclick = runAcordes;
     $('apsArranjoModo').onchange = syncTipo;
     const hints = {
       1: 'A IA usa a gravação só como inspiração e pode inventar bastante no arranjo.',
@@ -199,6 +231,7 @@
     '.aps-arranjo-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}' +
     '.aps-arranjo-row button{background:#3a2a18;color:#ffe1a3;border:1px solid #b99755;border-radius:8px;padding:8px 12px;font-weight:700}' +
     '.aps-arranjo-row button:disabled{opacity:.45}' +
+    '.aps-arranjo-ac{border-top:1px solid #55586b;margin-top:12px;padding-top:8px;color:#f4d99f;font-size:13px}' +
     '.aps-arranjo-msg{font-size:12px;color:#ffe1a3;margin:8px 0 0;white-space:pre-wrap}' +
     '.aps-arranjo-msg[data-kind=error]{color:#f0b4b0}' +
     '.aps-arranjo-msg[data-kind=ok]{color:#b4e4ba}' +

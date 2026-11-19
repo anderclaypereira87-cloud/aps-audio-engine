@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>harness arranjo pelos acordes</title>
+<input type="file" id="f">
+<script src="../aps-clean.js"></script><script src="../aps-chords.js"></script><script src="../aps-transcribe.js"></script><script src="../aps-arranjo-acordes.js"></script>
+<script>
+window.runAll=async function(inst,bpm){const f=document.getElementById('f').files[0];const ctx=new AudioContext();const buf=await ctx.decodeAudioData(await f.arrayBuffer());
+ const A=APSArranjoAcordes;const an=await A.analyze(buf,{bpm:bpm||0});const data=A.render(an,inst);const b2=A.toBuffer(data,44100);
+ const an2=await A.analyze(b2,{bpm:an.bpm});
+ const wavBlob=A.wav(data);const mix=A.mixWithOriginal(buf,data);const mixBlob=A.wav(mix,buf.sampleRate);
+ const b64=async bl=>{const r=new FileReader();return await new Promise(ok=>{r.onload=()=>ok(r.result.split(',')[1]);r.readAsDataURL(bl);});};
+ return{an:{bpm:an.bpm,offset:an.offset,down:an.downbeat,key:an.keyName,conf:an.tempoConf,chords:an.chords.map(c=>({n:c.name,s:c.start,e:c.end,b:c.beats}))},
+  an2:{chords:an2.chords.map(c=>({n:c.name,s:c.start,e:c.end,b:c.beats}))},wav:await b64(wavBlob),mix:await b64(mixBlob),events:A.events(an,inst).length};};
+</script>

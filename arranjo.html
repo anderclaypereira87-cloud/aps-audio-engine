@@ -41,6 +41,11 @@ nav a{color:#8fd0c8}
 #fidelidadeHint{margin:8px 0 0}
 .rights{display:flex;align-items:flex-start;gap:10px;margin:12px 0 4px;color:#c9f3ed;font-size:13px;font-weight:650;line-height:1.4}
 .rights input{width:auto;margin:3px 0 0;accent-color:#7dcdc4;min-width:20px;min-height:20px}
+
+.ac-box{background:#13241f;border:1px solid #5ea39a;border-radius:16px;padding:14px;margin:0 0 18px}
+.ac-box h2{margin:0 0 6px;font-size:18px;color:#b8efe8}
+.ac-info{font-size:13px;color:#c9f3ed;margin:8px 0 0;word-break:break-word}
+.ac-row{display:grid;grid-template-columns:1fr 110px;gap:10px}
 </style></head><body><main>
 <div class="brand">APS</div>
 <nav><a href="./painel.html">⌂ Início</a> · <a href="./daw.html?modulo=gravacao">🎚 DAW</a> · <a href="./musica-ia.html">APS Maestro</a> · <a href="./separador.html">✂ Separador</a></nav>
@@ -73,6 +78,20 @@ nav a{color:#8fd0c8}
     <input id="refDireitos" type="checkbox">
     <span>Esta gravação é minha, ou tenho o direito de usá-la. O arranjo gerado é uma criação nova de IA e não substitui o original.</span>
   </label>
+</section>
+<section class="ac-box" id="acBox">
+  <h2>🎼 Arranjo pelos acordes do seu áudio <span class="badge">no aparelho · sem IA</span></h2>
+  <p class="ref-info">O APS lê o <strong>tom, o andamento e os acordes</strong> da gravação enviada acima e cria uma pista (piano, cordas, baixo, violão ou órgão) que <strong>toca exatamente esses acordes, no tempo do original</strong>. Não gasta crédito e não envia o áudio para ninguém.</p>
+  <div class="ac-row">
+    <label class="field">Instrumento
+      <select id="acInst"><option value="piano">Piano</option><option value="cordas">Cordas (orquestra)</option><option value="violao">Violão / guitarra</option><option value="baixo">Baixo</option><option value="orgao">Órgão / pad</option></select></label>
+    <label class="field">BPM (opcional)
+      <input id="acBpm" type="number" min="40" max="240" placeholder="auto"></label>
+  </div>
+  <button id="acGerar" type="button">🎼 Criar pelos acordes</button>
+  <p id="acInfo" class="ac-info" hidden></p>
+  <audio id="acPlayer" controls hidden></audio>
+  <button id="acMixBaixar" type="button" class="secondary" hidden>Baixar o arranjo junto com o original</button>
 </section>
 <div class="modes" role="radiogroup" aria-label="Tipo de arranjo">
   <label><input type="radio" name="modo" value="nova" checked> Criar uma música ou um instrumental novo a partir deste áudio</label>
@@ -107,5 +126,6 @@ nav a{color:#8fd0c8}
 <p class="cost">Cada arranjo gasta crédito do estúdio · no máximo 8 por dia · o arquivo baixado, o que abre no Separador e o que abre no Estúdio são criações de IA, nunca a gravação original.</p>
 </main>
 <script src="./aps-share.js?v=270" defer></script>
-<script type="module" src="./aps-arranjo.js?v=370"></script>
+<script src="./aps-clean.js?v=250"></script><script src="./aps-chords.js?v=290"></script><script src="./aps-transcribe.js?v=411"></script><script src="./aps-arranjo-acordes.js?v=420"></script>
+<script type="module" src="./aps-arranjo.js?v=420"></script>
 </body></html>

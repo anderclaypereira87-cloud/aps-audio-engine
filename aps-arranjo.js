@@ -27,6 +27,9 @@ let audioFile = null;
 let audioDuration = null;
 let busy = false;
 let transferring = false;
+let acAn = null;       // análise (tom, andamento, acordes) do áudio original
+let acAnPromise = null;
+let acBuf = null;
 
 function setStatus(msg, isError) {
   const el = $('status');
@@ -169,6 +172,7 @@ async function loadFile(file) {
     return;
   }
   audioFile = file;
+  startAnalysis(file);
   origPreviewUrl = URL.createObjectURL(file);
   $('origPreview').src = origPreviewUrl;
   $('origPreview').hidden = false;
@@ -238,7 +242,9 @@ async function gerar() {
       if (!up.ok || !upData.ok) throw Error(upData.error || 'Não foi possível enviar o áudio.');
       arquivoId = upData.arquivoId;
     }
-    const body = { modo, pedido, letra, arquivoId, finalidade, fidelidade, direitos };
+    if (audioFile && acAnPromise) { try { await Promise.race([acAnPromise, new Promise((r) => setTimeout(r, 8000))]); } catch { /* ignore */ } }
+    const pedidoFull = (pedido + chordsHint()).slice(0, 1024);
+    const body = { modo, pedido: pedidoFull, letra, arquivoId, finalidade, fidelidade, direitos };
     if (modo === 'instrumento') body.tipoPista = $('tipoPista').value;
     if (modo === 'estender' && audioDuration) body.extendEm = Math.max(8, audioDuration - 2);
     const gen = await fetch(API_BASE + '/gerar', {
@@ -266,6 +272,8 @@ async function gerar() {
     };
     $('player').src = objectUrl;
     $('player').hidden = false;
+    if ($('acPlayer')) $('acPlayer').hidden = true;
+    if ($('acMixBaixar')) $('acMixBaixar').hidden = true;
     setStatus('Arranjo pronto. Isto é um áudio novo, gerado por IA — não é a sua gravação original.');
   } catch (e) {
     setStatus(e.message || 'Não foi possível criar o arranjo agora.', true);
@@ -273,6 +281,82 @@ async function gerar() {
     setBusyUi(false);
     if (current?.blob) setResultButtons(true);
   }
+}
+
+
+// ---- Arranjo pelos acordes: lê tom, andamento e acordes do original (no aparelho) ----
+async function decodeFull(file) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try { return await ctx.decodeAudioData(await file.arrayBuffer()); } finally { try { await ctx.close(); } catch { /* ignore */ } }
+}
+
+function startAnalysis(file) {
+  acAn = null; acBuf = null; acAnPromise = null;
+  if (!window.APSArranjoAcordes) return;
+  const mine = file;
+  acAnPromise = (async () => {
+    try {
+      const buf = await decodeFull(file);
+      if (audioFile !== mine) return null;
+      acBuf = buf;
+      const an = await window.APSArranjoAcordes.analyze(buf, { bpm: Number($('acBpm')?.value) || 0 });
+      if (audioFile === mine) acAn = an;
+      return an;
+    } catch (e) { console.warn('análise de acordes', e); return null; }
+  })();
+}
+
+function chordsHint() {
+  if (!acAn || !window.APSArranjoAcordes) return '';
+  const A = window.APSArranjoAcordes;
+  return ' Siga os acordes do original (' + A.describe(acAn).replace(/ \(andamento incerto[^)]*\)/, '') + '): ' + A.chordLine(acAn, 24) + '.';
+}
+
+async function gerarPorAcordes() {
+  if (busy || transferring) return;
+  const A = window.APSArranjoAcordes;
+  if (!A) { setStatus('O módulo de acordes não carregou. Recarregue a página.', true); return; }
+  if (!audioFile) { setStatus('Envie primeiro o áudio original acima.', true); return; }
+  const btn = $('acGerar');
+  btn.disabled = true;
+  try {
+    setStatus('Lendo o áudio e os acordes…');
+    if (acAnPromise) await acAnPromise;
+    if (!acBuf) acBuf = await decodeFull(audioFile);
+    const hint = Number($('acBpm').value) || 0;
+    const an = (acAn && !hint) ? acAn : await A.analyze(acBuf, { bpm: hint, onProgress: (m) => setStatus(m) });
+    acAn = an;
+    const inst = $('acInst').value;
+    setStatus('Tocando os acordes em ' + A.INSTR[inst] + '…');
+    await new Promise((r) => setTimeout(r, 30));
+    const data = A.render(an, inst);
+    const blob = A.wav(data, 44100);
+    const mixData = A.mixWithOriginal(acBuf, data);
+    const mixBlob = A.wav(mixData, acBuf.sampleRate);
+    revokeUrl();
+    objectUrl = URL.createObjectURL(blob);
+    current = { blob, url: objectUrl, name: 'Arranjo pelos acordes', mime: 'audio/wav', notice: '', fileName: 'APS-Arranjo-acordes-' + inst, stemName: 'Arranjo pelos acordes · ' + A.INSTR[inst], mixBlob };
+    $('acPlayer').src = objectUrl; $('acPlayer').hidden = false;
+    $('player').hidden = true;
+    $('acInfo').hidden = false;
+    $('acInfo').textContent = A.describe(an) + '. Acordes: ' + A.chordLine(an, 40);
+    $('acMixBaixar').hidden = false;
+    setStatus('Arranjo pronto: ' + A.INSTR[inst] + ' seguindo os acordes e o tempo do original. É uma pista gerada no seu aparelho, sem IA; confira de ouvido.');
+    setResultButtons(true);
+  } catch (e) {
+    setStatus('Não foi possível criar o arranjo pelos acordes: ' + (e.message || e), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function baixarMix() {
+  if (!current?.mixBlob) return;
+  const a = document.createElement('a');
+  const href = URL.createObjectURL(current.mixBlob);
+  a.href = href; a.download = (current.fileName || 'APS-Arranjo') + '-com-original.wav';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 2000);
 }
 
 function baixar() {
@@ -284,12 +368,12 @@ function baixar() {
   const a = document.createElement('a');
   const href = URL.createObjectURL(current.blob);
   a.href = href;
-  a.download = 'APS-Arranjo-IA.' + ext;
+  a.download = (current.fileName || 'APS-Arranjo-IA') + '.' + ext;
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(href), 2000);
-  setStatus('Download iniciado. Lembrete: este arquivo é uma criação de IA, não a sua gravação original.');
+  setStatus(current.mixBlob ? 'Download iniciado. Este arquivo é uma pista gerada no seu aparelho a partir dos acordes do original; não é a sua gravação.' : 'Download iniciado. Lembrete: este arquivo é uma criação de IA, não a sua gravação original.');
 }
 
 async function openIdb(name) {
@@ -315,7 +399,7 @@ function putLatest(db, row) {
 }
 
 function songDuration() {
-  const dur = $('player')?.duration;
+  const dur = (current?.mixBlob ? $('acPlayer') : $('player'))?.duration;
   return Number.isFinite(dur) && dur > 0 ? dur : (audioDuration || null);
 }
 
@@ -330,7 +414,7 @@ async function abrirDaw() {
     const ext = (current.mime || '').includes('wav') ? 'wav' : 'mp3';
     const stems = [{
       id: 'other',
-      name: 'APS Arranjo IA.' + ext,
+      name: (current.stemName || 'APS Arranjo IA') + '.' + ext,
       type: current.mime || 'audio/mpeg',
       blob: current.blob
     }];
@@ -394,6 +478,9 @@ function init() {
   $('audioFile').addEventListener('change', (ev) => loadFile(ev.target.files?.[0] || null));
   $('gerar').addEventListener('click', gerar);
   $('baixar').addEventListener('click', baixar);
+  if ($('acGerar')) $('acGerar').addEventListener('click', gerarPorAcordes);
+  if ($('acMixBaixar')) $('acMixBaixar').addEventListener('click', baixarMix);
+  if ($('acBpm')) $('acBpm').addEventListener('change', () => { if (audioFile) startAnalysis(audioFile); });
   $('abrirDaw').addEventListener('click', abrirDaw);
   if ($('abrirSeparador')) $('abrirSeparador').addEventListener('click', abrirSeparador);
   if ($('fidelidade')) {
