@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS Melody Engine — Beta</title><link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#0b0e17">
 <style>:root{color-scheme:dark}body{background:#0b0e17;color:#f3eee3;font:16px/1.5 system-ui;margin:0}main{max-width:680px;margin:auto;padding:24px}h1{color:#e2bc76}.panel{background:#171d2b;border:1px solid #55515a;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:16px 0}input[type=range]{width:100%;accent-color:#e2bc76}button,a.button{background:#e2bc76;color:#151923;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}a{color:#e2bc76}small{color:#c2c7d1}output{float:right}canvas{width:100%;height:260px;touch-action:none;background:#101522;border:1px solid #424958;border-radius:10px}select{padding:9px;background:#101522;color:#fff;border:1px solid #59606e;border-radius:8px} .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1} .hint{font-size:13px;color:#c2c7d1}.upload-first{border:2px solid #e2bc76;background:#262219}.upload-first input{display:block;width:100%;padding:16px 4px;font-size:17px}.upload-first strong{font-size:19px}.quicklink{display:inline-block;margin:8px 8px 0 0;color:#f3d89e}.upload-first button{margin-top:10px;width:100%}</style></head>
-<body><main><p id="offlineState" role="status" style="font-size:13px;color:#e2bc76">Verificando disponibilidade offline…</p><a href="./index.html">← APS Audio Engine</a><h1>APS Melody Engine</h1><nav aria-label="Ferramentas relacionadas"><a href="./musica-ia.html">APS Maestro — criar música</a> · <a href="./arranjo.html">APS Arranjo — recriar instrumental</a> · <a href="./afinacao.html">Afinação de voz</a></nav><p>Versão Beta de configuração: ainda não processa áudio, não treina voz e não envia arquivos a servidores.</p>
+<body><main><p id="offlineState" role="status" style="font-size:13px;color:#e2bc76">Verificando disponibilidade offline…</p><a href="./index.html">← APS Audio Engine</a><h1>APS Melody Engine</h1><nav aria-label="Ferramentas relacionadas"><a href="./musica-ia.html">APS Maestro — criar música</a> · <a href="./arranjo.html">APS Arranjo — recriar instrumental</a> · <a href="./afinacao.html">Afinação de voz</a></nav><p>Versão Beta: reproduz MP3/WAV, analisa a curva de afinação em faixas monofônicas e quantiza ataques experimentalmente no navegador. Correção real de afinação e clonagem vocal ainda não estão disponíveis.</p>
 <section class="panel upload-first" id="uploadPanel"><h2>1. Carregar áudio MP3 ou WAV</h2><p>Escolha primeiro sua gravação. Depois abra a quantização para ver e ajustar os ataques no gráfico.</p><label><strong>Selecionar áudio do celular</strong><input id="audio" type="file" aria-label="Escolher MP3 ou WAV em Arquivos" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></label><button id="chooseaudio" type="button" style="width:100%;font-size:18px;padding:18px">📁 Escolher arquivo MP3 ou WAV</button><p class="hint">No iPhone, escolha “Escolher Arquivo” e navegue por Arquivos, Downloads ou iCloud Drive.</p><p id="selected" aria-live="polite">Nenhum arquivo selecionado.</p><audio id="preview" controls style="width:100%;display:none;margin-top:12px"></audio><button id="gotoquant" type="button">2. Ir para quantização</button><a class="quicklink" href="#pitchEditor">Editor de notas</a></section><section class="panel"><h2>Voz e melodia</h2><label>Correção de afinação <output id="cv">65%</output><input id="correction" type="range" min="0" max="100" value="65"></label>
 <label>Naturalidade <output id="nv">85%</output><input id="naturalness" type="range" min="0" max="100" value="85"></label>
 <label><input id="preserve" type="checkbox" checked> Preservar melodia original</label>
 
 <p><a href="./afinacao.html">Abrir o afinador de voz existente</a> (processamento independente deste Beta)</p><button id="download" type="button">Exportar configuração JSON</button></section>
-<section class="panel" id="pitchEditor"><h2>Editor gráfico — Piano Roll Beta</h2><p class="hint">Demonstração interativa com notas de exemplo. Arraste as notas para cima/baixo (afinação) ou para os lados (tempo). Não analisa nem altera o MP3 carregado.</p>
+<section class="panel" id="pitchAnalysis"><h2>Afinação — análise da gravação real</h2><p class="hint">Selecione um MP3/WAV de voz ou instrumento isolado. Detecta a frequência fundamental aproximada e mostra a curva em notas MIDI. Não altera o áudio nem aplica AutoTune.</p><button id="analyzepitch" type="button">Analisar afinação do arquivo</button><canvas id="pitchGraph" width="640" height="210" aria-label="Curva de afinação detectada"></canvas><p id="pitchstatus" class="hint" aria-live="polite">Aguardando análise.</p><button id="exportpitch" type="button" disabled>Exportar curva de afinação JSON</button><small>Melhor para voz ou baixo solo; acordes, bateria e mixes completos podem produzir detecções incorretas.</small></section><section class="panel" id="pitchEditor"><h2>Editor gráfico — Piano Roll Beta</h2><p class="hint">Demonstração interativa com notas de exemplo. Arraste as notas para cima/baixo (afinação) ou para os lados (tempo). Não analisa nem altera o MP3 carregado.</p>
 <label>Tipo de faixa <select id="track"><option value="voice">Voz</option><option value="bass">Baixo</option><option value="guitar">Guitarra</option><option value="keys">Teclado / outro instrumento</option></select></label>
 <label>Compasso <select id="meter"><option>4/4</option><option>2/4</option><option>3/4</option><option>6/8</option><option>7/8</option></select></label>
 <label>BPM <input id="bpm" type="number" min="30" max="300" value="100" style="width:100%;padding:10px;background:#101522;color:white;border:1px solid #59606e"></label>
@@ -118,4 +118,37 @@ try{const channels=[];for(let c=0;c<activeBuffer.numberOfChannels;c++)channels.p
 catch(e){$('quantstatus').textContent='Falha ao aplicar: '+e.message}finally{btn.disabled=false}
 });
 renderTransient();
+
+let pitchSamples=[];
+const pg=$('pitchGraph'),pc=pg.getContext('2d');
+function drawPitch(){
+pc.fillStyle='#101522';pc.fillRect(0,0,pg.width,pg.height);pc.strokeStyle='#354357';
+for(let n=0;n<9;n++){let y=15+n*22;pc.beginPath();pc.moveTo(0,y);pc.lineTo(pg.width,y);pc.stroke();}
+if(!pitchSamples.length){pc.fillStyle='#c2c7d1';pc.fillText('Selecione uma voz ou instrumento isolado e toque em Analisar.',14,30);return;}
+const valid=pitchSamples.filter(p=>p.midi!==null),low=Math.floor(Math.min(...valid.map(p=>p.midi))-2),high=Math.ceil(Math.max(...valid.map(p=>p.midi))+2),range=Math.max(6,high-low),last=pitchSamples[pitchSamples.length-1].time||1;
+pc.strokeStyle='#e2bc76';pc.lineWidth=2;pc.beginPath();let started=false;
+for(const p of pitchSamples){if(p.midi===null){started=false;continue;}const x=12+p.time/last*(pg.width-24),y=pg.height-14-(p.midi-low)/range*(pg.height-28);if(!started){pc.moveTo(x,y);started=true}else pc.lineTo(x,y);}
+pc.stroke();pc.lineWidth=1;pc.fillStyle='#f2dfb8';pc.fillText('MIDI '+low+'–'+high+' | linha dourada = afinação estimada',12,14);
+}
+function estimatePitch(data,sr,offset,size){
+let rms=0;for(let i=0;i<size;i++){const v=data[offset+i];rms+=v*v;}rms=Math.sqrt(rms/size);if(rms<.014)return null;
+const minLag=Math.max(2,Math.floor(sr/900)),maxLag=Math.min(size/2,Math.floor(sr/65));
+let bestLag=0,best=0;
+for(let lag=minLag;lag<=maxLag;lag++){let sum=0,a=0,b=0;for(let j=0;j<size-lag;j+=2){const x=data[offset+j],y=data[offset+j+lag];sum+=x*y;a+=x*x;b+=y*y;}const score=sum/Math.sqrt(a*b+1e-12);if(score>best){best=score;bestLag=lag;}}
+if(best<.75||!bestLag)return null;const hz=sr/bestLag;return 69+12*Math.log2(hz/440);
+}
+$('analyzepitch').addEventListener('click',async()=>{
+const file=$('audio').files[0],status=$('pitchstatus'),button=$('analyzepitch');
+if(!file||!/\.(mp3|wav)$/i.test(file.name)){status.textContent='Escolha primeiro um MP3 ou WAV.';return;}
+button.disabled=true;$('exportpitch').disabled=true;status.textContent='Analisando afinação localmente…';
+try{const ac=new (window.AudioContext||window.webkitAudioContext)(),buf=await ac.decodeAudioData(await file.arrayBuffer());await ac.close();
+if(buf.duration>90)throw Error('Use um trecho de até 90 segundos nesta versão.');
+const sr=buf.sampleRate,size=Math.min(4096,Math.pow(2,Math.floor(Math.log2(sr*.085)))),data=buf.getChannelData(0),hop=Math.max(size,Math.round(sr*.09));pitchSamples=[];
+for(let offset=0;offset+size<data.length;offset+=hop){const midi=estimatePitch(data,sr,offset,size);pitchSamples.push({time:Number((offset/sr).toFixed(3)),midi:midi===null?null:Number(midi.toFixed(2))});}
+const voiced=pitchSamples.filter(p=>p.midi!==null).length;if(!voiced)throw Error('Não foram encontradas notas estáveis. Tente voz ou instrumento solo mais limpo.');
+drawPitch();$('exportpitch').disabled=false;status.textContent='Curva estimada: '+voiced+' quadros com afinação detectada. Análise apenas; não corrige o som.';
+}catch(e){pitchSamples=[];drawPitch();status.textContent='Falha na análise: '+e.message;}finally{button.disabled=false;}
+});
+$('exportpitch').addEventListener('click',()=>{if(!pitchSamples.length)return;const b=new Blob([JSON.stringify({schema:'aps.pitch.analysis.v1',analysisOnly:true,samples:pitchSamples},null,2)],{type:'application/json'}),url=URL.createObjectURL(b),a=document.createElement('a');a.href=url;a.download='aps-curva-afinacao.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+drawPitch();
 </script></main></body></html>
