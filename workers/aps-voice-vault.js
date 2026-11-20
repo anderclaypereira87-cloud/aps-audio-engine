@@ -35,5 +35,6 @@ export default {async fetch(request,env){
    return json({provider:'replicate',connected:r.ok,httpStatus:r.status},r.ok?200:502);
   }catch{return json({provider:'replicate',connected:false,reason:'network_error'},502);}
  }
+ if(url.pathname==='/api/test-kits'&&request.method==='POST')return json({provider:'kits',configured:!!env.KITS_API_KEY,connected:false,reason:'provider_endpoint_not_verified',paidJobsEnabled:false},501);
  return json({error:'not_found_or_not_enabled',paidJobsEnabled:false},404);
 }};
