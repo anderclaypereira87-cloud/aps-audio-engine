@@ -19,7 +19,7 @@
 <small>Quantização preserva as durações nesta demonstração. Para processar áudio real, faltam extração de notas, correção DSP e integração com a DAW. Em instrumentos polifônicos, a análise exige separação/transcrição adequada.</small></section><section class="panel"><h2>Quantização de áudio — Experimental</h2><p class="hint">Use o MP3/WAV selecionado acima. Detecta ataques por energia e desloca os eventos para a grade com interpolação temporal. Funciona melhor com uma faixa isolada de voz ou instrumento. Pode gerar artefatos: compare antes e depois.</p>
 <label>Força da quantização do áudio <output id="aqv">50%</output><input id="audioquant" type="range" min="0" max="100" value="50"></label>
 <label>Deslocamento máximo por ataque (ms) <output id="maxv">45</output><input id="maxshift" type="range" min="10" max="80" value="45"></label>
-<div class="actions"><button id="processaudio" type="button">Quantizar áudio selecionado</button><button id="savewav" type="button" disabled>Baixar WAV quantizado</button></div>
+<canvas id="transientGraph" width="640" height="180" aria-label="Gráfico de ataques: arraste os marcadores na horizontal"></canvas><p class="hint">Após analisar, arraste os marcadores dourados horizontalmente e toque em Aplicar ajustes manuais. O gráfico representa os ataques detectados no áudio real.</p><div class="actions"><button id="applymanual" type="button" disabled>Aplicar ajustes manuais</button><button id="processaudio" type="button">Quantizar áudio selecionado</button><button id="savewav" type="button" disabled>Baixar WAV quantizado</button></div>
 <p id="quantstatus" class="hint" aria-live="polite">Aguardando arquivo de áudio.</p>
 <audio id="quantpreview" controls style="display:none;width:100%" aria-label="Ouvir áudio quantizado"></audio>
 <small>Processamento local, sem envio ao servidor. Não é IA e não substitui quantização profissional com detecção de tempo, separação de stems e algoritmos de time-stretch preservando formantes.</small></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
@@ -53,7 +53,7 @@ $('resetnotes').addEventListener('click',()=>{notes=seed.map(n=>({...n}));drawRo
 $('exportnotes').addEventListener('click',()=>{const data={schema:'aps.melody.notes.demo.v1',demoOnly:true,track:$('track').value,bpm:Number($('bpm').value),meter:$('meter').value,quantization:Number($('quantize').value),grid:$('grid').value,notes};const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='aps-notas-exemplo.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
 drawRoll();
 
-let processed=null,quantUrl=null;
+let processed=null,quantUrl=null,activeBuffer=null,activeAnchors=null,activePeaks=[];const transientCanvas=$('transientGraph'),tc=transientCanvas.getContext('2d');let activeMarker=-1;
 for(const [a,b,suffix] of [['audioquant','aqv','%'],['maxshift','maxv','']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+suffix);
 function detectAttacks(buffer){
 const sr=buffer.sampleRate,hop=Math.max(128,Math.round(sr*.01)),ch=buffer.numberOfChannels,frames=Math.floor(buffer.length/hop),energy=new Float32Array(frames);
@@ -93,9 +93,29 @@ const step=60/bpm*Number($('grid').value),strength=Number($('audioquant').value)
 const attacks=detectAttacks(buf),anchors=[{source:0,target:0}];let last=0,moved=0;
 for(const t of attacks){const targetGrid=Math.round(t/step)*step;const shift=Math.max(-maxshift,Math.min(maxshift,(targetGrid-t)*strength));const target=t+shift;if(t-last<.09||target<=anchors[anchors.length-1].target+.04||buf.duration-t<.09)continue;anchors.push({source:t,target});last=t;if(Math.abs(shift)>.002)moved++;}
 anchors.push({source:buf.duration,target:buf.duration});
-const channels=[];for(let c=0;c<buf.numberOfChannels;c++)channels.push(warpChannel(buf.getChannelData(c),buf.sampleRate,anchors));
+activeBuffer=buf;activeAnchors=anchors;activePeaks=attacks;renderTransient();$('applymanual').disabled=false;const channels=[];for(let c=0;c<buf.numberOfChannels;c++)channels.push(warpChannel(buf.getChannelData(c),buf.sampleRate,anchors));
 processed=wavBytes(channels,buf.sampleRate);if(quantUrl)URL.revokeObjectURL(quantUrl);quantUrl=URL.createObjectURL(processed);$('quantpreview').src=quantUrl;$('quantpreview').style.display='block';$('savewav').disabled=false;status.textContent='Prévia pronta: '+moved+' ataques ajustados de '+attacks.length+' detectados. Compare com o original. Não modifica o arquivo original.';
 }catch(err){status.textContent='Não foi possível quantizar: '+err.message;}finally{button.disabled=false;}
 });
 $('savewav').addEventListener('click',()=>{if(!processed)return;const u=URL.createObjectURL(processed),a=document.createElement('a');a.href=u;a.download='aps-quantizado-beta.wav';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
+
+function renderTransient(){
+const c=transientCanvas,w=c.width,h=c.height;tc.clearRect(0,0,w,h);tc.fillStyle='#101522';tc.fillRect(0,0,w,h);
+if(!activeBuffer||!activeAnchors){tc.fillStyle='#bec4d0';tc.fillText('Carregue e quantize um áudio para visualizar os ataques.',16,28);return;}
+const sr=activeBuffer.sampleRate,len=activeBuffer.length,dur=activeBuffer.duration,data=activeBuffer.getChannelData(0),cols=w-40;
+for(let x=0;x<cols;x++){const start=Math.floor(x/cols*len),end=Math.min(len,Math.floor((x+1)/cols*len)),step=Math.max(1,Math.floor((end-start)/100));let max=0;for(let j=start;j<end;j+=step)max=Math.max(max,Math.abs(data[j]));tc.strokeStyle='#56647d';tc.beginPath();tc.moveTo(20+x,h/2-max*65);tc.lineTo(20+x,h/2+max*65);tc.stroke();}
+const bpm=Number($('bpm').value),step=60/bpm*Number($('grid').value);if(Number.isFinite(step)&&step>0){tc.strokeStyle='#415067';for(let t=0;t<dur;t+=step){let x=20+t/dur*cols;tc.beginPath();tc.moveTo(x,0);tc.lineTo(x,h);tc.stroke();}}
+for(let i=1;i<activeAnchors.length-1;i++){let a=activeAnchors[i],x=20+a.target/dur*cols;tc.strokeStyle='#e5be74';tc.lineWidth=2;tc.beginPath();tc.moveTo(x,8);tc.lineTo(x,h-8);tc.stroke();tc.lineWidth=1;}
+tc.fillStyle='#f2dfb8';tc.fillText('Arraste as linhas douradas para mudar o tempo dos ataques',12,14);
+}
+function markerX(e){const rect=transientCanvas.getBoundingClientRect();return (e.clientX-rect.left)*transientCanvas.width/rect.width}
+transientCanvas.addEventListener('pointerdown',e=>{if(!activeAnchors)return;const x=markerX(e),dur=activeBuffer.duration,w=transientCanvas.width-40;let best=12;activeMarker=-1;for(let i=1;i<activeAnchors.length-1;i++){let d=Math.abs(x-(20+activeAnchors[i].target/dur*w));if(d<best){best=d;activeMarker=i;}}if(activeMarker>=0)transientCanvas.setPointerCapture(e.pointerId)});
+transientCanvas.addEventListener('pointermove',e=>{if(activeMarker<0)return;const dur=activeBuffer.duration,w=transientCanvas.width-40,arr=activeAnchors,i=activeMarker;let t=Math.max(arr[i-1].target+.025,Math.min(arr[i+1].target-.025,(markerX(e)-20)/w*dur));if(Number.isFinite(t)){arr[i].target=t;renderTransient();}});
+function endMarker(){activeMarker=-1}transientCanvas.addEventListener('pointerup',endMarker);transientCanvas.addEventListener('pointercancel',endMarker);
+$('applymanual').addEventListener('click',()=>{
+if(!activeBuffer||!activeAnchors)return;const btn=$('applymanual');btn.disabled=true;$('quantstatus').textContent='Aplicando deslocamentos manuais ao áudio...';
+try{const channels=[];for(let c=0;c<activeBuffer.numberOfChannels;c++)channels.push(warpChannel(activeBuffer.getChannelData(c),activeBuffer.sampleRate,activeAnchors));processed=wavBytes(channels,activeBuffer.sampleRate);if(quantUrl)URL.revokeObjectURL(quantUrl);quantUrl=URL.createObjectURL(processed);$('quantpreview').src=quantUrl;$('quantpreview').style.display='block';$('savewav').disabled=false;$('quantstatus').textContent='Ajustes manuais aplicados. Ouça o resultado e baixe o WAV.';}
+catch(e){$('quantstatus').textContent='Falha ao aplicar: '+e.message}finally{btn.disabled=false}
+});
+renderTransient();
 </script></main></body></html>
