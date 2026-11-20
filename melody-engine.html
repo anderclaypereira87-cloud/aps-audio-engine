@@ -22,7 +22,14 @@
 <canvas id="transientGraph" width="640" height="180" aria-label="Gráfico de ataques: arraste os marcadores na horizontal"></canvas><p class="hint">Após analisar, arraste os marcadores dourados horizontalmente e toque em Aplicar ajustes manuais. O gráfico representa os ataques detectados no áudio real.</p><div class="actions"><button id="applymanual" type="button" disabled>Aplicar ajustes manuais</button><button id="processaudio" type="button">Quantizar áudio selecionado</button><button id="savewav" type="button" disabled>Baixar WAV quantizado</button></div>
 <p id="quantstatus" class="hint" aria-live="polite">Aguardando arquivo de áudio.</p>
 <audio id="quantpreview" controls style="display:none;width:100%" aria-label="Ouvir áudio quantizado"></audio>
-<small>Processamento local, sem envio ao servidor. Não é IA e não substitui quantização profissional com detecção de tempo, separação de stems e algoritmos de time-stretch preservando formantes.</small></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
+<small>Processamento local, sem envio ao servidor. Não é IA e não substitui quantização profissional com detecção de tempo, separação de stems e algoritmos de time-stretch preservando formantes.</small></section><section class="panel" id="precisionEditor"><h2>APS Precision Editor — edição por notas e cortes</h2><p class="hint">Editor de planejamento: selecione uma nota ou trecho, informe o compasso e a nota de destino. O resultado é um mapa de edição exportável; a alteração de afinação em áudio ainda depende de um motor DSP de alta qualidade.</p>
+<label>Compasso de destino <input id="targetBar" type="number" min="1" value="1"></label>
+<label>Tempo dentro do compasso <input id="targetBeat" type="number" min="1" step="0.25" value="1"></label>
+<label>Nota de destino <select id="targetNote"><option value="60">Dó 4 (C4)</option><option value="61">Dó# 4 (C#4)</option><option value="62">Ré 4 (D4)</option><option value="63">Ré# 4 (D#4)</option><option value="64">Mi 4 (E4)</option><option value="65">Fá 4 (F4)</option><option value="66">Fá# 4 (F#4)</option><option value="67">Sol 4 (G4)</option><option value="68">Sol# 4 (G#4)</option><option value="69">Lá 4 (A4)</option><option value="70">Lá# 4 (A#4)</option><option value="71">Si 4 (B4)</option><option value="72">Dó 5 (C5)</option></select></label>
+<label>Início do trecho (segundos) <input id="cutStart" type="number" min="0" step="0.01" value="0"></label>
+<label>Fim do trecho (segundos) <input id="cutEnd" type="number" min="0" step="0.01" value="1"></label>
+<div class="actions"><button id="addEdit" type="button">Adicionar corte/ajuste</button><button id="exportEdits" type="button">Exportar mapa de edição</button></div><p id="editStatus" class="hint" aria-live="polite">Nenhuma edição marcada.</p>
+<p class="hint">Próxima etapa do motor: cortes com crossfade, deslocamento de regiões sem reamostragem, detecção de notas e correção com preservação de formantes. Não confundir mapa de edição com áudio processado.</p></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
 <script>
 const $=id=>document.getElementById(id);function offlineStatus(){const el=$('offlineState');el.textContent=navigator.onLine?'● Online — páginas salvas poderão abrir offline após o primeiro acesso.':'● Offline — recursos locais disponíveis; serviços de IA na nuvem indisponíveis.';}window.addEventListener('online',offlineStatus);window.addEventListener('offline',offlineStatus);offlineStatus();if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{$('offlineState').textContent='Modo offline não pôde ser ativado neste navegador.'}));}$('chooseaudio').addEventListener('click',()=>{const input=$('audio');if(typeof input.showPicker==='function'){try{input.showPicker();return}catch(e){}}input.click();});$('gotoquant').addEventListener('click',()=>{if(!$('audio').files.length){$('selected').textContent='Escolha um MP3 ou WAV antes de quantizar.';$('audio').focus();return;}$('quantPanel').scrollIntoView({behavior:'smooth',block:'start'});});
 for(const [a,b] of [['correction','cv'],['naturalness','nv']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+'%');
@@ -151,4 +158,18 @@ drawPitch();$('exportpitch').disabled=false;status.textContent='Curva estimada: 
 });
 $('exportpitch').addEventListener('click',()=>{if(!pitchSamples.length)return;const b=new Blob([JSON.stringify({schema:'aps.pitch.analysis.v1',analysisOnly:true,samples:pitchSamples},null,2)],{type:'application/json'}),url=URL.createObjectURL(b),a=document.createElement('a');a.href=url;a.download='aps-curva-afinacao.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 drawPitch();
+
+// Non-destructive edit decision list; never claims to apply pitch edits to audio.
+let precisionEdits=[];
+$('addEdit').addEventListener('click',()=>{
+const start=Number($('cutStart').value),end=Number($('cutEnd').value),bar=Number($('targetBar').value),beat=Number($('targetBeat').value),note=Number($('targetNote').value),bpm=Number($('bpm').value);
+const meter=$('meter').value.split('/'),beatsPerBar=Number(meter[0])*(4/Number(meter[1]));
+if(![start,end,bar,beat,note,bpm].every(Number.isFinite)||start<0||end<=start||bar<1||beat<1||beat>beatsPerBar||bpm<=0){$('editStatus').textContent='Confira o trecho, BPM, compasso e nota.';return;}
+precisionEdits.push({startSeconds:start,endSeconds:end,targetBar:bar,targetBeat:beat,targetMidi:note,targetSeconds:((bar-1)*beatsPerBar+beat-1)*60/bpm});
+$('editStatus').textContent=precisionEdits.length+' ajuste(s) marcados para exportação. O áudio original permanece intacto.';
+});
+$('exportEdits').addEventListener('click',()=>{
+const payload={schema:'aps.precision.edl.v1',status:'planning-only',bpm:Number($('bpm').value),meter:$('meter').value,edits:precisionEdits};
+const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='aps-mapa-edicao.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
 </script></main></body></html>
