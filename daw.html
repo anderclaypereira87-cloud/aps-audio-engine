@@ -92,7 +92,11 @@ body.aps-workspace .layout #apsTransferNotice.aps-visible:not([hidden]){display:
 <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:7px"><strong style="color:#eac480">▥ APS Quant Pro · Editor de ataques</strong><button id="apsQuantAnalyze" class="mini" type="button">⌁ Analisar pista</button></div>
 <p class="mut" style="font-size:12px">Forma de onda em azul, ataques originais em branco, posição corrigida em dourado. Arraste o marcador dourado para ajustar manualmente e toque em Quantizar pista.</p>
 <canvas id="apsQuantCanvas" width="1200" height="175" aria-label="Gráfico profissional de quantização" style="display:block;width:100%;height:175px;background:#09111e;border:1px solid #364965;border-radius:10px;touch-action:none"></canvas>
-<p id="apsQuantGraphStatus" role="status" style="color:#b9c6da;font-size:12px;margin:7px 0">Selecione a pista e clique em Analisar pista.</p></section><p style="padding:6px 15px;margin:0;font-size:11px;color:#abb9cc">A velocidade muda a afinação (pitch) só na reprodução; o WAV é exportado em 1,0×. Mantenha 1,0× ao gravar sobre uma guia. A quantização tenta alinhar ataques preservando a gravação original para desfazer.</p><div id="apsBpmStatus" class="aps-bpm-status" aria-live="polite">Importe uma track-guia, selecione-a e toque em “Ler BPM da guia”. O resultado é uma estimativa editável.</div><div class="timeline"><div class="ticks"><span>00:00</span><span id="mid">00:00</span><span id="end">00:00</span></div><div class="tracks" id="tracks"><div class="empty"><strong>Comece com uma ideia</strong>Importe áudio ou vídeo de até 10 minutos, grave seu instrumento ou ouça a demonstração.</div></div></div>
+<p id="apsQuantGraphStatus" role="status" style="color:#b9c6da;font-size:12px;margin:7px 0">Selecione a pista e clique em Analisar pista.</p></section><section id="apsQuantPanel" style="margin:10px 12px 18px;padding:14px;border:1px solid #77613d;border-radius:15px;background:linear-gradient(160deg,#131a29,#121823);color:#e6e9ef">
+<div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><strong style="color:#e2bc76">APS QUANT PRO · Editor de ataques</strong><div style="font-size:12px;color:#bfc9db">Cortes e deslocamentos sem alterar a afinação · prévia antes/depois</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" id="apsQuantAnalyze" class="mini">⌁ Analisar pista</button><button type="button" id="apsQuantManualReset" class="mini">↺ Limpar ajustes</button><label style="font-size:12px">Janela <select id="apsQuantZoom" class="compact"><option value="4">4 s</option><option value="8" selected>8 s</option><option value="16">16 s</option><option value="99999">Tudo</option></select></label></div></div>
+<canvas id="apsQuantCanvas" height="232" style="width:100%;height:232px;display:block;margin:10px 0 4px;border:1px solid #384456;border-radius:9px;background:#0a1322;touch-action:none" aria-label="Forma de onda e marcadores de quantização"></canvas>
+<input id="apsQuantScroll" aria-label="Deslocar janela do gráfico" type="range" min="0" max="100" value="0" style="width:100%;accent-color:#e2bc76"/>
+<div style="font-size:12px;color:#bfc9db">Azul: ataques originais · dourado: novos ataques. Arraste os círculos dourados no gráfico inferior para corrigir manualmente. Aplique no botão <strong>✦ Quantizar pista</strong>.</div></section><p style="padding:6px 15px;margin:0;font-size:11px;color:#abb9cc">A velocidade muda a afinação (pitch) só na reprodução; o WAV é exportado em 1,0×. Mantenha 1,0× ao gravar sobre uma guia. A quantização tenta alinhar ataques preservando a gravação original para desfazer.</p><div id="apsBpmStatus" class="aps-bpm-status" aria-live="polite">Importe uma track-guia, selecione-a e toque em “Ler BPM da guia”. O resultado é uma estimativa editável.</div><div class="timeline"><div class="ticks"><span>00:00</span><span id="mid">00:00</span><span id="end">00:00</span></div><div class="tracks" id="tracks"><div class="empty"><strong>Comece com uma ideia</strong>Importe áudio ou vídeo de até 10 minutos, grave seu instrumento ou ouça a demonstração.</div></div></div>
  <div class="bottom"><label class="mut" for="instrument">Adicionar instrumento</label><select id="instrument" class="compact"><option value="bass">Baixo sintetizado</option><option value="kick">Bumbo</option><option value="snare">Caixa</option><option value="hat">Chimbal</option><option value="conga">Conga</option><option value="tom">Tom</option><option value="shaker">Shaker</option><option value="piano">Teclado sintético</option><option value="acordeon">Acordeão sintético</option><option value="custom">Meu instrumento</option></select><button id="addInstrument" class="mini">+ Adicionar</button><button class="mini warn" id="clear">Limpar sessão</button></div>
 </section>
 <section class="panel spacing" id="videoPanel" hidden><div class="ph"><div><h2>Vídeo e sincronização</h2><p class="sub" id="videoName"></p></div><button id="removeVideo" class="mini warn">Remover vídeo</button></div><div class="padded"><video id="video" playsinline preload="metadata" muted></video><div class="row"><label>Início do vídeo (s) <input id="videoOffset" class="number wide" type="number" min="-300" max="300" step="0.01" value="0"></label><button id="extractVideo" class="mini">Extrair áudio do vídeo</button></div><p class="sub">Reproduza para conferir a sincronia. O vídeo usa o áudio da sua mixagem.</p></div></section>
@@ -164,6 +168,7 @@ body.aps-workspace .layout #apsTransferNotice.aps-visible:not([hidden]){display:
 <dialog id="confirmDialog"><div class="ph"><h2 id="confirmTitle">Confirmar</h2></div><div class="padded"><p id="confirmText"></p><div class="actions spacing"><button id="confirmNo">Voltar</button><button id="confirmYes" class="warn">Continuar</button></div></div></dialog>
 <noscript>Ative o JavaScript no navegador para usar o APS Audio Engine.</noscript>
 <script src="./aps-quant-core.js?v=4"></script>
+<script src="./aps-quant-core.js?v=2"></script>
 <script>/* TIMBRA DSP. Funções independentes do navegador; sem dependências remotas. */
 const TimbraDSP = (() => {
  'use strict';
@@ -489,29 +494,102 @@ quantCanvas.addEventListener('pointercancel',()=>{apsQuantDragging=null});
 for(const id of ['apsQuantStrength','apsQuantGrid','bpm'])$(id)?.addEventListener('change',()=>{
  if(apsQuantPreview?.buf===current()?.buf)try{apsAnalyzeQuant()}catch(e){$('apsQuantGraphStatus').textContent=e.message}
 });
+let apsQuantState=null,apsQuantCompare=null,apsQuantDrag=null;
+function apsQuantGetState(){
+ const t=current();if(!t?.buf)throw Error('Selecione uma pista importada ou gravada antes de analisar.');
+ if(!window.APSQuantCore)throw Error('Motor de quantização indisponível. Atualize a DAW.');
+ if(!apsQuantState||apsQuantState.id!==t.id||apsQuantState.buf!==t.buf){
+  const events=APSQuantCore.detect(t.buf);
+  if(!events.length)throw Error('Não encontrei ataques rítmicos definidos. Tente uma pista com mais transientes.');
+  apsQuantState={id:t.id,buf:t.buf,events,manualTargets:{}};
+  apsQuantCompare=null;
+ }
+ return apsQuantState;
+}
+function apsQuantOptions(st){return {bpm:bpm(),subdivision:Number($('apsQuantGrid').value),strength:Number($('apsQuantStrength').value),manualTargets:st.manualTargets};}
+function apsQuantDraw(){
+ const canvas=$('apsQuantCanvas');if(!canvas)return;
+ const rect=canvas.getBoundingClientRect(),w=Math.max(300,Math.floor(rect.width||680)),h=232,dpr=Math.min(2,window.devicePixelRatio||1);
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+ const g=canvas.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,w,h);
+ g.fillStyle='#0a1322';g.fillRect(0,0,w,h);
+ const st=apsQuantState;if(!st){g.fillStyle='#b8c3d5';g.font='14px system-ui';g.fillText('Selecione uma pista e clique em Analisar pista',18,45);return;}
+ const src=st.buf,duration=src.duration,windowS=Math.min(duration,Number($('apsQuantZoom').value)||8);
+ const start=Math.max(0,(duration-windowS)*Number($('apsQuantScroll').value)/100),finish=start+windowS;
+ st.view={start,windowS,width:w};
+ const unit=60/bpm()*4/Number($('apsQuantGrid').value),first=Math.max(0,Math.ceil(start/unit));
+ for(let k=first;k*unit<=finish&&k<first+2000;k++){
+  const x=(k*unit-start)/windowS*w;g.strokeStyle=k%4===0?'#3a4d69':'#233149';g.lineWidth=k%4===0?1.1:.65;
+  g.beginPath();g.moveTo(x,18);g.lineTo(x,h-5);g.stroke();
+ }
+ function wave(buf,center,color){
+  const pcm=buf.getChannelData(0),sr=buf.sampleRate,px=Math.max(1,Math.ceil(windowS*sr/w));
+  g.strokeStyle=color;g.lineWidth=1.15;g.beginPath();
+  for(let x=0;x<w;x++){
+   const begin=Math.min(pcm.length,Math.max(0,Math.floor((start+x/w*windowS)*sr)));
+   const end=Math.min(pcm.length,begin+px),skip=Math.max(1,Math.floor((end-begin)/28));
+   let lo=0,hi=0;for(let j=begin;j<end;j+=skip){lo=Math.min(lo,pcm[j]);hi=Math.max(hi,pcm[j]);}
+   g.moveTo(x,center-hi*38);g.lineTo(x,center-lo*38);
+  }g.stroke();
+ }
+ g.fillStyle='#b8cbe3';g.font='bold 11px system-ui';g.fillText('ANTES',12,13);wave(src,70,'#40c7e8');
+ g.fillText(apsQuantCompare?'DEPOIS · ÁUDIO APLICADO':'DEPOIS · MARCADORES PREVISTOS',12,123);
+ wave(apsQuantCompare?.after||src,174,apsQuantCompare?'#d7ac62':'#775c46');
+ let p;try{p=APSQuantCore.plan(src,st.events,apsQuantOptions(st));}catch{return;}
+ st.plan=p;st.visible=[];
+ for(const r of p.regions){
+  if(r.onset===null)continue;
+  const a=r.onset/src.sampleRate,after=r.targetSample/src.sampleRate;
+  if(a<start||a>finish)continue;
+  const x=(a-start)/windowS*w,y=(after-start)/windowS*w;
+  g.strokeStyle='#3ce1ee';g.beginPath();g.moveTo(x,25);g.lineTo(x,108);g.stroke();
+  if(y>=0&&y<w){g.strokeStyle='#e2bc76';g.beginPath();g.moveTo(y,133);g.lineTo(y,220);g.stroke();g.fillStyle='#f3cb7e';g.beginPath();g.arc(y,174,5,0,Math.PI*2);g.fill();st.visible.push({x:y,index:r.index,onset:a});}
+ }
+}
 async function apsQuantizeTrack(){
  if(!guard())return;
- const t=current();if(!t?.buf||t.buf.duration<.12)throw Error('Selecione uma pista gravada ou importada.');
- if(apsQuantUndo&&apsQuantUndo.id!==t.id)apsQuantUndo=null;
+ const t=current();if(!t?.buf||t.buf.duration<.12)throw Error('Selecione uma pista para quantizar.');
  stopPlayback(false);busy=true;
  try{
-  const edit=apsBuildQuant(),sr=t.buf.sampleRate;
-  if(!edit.regions.some(r=>Math.abs(r.offset)>sr*.002)){$('apsQuantStatus').textContent='Ataques já estão próximos da grade.';return;}
-  const bytes=t.buf.length*t.buf.numberOfChannels*4;
-  if(memoryBytes()+bytes*2>MAX_BYTES)throw Error('Memória insuficiente para quantizar e desfazer. Use uma pista menor.');
-  const quant=APSQuantCore.render(t.buf,edit,initAudio());
-  apsQuantUndo={id:t.id,buf:t.buf};t.buf=quant.buffer;
+  const st=apsQuantGetState(),source=t.buf,plan=APSQuantCore.plan(source,st.events,apsQuantOptions(st));
+  const bytes=source.length*source.numberOfChannels*4;
+  if(memoryBytes()+bytes*2>MAX_BYTES)throw Error('Memória insuficiente para quantizar e permitir desfazer. Use uma faixa menor.');
+  const result=APSQuantCore.render(source,plan,initAudio());
+  if(!result.moved){$('apsQuantStatus').textContent='Não há ataques suficientemente fora da grade para mover.';apsQuantDraw();return;}
+  apsQuantUndo={id:t.id,buf:source};t.buf=result.buffer;
+  apsQuantCompare={before:source,after:result.buffer};
   $('apsQuantUndo').disabled=false;change();redraw();selectUI();
-  $('apsQuantStatus').textContent=quant.moved+' segmentos movidos ('+Math.round(edit.strength*100)+'%) · maior junção '+Math.round(quant.longestGapSeconds*1000)+' ms. Você pode desfazer.';
-  say('APS Quant Pro aplicado em '+t.name+'. Cortes e reposicionamento, sem mudar a afinação.');
-  apsQuantPreview=null;apsQuantManual={};apsDrawQuant();
+  $('apsQuantStatus').textContent=result.moved+' segmentos movidos · maior lacuna: '+Math.round(result.longestGapSeconds*1000)+' ms · Desfazer disponível.';
+  say('Quantização aplicada em '+t.name+'. Compare antes e depois e ouça possíveis lacunas nas notas sustentadas.');
+  apsQuantDraw();
  }finally{busy=false;}
 }
+$('apsQuantAnalyze').onclick=()=>{
+ try{apsQuantState=null;apsQuantCompare=null;const st=apsQuantGetState();$('apsQuantStatus').textContent=st.events.length+' ataques encontrados. Arraste marcadores dourados para edição manual.';apsQuantDraw();}
+ catch(e){report(e);}
+};
+$('apsQuantManualReset').onclick=()=>{if(apsQuantState)apsQuantState.manualTargets={};apsQuantDraw();};
+$('apsQuantZoom').onchange=apsQuantDraw;$('apsQuantScroll').oninput=apsQuantDraw;
+for(const id of ['apsQuantGrid','bpm'])$(id).addEventListener('change',apsQuantDraw);
+$('apsQuantCanvas').addEventListener('pointerdown',e=>{
+ const st=apsQuantState;if(!st||!st.visible?.length)return;
+ const r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*st.view.width;
+ const nearest=st.visible.reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a);
+ if(Math.abs(nearest.x-x)>18)return;
+ apsQuantDrag=nearest.index;e.currentTarget.setPointerCapture(e.pointerId);
+});
+$('apsQuantCanvas').addEventListener('pointermove',e=>{
+ if(apsQuantDrag===null||!apsQuantState?.view)return;
+ const st=apsQuantState,r=e.currentTarget.getBoundingClientRect(),x=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+ st.manualTargets[apsQuantDrag]=st.view.start+x*st.view.windowS;apsQuantDraw();
+});
+for(const name of ['pointerup','pointercancel','lostpointercapture'])$('apsQuantCanvas').addEventListener(name,()=>{apsQuantDrag=null;});
+window.addEventListener('resize',apsQuantDraw);
 $('apsQuantize').addEventListener('click',()=>apsQuantizeTrack().catch(report));
 $('apsQuantUndo').addEventListener('click',()=>{
  if(!apsQuantUndo)return;const t=tracks.find(t=>t.id===apsQuantUndo.id);
  if(t){stopPlayback(false);t.buf=apsQuantUndo.buf;change();redraw();selectUI();say('Quantização desfeita; áudio original restaurado.');}
- apsQuantUndo=null;$('apsQuantUndo').disabled=true;$('apsQuantStatus').textContent='Áudio original restaurado.';apsQuantPreview=null;apsQuantManual={};apsDrawQuant();
+ apsQuantUndo=null;apsQuantState=null;apsQuantCompare=null;apsQuantDraw();$('apsQuantUndo').disabled=true;$('apsQuantStatus').textContent='Áudio original restaurado.';apsQuantPreview=null;apsQuantManual={};apsDrawQuant();
 });
 $('apsQuantStrength').addEventListener('input',()=>{$('apsQuantStrengthText').textContent=$('apsQuantStrength').value+'%';});
 $('apsMetroVolume').addEventListener('input',()=>{$('apsMetroVolumeText').textContent=$('apsMetroVolume').value+'%';});
