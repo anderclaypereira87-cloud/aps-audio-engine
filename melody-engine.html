@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS Melody Engine — Protótipo</title>
+<style>:root{color-scheme:dark}body{background:#0b0e17;color:#f3eee3;font:16px/1.5 system-ui;margin:0}main{max-width:680px;margin:auto;padding:24px}h1{color:#e2bc76}.panel{background:#171d2b;border:1px solid #55515a;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:16px 0}input[type=range]{width:100%;accent-color:#e2bc76}button,a.button{background:#e2bc76;color:#151923;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}a{color:#e2bc76}small{color:#c2c7d1}output{float:right}</style></head>
+<body><main><a href="./index.html">← APS Audio Engine</a><h1>APS Melody Engine</h1><p>Protótipo de configuração. Ainda não processa áudio, não treina voz e não envia arquivos a servidores.</p>
+<section class="panel"><h2>Voz e melodia</h2><label>Correção de afinação <output id="cv">65%</output><input id="correction" type="range" min="0" max="100" value="65"></label>
+<label>Naturalidade <output id="nv">85%</output><input id="naturalness" type="range" min="0" max="100" value="85"></label>
+<label><input id="preserve" type="checkbox" checked> Preservar melodia original</label>
+<label>Arquivo de referência vocal (apenas seleção local)<input id="audio" type="file" accept="audio/*"></label>
+<p id="selected" aria-live="polite">Nenhum arquivo selecionado.</p><button id="download" type="button">Exportar configuração JSON</button></section>
+<section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
+<script>
+const $=id=>document.getElementById(id);
+for(const [a,b] of [['correction','cv'],['naturalness','nv']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+'%');
+$('audio').addEventListener('change',()=>{$('selected').textContent=$('audio').files[0]?.name||'Nenhum arquivo selecionado.'});
+$('download').addEventListener('click',()=>{
+const config={schema:'aps.melody.config.v1',pitchCorrection:Number($('correction').value),naturalness:Number($('naturalness').value),preserveOriginalMelody:$('preserve').checked,engineStatus:'not-connected',voiceModelStatus:'not-trained'};
+const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='aps-melody-config.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+</script></main></body></html>
