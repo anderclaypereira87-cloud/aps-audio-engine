@@ -16,7 +16,13 @@
 <canvas id="roll" width="640" height="260" aria-label="Editor de notas arrastáveis"></canvas>
 <p id="noteinfo" class="hint" aria-live="polite">Exemplo: selecione uma nota para editar.</p>
 <div class="actions"><button id="qapply" type="button">Quantizar notas do exemplo</button><button id="resetnotes" type="button">Restaurar exemplo</button><button id="exportnotes" type="button">Exportar notas JSON</button></div>
-<small>Quantização preserva as durações nesta demonstração. Para processar áudio real, faltam extração de notas, correção DSP e integração com a DAW. Em instrumentos polifônicos, a análise exige separação/transcrição adequada.</small></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
+<small>Quantização preserva as durações nesta demonstração. Para processar áudio real, faltam extração de notas, correção DSP e integração com a DAW. Em instrumentos polifônicos, a análise exige separação/transcrição adequada.</small></section><section class="panel"><h2>Quantização de áudio — Experimental</h2><p class="hint">Use o MP3/WAV selecionado acima. Detecta ataques por energia e desloca os eventos para a grade com interpolação temporal. Funciona melhor com uma faixa isolada de voz ou instrumento. Pode gerar artefatos: compare antes e depois.</p>
+<label>Força da quantização do áudio <output id="aqv">50%</output><input id="audioquant" type="range" min="0" max="100" value="50"></label>
+<label>Deslocamento máximo por ataque (ms) <output id="maxv">45</output><input id="maxshift" type="range" min="10" max="80" value="45"></label>
+<div class="actions"><button id="processaudio" type="button">Quantizar áudio selecionado</button><button id="savewav" type="button" disabled>Baixar WAV quantizado</button></div>
+<p id="quantstatus" class="hint" aria-live="polite">Aguardando arquivo de áudio.</p>
+<audio id="quantpreview" controls style="display:none;width:100%" aria-label="Ouvir áudio quantizado"></audio>
+<small>Processamento local, sem envio ao servidor. Não é IA e não substitui quantização profissional com detecção de tempo, separação de stems e algoritmos de time-stretch preservando formantes.</small></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
 <script>
 const $=id=>document.getElementById(id);
 for(const [a,b] of [['correction','cv'],['naturalness','nv']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+'%');
@@ -46,4 +52,50 @@ $('qapply').addEventListener('click',()=>{const step=Number($('grid').value),amo
 $('resetnotes').addEventListener('click',()=>{notes=seed.map(n=>({...n}));drawRoll()});
 $('exportnotes').addEventListener('click',()=>{const data={schema:'aps.melody.notes.demo.v1',demoOnly:true,track:$('track').value,bpm:Number($('bpm').value),meter:$('meter').value,quantization:Number($('quantize').value),grid:$('grid').value,notes};const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='aps-notas-exemplo.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
 drawRoll();
+
+let processed=null,quantUrl=null;
+for(const [a,b,suffix] of [['audioquant','aqv','%'],['maxshift','maxv','']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+suffix);
+function detectAttacks(buffer){
+const sr=buffer.sampleRate,hop=Math.max(128,Math.round(sr*.01)),ch=buffer.numberOfChannels,frames=Math.floor(buffer.length/hop),energy=new Float32Array(frames);
+for(let k=0;k<frames;k++){let sum=0,cnt=0;for(let j=k*hop;j<Math.min((k+1)*hop,buffer.length);j+=4){let v=0;for(let c=0;c<ch;c++)v+=buffer.getChannelData(c)[j]/ch;sum+=v*v;cnt++}energy[k]=Math.sqrt(sum/Math.max(1,cnt));}
+let peaks=[],last=-100,threshold=.016;
+for(let k=2;k<frames-2;k++){const rise=energy[k]-Math.min(energy[k-1],energy[k-2]);if(rise>threshold&&energy[k]>.025&&energy[k]>=energy[k+1]&&k-last>=12){peaks.push(k*hop/sr);last=k;}}
+return peaks;
+}
+function warpChannel(src,sr,anchors){
+const out=new Float32Array(src.length);
+let seg=0;
+for(let i=0;i<out.length;i++){
+const t=i/sr;
+while(seg+2<anchors.length&&t>anchors[seg+1].target)seg++;
+const a=anchors[seg],b=anchors[seg+1],fraction=Math.max(0,Math.min(1,(t-a.target)/(b.target-a.target||1e-9)));
+const sourceIndex=(a.source+(b.source-a.source)*fraction)*sr;
+const j=Math.max(0,Math.min(src.length-2,Math.floor(sourceIndex))),f=sourceIndex-j;
+out[i]=src[j]*(1-f)+src[j+1]*f;
+}
+return out;
+}
+function wavBytes(channels,sr){
+const count=channels[0].length,bytes=new ArrayBuffer(44+count*channels.length*2),v=new DataView(bytes);
+function str(o,t){for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))}
+str(0,'RIFF');v.setUint32(4,bytes.byteLength-8,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,channels.length,true);v.setUint32(24,sr,true);v.setUint32(28,sr*channels.length*2,true);v.setUint16(32,channels.length*2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,count*channels.length*2,true);
+let off=44;for(let i=0;i<count;i++)for(const channel of channels){const x=Math.max(-1,Math.min(1,channel[i]));v.setInt16(off,x<0?x*32768:x*32767,true);off+=2}
+return new Blob([bytes],{type:'audio/wav'});
+}
+$('processaudio').addEventListener('click',async()=>{
+const file=$('audio').files[0],status=$('quantstatus');if(!file||!/\.(wav|mp3)$/i.test(file.name)){status.textContent='Escolha um MP3 ou WAV primeiro.';return;}
+const button=$('processaudio');button.disabled=true;$('savewav').disabled=true;status.textContent='Analisando ataques e ajustando grade…';
+try{
+const ctx=new (window.AudioContext||window.webkitAudioContext)(),buf=await ctx.decodeAudioData(await file.arrayBuffer());await ctx.close();
+if(buf.duration>90)throw Error('Para esta versão, use um trecho de até 90 segundos.');
+const bpm=Number($('bpm').value);if(!Number.isFinite(bpm)||bpm<30||bpm>300)throw Error('Escolha BPM entre 30 e 300.');
+const step=60/bpm*Number($('grid').value),strength=Number($('audioquant').value)/100,maxshift=Number($('maxshift').value)/1000;
+const attacks=detectAttacks(buf),anchors=[{source:0,target:0}];let last=0,moved=0;
+for(const t of attacks){const targetGrid=Math.round(t/step)*step;const shift=Math.max(-maxshift,Math.min(maxshift,(targetGrid-t)*strength));const target=t+shift;if(t-last<.09||target<=anchors[anchors.length-1].target+.04||buf.duration-t<.09)continue;anchors.push({source:t,target});last=t;if(Math.abs(shift)>.002)moved++;}
+anchors.push({source:buf.duration,target:buf.duration});
+const channels=[];for(let c=0;c<buf.numberOfChannels;c++)channels.push(warpChannel(buf.getChannelData(c),buf.sampleRate,anchors));
+processed=wavBytes(channels,buf.sampleRate);if(quantUrl)URL.revokeObjectURL(quantUrl);quantUrl=URL.createObjectURL(processed);$('quantpreview').src=quantUrl;$('quantpreview').style.display='block';$('savewav').disabled=false;status.textContent='Prévia pronta: '+moved+' ataques ajustados de '+attacks.length+' detectados. Compare com o original. Não modifica o arquivo original.';
+}catch(err){status.textContent='Não foi possível quantizar: '+err.message;}finally{button.disabled=false;}
+});
+$('savewav').addEventListener('click',()=>{if(!processed)return;const u=URL.createObjectURL(processed),a=document.createElement('a');a.href=u;a.download='aps-quantizado-beta.wav';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
 </script></main></body></html>
