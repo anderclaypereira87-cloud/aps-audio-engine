@@ -1,13 +1,22 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS Melody Engine — Beta</title>
-<style>:root{color-scheme:dark}body{background:#0b0e17;color:#f3eee3;font:16px/1.5 system-ui;margin:0}main{max-width:680px;margin:auto;padding:24px}h1{color:#e2bc76}.panel{background:#171d2b;border:1px solid #55515a;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:16px 0}input[type=range]{width:100%;accent-color:#e2bc76}button,a.button{background:#e2bc76;color:#151923;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}a{color:#e2bc76}small{color:#c2c7d1}output{float:right}</style></head>
+<style>:root{color-scheme:dark}body{background:#0b0e17;color:#f3eee3;font:16px/1.5 system-ui;margin:0}main{max-width:680px;margin:auto;padding:24px}h1{color:#e2bc76}.panel{background:#171d2b;border:1px solid #55515a;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:16px 0}input[type=range]{width:100%;accent-color:#e2bc76}button,a.button{background:#e2bc76;color:#151923;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}a{color:#e2bc76}small{color:#c2c7d1}output{float:right}canvas{width:100%;height:260px;touch-action:none;background:#101522;border:1px solid #424958;border-radius:10px}select{padding:9px;background:#101522;color:#fff;border:1px solid #59606e;border-radius:8px} .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1} .hint{font-size:13px;color:#c2c7d1}</style></head>
 <body><main><a href="./index.html">← APS Audio Engine</a><h1>APS Melody Engine</h1><nav aria-label="Ferramentas relacionadas"><a href="./musica-ia.html">APS Maestro — criar música</a> · <a href="./arranjo.html">APS Arranjo — recriar instrumental</a> · <a href="./afinacao.html">Afinação de voz</a></nav><p>Versão Beta de configuração: ainda não processa áudio, não treina voz e não envia arquivos a servidores.</p>
 <section class="panel"><h2>Voz e melodia</h2><label>Correção de afinação <output id="cv">65%</output><input id="correction" type="range" min="0" max="100" value="65"></label>
 <label>Naturalidade <output id="nv">85%</output><input id="naturalness" type="range" min="0" max="100" value="85"></label>
 <label><input id="preserve" type="checkbox" checked> Preservar melodia original</label>
 <label>Arquivo de referência vocal (apenas seleção local)<input id="audio" type="file" aria-label="Selecionar MP3 ou WAV em Arquivos"><small>Selecione um MP3 ou WAV pelo aplicativo Arquivos do celular.</small><audio id="preview" controls style="width:100%;display:none;margin-top:12px"></audio></label>
 <p id="selected" aria-live="polite">Nenhum arquivo selecionado.</p><p><a href="./afinacao.html">Abrir o afinador de voz existente</a> (processamento independente deste Beta)</p><button id="download" type="button">Exportar configuração JSON</button></section>
-<section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
+<section class="panel"><h2>Editor gráfico — Piano Roll Beta</h2><p class="hint">Demonstração interativa com notas de exemplo. Arraste as notas para cima/baixo (afinação) ou para os lados (tempo). Não analisa nem altera o MP3 carregado.</p>
+<label>Tipo de faixa <select id="track"><option value="voice">Voz</option><option value="bass">Baixo</option><option value="guitar">Guitarra</option><option value="keys">Teclado / outro instrumento</option></select></label>
+<label>Compasso <select id="meter"><option>4/4</option><option>2/4</option><option>3/4</option><option>6/8</option><option>7/8</option></select></label>
+<label>BPM <input id="bpm" type="number" min="30" max="300" value="100" style="width:100%;padding:10px;background:#101522;color:white;border:1px solid #59606e"></label>
+<label>Força da quantização <output id="qv">50%</output><input id="quantize" type="range" min="0" max="100" value="50"></label>
+<label>Grade <select id="grid"><option value="0.25">1/16</option><option value="0.5">1/8</option><option value="1">1/4</option><option value="0.333333">Tercina</option></select></label>
+<canvas id="roll" width="640" height="260" aria-label="Editor de notas arrastáveis"></canvas>
+<p id="noteinfo" class="hint" aria-live="polite">Exemplo: selecione uma nota para editar.</p>
+<div class="actions"><button id="qapply" type="button">Quantizar notas do exemplo</button><button id="resetnotes" type="button">Restaurar exemplo</button><button id="exportnotes" type="button">Exportar notas JSON</button></div>
+<small>Quantização preserva as durações nesta demonstração. Para processar áudio real, faltam extração de notas, correção DSP e integração com a DAW. Em instrumentos polifônicos, a análise exige separação/transcrição adequada.</small></section><section class="panel"><h2>Processamento planejado</h2><p>Separação vocal → extração F0 → detecção de notas → correção com preservação de vibrato → conversão RVC com modelo autorizado → mixagem.</p><small>Os percentuais são parâmetros de interface, ainda não calibrados para um motor DSP. Preservar a melodia não garante reconstrução perfeita em áudio polifônico.</small></section>
 <script>
 const $=id=>document.getElementById(id);
 for(const [a,b] of [['correction','cv'],['naturalness','nv']])$(a).addEventListener('input',()=>$(b).textContent=$(a).value+'%');
@@ -16,4 +25,25 @@ $('download').addEventListener('click',()=>{
 const config={schema:'aps.melody.config.v1',pitchCorrection:Number($('correction').value),naturalness:Number($('naturalness').value),preserveOriginalMelody:$('preserve').checked,engineStatus:'not-connected',voiceModelStatus:'not-trained'};
 const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='aps-melody-config.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+
+// Editor MIDI-like: demonstration notes only, not detected from user audio.
+const seed=[{t:.2,n:60,d:.85},{t:1.12,n:62,d:.8},{t:2.1,n:64,d:.8},{t:3.05,n:67,d:.9},{t:4.18,n:65,d:.9},{t:5.12,n:64,d:.8}];
+let notes=seed.map(n=>({...n})),drag=-1,origin=null;
+const cv=$('roll'),ctx=cv.getContext('2d'),PX=80,PY=13,base=48;
+function xPos(t){return 36+t*PX}function yPos(n){return cv.height-18-(n-base)*PY}
+function drawRoll(){
+ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle='#101522';ctx.fillRect(0,0,cv.width,cv.height);
+for(let n=base;n<=66;n++){let y=yPos(n);ctx.strokeStyle=n%12===0?'#777b88':'#303847';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();if(n%2===0){ctx.fillStyle='#c0c6d0';ctx.font='11px sans-serif';ctx.fillText(['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1),3,y-3);}}
+for(let b=0;b<8;b++){ctx.strokeStyle=b%4===0?'#8b7a57':'#3a4554';ctx.beginPath();ctx.moveTo(xPos(b),0);ctx.lineTo(xPos(b),cv.height);ctx.stroke();}
+notes.forEach((v,i)=>{let x=xPos(v.t),y=yPos(v.n)-10;ctx.fillStyle=i===drag?'#f9d48b':'#d8b46e';ctx.fillRect(x,y,Math.max(12,v.d*PX-3),12);ctx.strokeStyle='#f8e6bf';ctx.strokeRect(x,y,Math.max(12,v.d*PX-3),12);});
+}
+function pos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};}
+cv.addEventListener('pointerdown',e=>{let p=pos(e);drag=notes.findIndex(v=>p.x>=xPos(v.t)&&p.x<=xPos(v.t+v.d)&&Math.abs(p.y-(yPos(v.n)-4))<12);if(drag>=0){origin={p,t:notes[drag].t,n:notes[drag].n};cv.setPointerCapture(e.pointerId);$('noteinfo').textContent='Nota MIDI '+notes[drag].n+' · posição '+notes[drag].t.toFixed(2)+' tempos';drawRoll();}});
+cv.addEventListener('pointermove',e=>{if(drag<0||!origin)return;let p=pos(e);notes[drag].t=Math.max(0,Math.min(7.5,origin.t+(p.x-origin.p.x)/PX));notes[drag].n=Math.max(base,Math.min(66,Math.round(origin.n-(p.y-origin.p.y)/PY)));$('noteinfo').textContent='Nota MIDI '+notes[drag].n+' · posição '+notes[drag].t.toFixed(2)+' tempos';drawRoll();});
+function endDrag(){drag=-1;origin=null;drawRoll()}cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+$('quantize').addEventListener('input',()=>{$('qv').textContent=$('quantize').value+'%'});
+$('qapply').addEventListener('click',()=>{const step=Number($('grid').value),amount=Number($('quantize').value)/100;notes.forEach(n=>{const target=Math.round(n.t/step)*step;n.t=Math.max(0,n.t+(target-n.t)*amount)});drawRoll();$('noteinfo').textContent='Quantização aplicada somente às notas demonstrativas.'});
+$('resetnotes').addEventListener('click',()=>{notes=seed.map(n=>({...n}));drawRoll()});
+$('exportnotes').addEventListener('click',()=>{const data={schema:'aps.melody.notes.demo.v1',demoOnly:true,track:$('track').value,bpm:Number($('bpm').value),meter:$('meter').value,quantization:Number($('quantize').value),grid:$('grid').value,notes};const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='aps-notas-exemplo.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
+drawRoll();
 </script></main></body></html>
