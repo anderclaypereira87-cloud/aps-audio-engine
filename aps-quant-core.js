@@ -38,87 +38,56 @@ function detect(buffer){
   }
   return candidates.slice(0,4000).map((v,i)=>({index:i,sample:clamp(v.frame*hop-Math.round(.004*sr),0,buffer.length-1),strength:v.peak}));
 }
-function plan(buffer,events,options={}){
-  const sr=buffer.sampleRate,bpm=clamp(Number(options.bpm)||100,40,240);
-  const subdivision=[4,8,16,32].includes(Number(options.subdivision))?Number(options.subdivision):16;
-  const interval=60/bpm*4/subdivision;
-  const strength=clamp(Number(options.strength) / 100 || 0,0,1);
-  const maxShift=Math.round(Math.min(.2,interval*.501)*sr);
-  const lead=Math.round(.009*sr),minRegion=Math.round(.045*sr);
-  const list=(events||[]).filter(e=>Number.isFinite(e.sample)&&e.sample>=0&&e.sample<buffer.length)
-    .sort((a,b)=>a.sample-b.sample);
-  if(!list.length)throw Error('Não encontrei ataques rítmicos nessa pista.');
-  const selected=[list[0]];
-  for(let i=1;i<list.length;i++)if(list[i].sample-selected[selected.length-1].sample>minRegion)selected.push(list[i]);
-  const cuts=[0],kept=[selected[0]];
-  for(let i=1;i<selected.length;i++){
-    const cut=selected[i].sample-lead;
-    if(cut-cuts[cuts.length-1]>=minRegion && cut<buffer.length-minRegion){
-      cuts.push(cut);kept.push(selected[i]);
-    }
-  }
-  cuts.push(buffer.length);
-  const targets=options.manualTargets||{};
-  const regions=[];
-  let lastEnd=-1;
-  for(let i=0;i<cuts.length-1;i++){
-    const event=kept[i],onset=event.sample/sr;
-    const custom=targets[event.index];
-    const target=Number.isFinite(custom)?clamp(custom,0,buffer.duration):
-      Math.max(0,Math.round(onset/interval)*interval);
-    let offset=Math.round(clamp((target-onset)*strength*sr,-maxShift,maxShift));
-    // Preserve the ordering of attacks and don't push an onset out of the clip.
-    if(event.sample+offset<0)offset=-event.sample;
-    if(event.sample+offset<=lastEnd)offset=lastEnd+1-event.sample;
-    lastEnd=event.sample+offset;
-    regions.push({start:cuts[i],end:cuts[i+1],onset:event.sample,index:event.index,offset,
-      targetSample:event.sample+offset,rawTarget:target,detected:event.strength});
-  }
-  return {regions,events:kept,bpm,subdivision,interval,strength,frameLength:buffer.length,sampleRate:sr};
+function plan(buffer,events,opts={}){
+ const sr=buffer.sampleRate,bpm=clamp(Number(opts.bpm)||100,40,240);
+ const sub=[4,8,16,32].includes(Number(opts.subdivision))?Number(opts.subdivision):16;
+ const unit=60/bpm*4/sub,strength=clamp(Number(opts.strength??65)/100,0,1);
+ const limit=Math.round(clamp(Number(opts.maxShiftMs??65),10,120)*sr/1000),lead=Math.round(.010*sr),minLength=Math.round(.035*sr);
+ const list=[...(events||[])].filter(e=>Number.isInteger(e.sample)&&e.sample>=0&&e.sample<buffer.length).sort((a,b)=>a.sample-b.sample);
+ if(!list.length)throw Error("Nenhum ataque rítmico detectado.");
+ const targets=opts.manualTargets||{},regions=[];let lastCut=0,lastTarget=-1;
+ for(const e of list){
+  const cut=e.sample-lead;if(cut-lastCut<minLength||cut>=buffer.length-minLength)continue;
+  if(regions.length)regions[regions.length-1].end=cut;
+  else regions.push({start:0,end:cut,onset:null,offset:0,index:null});
+  const manual=targets[e.index],onset=e.sample/sr;
+  const target=Number.isFinite(manual)?clamp(manual,0,buffer.duration):Math.round(onset/unit)*unit;
+  const desired=(target-onset)*(Number.isFinite(manual)?1:strength);
+  let offset=Math.round(clamp(desired*sr,-limit,limit));
+  if(e.sample+offset<0)offset=-e.sample;
+  if(e.sample+offset<=lastTarget)offset=lastTarget+1-e.sample;
+  lastTarget=e.sample+offset;
+  regions.push({start:cut,end:buffer.length,onset:e.sample,index:e.index,offset,targetSample:e.sample+offset,rawTarget:target});
+  lastCut=cut;
+ }
+ if(regions.length<2)throw Error("Não há ataques suficientemente separados para cortar.");
+ return {regions,events:list,frameLength:buffer.length,sampleRate:sr,bpm,subdivision:sub,interval:unit,strength};
 }
 function render(buffer,edit,context){
-  if(!edit||!edit.regions||buffer.length!==edit.frameLength)throw Error('O plano de edição não corresponde ao áudio.');
-  const sr=buffer.sampleRate,n=buffer.length,ch=buffer.numberOfChannels;
-  const output=context.createBuffer(ch,n,sr);
-  const weights=new Float32Array(n);
-  const inputs=Array.from({length:ch},(_,i)=>buffer.getChannelData(i));
-  const outputs=Array.from({length:ch},(_,i)=>output.getChannelData(i));
-  const fade=Math.max(12,Math.round(.006*sr));
-  for(let i=0;i<edit.regions.length;i++){
-    const r=edit.regions[i],a=r.start,b=r.end,shift=r.offset;
-    const edgeL=i>0&&edit.regions[i-1].offset!==shift;
-    const edgeR=i<edit.regions.length-1&&edit.regions[i+1].offset!==shift;
-    for(let x=a;x<b;x++){
-      const y=x+shift;
-      if(y<0||y>=n)continue;
-      // Equal-weight overlap normalization keeps stereo channels linked.
-      const gain=Math.max(.001,Math.min(1,edgeL?(x-a+1)/fade:1,edgeR?(b-x)/fade:1));
-      weights[y]+=gain;
-      for(let c=0;c<ch;c++)outputs[c][y]+=inputs[c][x]*gain;
-    }
+ if(!edit?.regions||edit.frameLength!==buffer.length||edit.sampleRate!==buffer.sampleRate)throw Error("Plano incompatível com o áudio.");
+ const sr=buffer.sampleRate,n=buffer.length,ch=buffer.numberOfChannels,result=context.createBuffer(ch,n,sr);
+ const inputs=Array.from({length:ch},(_,c)=>buffer.getChannelData(c)),outputs=Array.from({length:ch},(_,c)=>result.getChannelData(c));
+ const weights=new Float32Array(n),fade=Math.max(12,Math.round(.006*sr));
+ for(let i=0;i<edit.regions.length;i++){
+  const r=edit.regions[i],left=i>0&&edit.regions[i-1].offset!==r.offset,right=i<edit.regions.length-1&&edit.regions[i+1].offset!==r.offset;
+  for(let x=r.start;x<r.end;x++){
+   const y=x+r.offset;if(y<0||y>=n)continue;
+   const w=Math.max(.0001,Math.min(1,left?(x-r.start+1)/fade:1,right?(r.end-x)/fade:1));
+   weights[y]+=w;for(let c=0;c<ch;c++)outputs[c][y]+=inputs[c][x]*w;
   }
-  let gaps=0,longest=0;
-  for(let x=0;x<n;){
-    if(weights[x]>0){const w=1/weights[x];for(let c=0;c<ch;c++)outputs[c][x]*=w;x++;continue;}
-    const begin=x;while(x<n&&weights[x]===0)x++;
-    const end=x,length=end-begin;gaps+=length;longest=Math.max(longest,length);
-    const before=begin>0?begin-1:-1,after=end<n?end:-1;
-    // Fill the join by interpolating adjacent *edited* samples. Never restore
-    // the old attacks from the original track, which produces double hits.
-    if(before>=0&&after>=0){
-      for(let c=0;c<ch;c++){
-        const l=outputs[c][before],r=outputs[c][after]/weights[after];
-        for(let t=0;t<length;t++){
-          const alpha=(t+1)/(length+1);
-          const edgeFade=length>sr*.025?
-            Math.min(1,(t+1)/(sr*.007),(length-t)/(sr*.007)):1;
-          outputs[c][begin+t]=(l*(1-alpha)+r*alpha)*edgeFade;
-        }
-      }
-    }
+ }
+ for(let x=0;x<n;x++)if(weights[x])for(let c=0;c<ch;c++)outputs[c][x]/=weights[x];
+ let gaps=0,longest=0;
+ for(let x=0;x<n;){
+  if(weights[x]){x++;continue;}
+  const begin=x;while(x<n&&!weights[x])x++;const size=x-begin;gaps+=size;longest=Math.max(longest,size);
+  const ramp=Math.max(1,Math.min(Math.round(.006*sr),Math.floor(size/2)));
+  for(let c=0;c<ch;c++){
+   const left=begin>0?outputs[c][begin-1]:0,right=x<n?outputs[c][x]:0;
+   for(let j=0;j<size;j++)outputs[c][begin+j]=j<ramp?left*(1-(j+1)/ramp):j>=size-ramp?right*(j-(size-ramp)+1)/ramp:0;
   }
-  return {buffer:output,gapSamples:gaps,longestGapSeconds:longest/sr,
-    moved:edit.regions.filter(r=>Math.abs(r.offset)>Math.round(.002*sr)).length};
+ }
+ return {buffer:result,gapSamples:gaps,longestGapSeconds:longest/sr,moved:edit.regions.filter(r=>Math.abs(r.offset)>.002*sr).length};
 }
 global.APSQuantCore=Object.freeze({detect,plan,render});
 })(typeof window!=='undefined'?window:globalThis);
