@@ -43,7 +43,7 @@ function plan(buffer,events,options={}){
   const subdivision=[4,8,16,32].includes(Number(options.subdivision))?Number(options.subdivision):16;
   const interval=60/bpm*4/subdivision;
   const strength=clamp(Number(options.strength) / 100 || 0,0,1);
-  const maxShift=Math.round(Math.min(.065,interval*.45)*sr);
+  const maxShift=Math.round(Math.min(.2,interval*.501)*sr);
   const lead=Math.round(.009*sr),minRegion=Math.round(.045*sr);
   const list=(events||[]).filter(e=>Number.isFinite(e.sample)&&e.sample>=0&&e.sample<buffer.length)
     .sort((a,b)=>a.sample-b.sample);
