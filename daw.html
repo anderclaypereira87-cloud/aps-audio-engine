@@ -439,31 +439,43 @@ async function apsQuantizeTrack(){
     transients.push(i);
   }
   if(!transients.length)throw Error('Não encontrei transientes definidos. Use uma pista com ataques rítmicos.');
-  const subdivision=Number($('apsQuantGrid').value);const interval=(60/bpm())*4/subdivision;
-  const amount=Number($('apsQuantStrength').value)/100,stereo=[],changes=[];
-  const margin=Math.floor(.008*sr),tail=Math.floor(.085*sr),maxShift=.045;
-  for(const i of transients){const onset=i*hop/sr;const target=Math.max(0,Math.round(onset/interval)*interval);const shift=D.clamp((target-onset)*amount,-maxShift,maxShift);if(Math.abs(shift)<.003)continue;changes.push({onset,shift});}
+  // Region-based quantization: edit whole slices, not tiny onset windows.
+  const subdivision=Number($('apsQuantGrid').value),interval=(60/bpm())*4/subdivision;
+  const amount=Number($('apsQuantStrength').value)/100,fade=Math.max(16,Math.round(.004*sr)),maxShift=.12;
+  const attacks=transients.map(i=>Math.round(i*hop));
+  const cuts=[0];
+  for(let i=0;i<attacks.length;i++){
+    const prev=i?attacks[i-1]:0;
+    const cut=Math.max(cuts[cuts.length-1]+fade*2,Math.min(attacks[i]-Math.round(.008*sr),Math.round((prev+attacks[i])/2)));
+    if(cut>cuts[cuts.length-1]+fade*2&&cut<source.length-fade*2)cuts.push(cut);
+  }
+  cuts.push(source.length);
+  const shifts=cuts.slice(0,-1).map((start,i)=>{
+    const attack=attacks.find(v=>v>=start&&v<cuts[i+1])??start;
+    const onset=attack/sr,target=Math.round(onset/interval)*interval;
+    return Math.round(D.clamp((target-onset)*amount,-maxShift,maxShift)*sr);
+  });
+  const changes=shifts.filter(x=>Math.abs(x)>=Math.round(.002*sr));
   if(!changes.length){$('apsQuantStatus').textContent='Os ataques já estão próximos da grade escolhida.';return;}
   const bytes=source.length*source.numberOfChannels*4;
   if(memoryBytes()+bytes*2>MAX_BYTES)throw Error('Sem memória para quantizar e desfazer. Use uma pista menor ou um computador.');
+  const result=initAudio().createBuffer(source.numberOfChannels,source.length,sr);
   for(let c=0;c<source.numberOfChannels;c++){
-    const input=source.getChannelData(c),output=input.slice();
-    for(const [k,{onset,shift}]of changes.entries()){
-      const srcCenter=Math.round(onset*sr),shiftSamples=Math.round(shift*sr),dstCenter=srcCenter+shiftSamples;
-      const lo=Math.max(0,Math.min(srcCenter,dstCenter)-margin),hi=Math.min(input.length,Math.max(srcCenter,dstCenter)+tail),fade=Math.max(32,Math.floor(.008*sr));
+    const input=source.getChannelData(c),output=result.getChannelData(c),weights=new Float32Array(source.length);
+    for(let i=0;i<shifts.length;i++){
+      const lo=cuts[i],hi=cuts[i+1],shift=shifts[i],left=i?fade:0,right=i<shifts.length-1?fade:0;
       for(let j=lo;j<hi;j++){
-        const from=j-shiftSamples;const shifted=(input[from]||0);
-        const inF=Math.min(1,(j-lo)/fade),outF=Math.min(1,(hi-j)/fade),w=Math.max(0,Math.min(inF,outF));
-        output[j]=input[j]*(1-w)+shifted*w;
+        const dest=j+shift;if(dest<0||dest>=output.length)continue;
+        const w=Math.max(0,Math.min(1,left?(j-lo)/left:1,right?(hi-1-j)/right:1));
+        if(w<=0)continue;output[dest]+=input[j]*w;weights[dest]+=w;
       }
-      if(k%75===0)await new Promise(r=>setTimeout(r,0));
+      if(i%20===0)await new Promise(r=>setTimeout(r,0));
     }
-    stereo.push(output);
+    for(let j=0;j<output.length;j++)output[j]=weights[j]>0?output[j]/weights[j]:input[j];
   }
-  const result=initAudio().createBuffer(source.numberOfChannels,source.length,sr);stereo.forEach((arr,i)=>result.copyToChannel(arr,i));
   apsQuantUndo={id:t.id,buf:t.buf};t.buf=result;
   $('apsQuantUndo').disabled=false;change();redraw();selectUI();
-  $('apsQuantStatus').textContent=changes.length+' ataques alinhados ('+Math.round(amount*100)+'%). Compare e use Desfazer se necessário.';
+  $('apsQuantStatus').textContent=changes.length+' segmentos reposicionados ('+Math.round(amount*100)+'%). Compare e use Desfazer se necessário.';
   say('Quantização adaptativa aplicada a '+t.name+'. A execução é preservada entre os ataques; confirme pelo ouvido.');
  }finally{busy=false;}
 }
