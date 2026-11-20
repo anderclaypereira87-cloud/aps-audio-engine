@@ -92,7 +92,7 @@ function render(buffer,edit,context){
       const y=x+shift;
       if(y<0||y>=n)continue;
       // Equal-weight overlap normalization keeps stereo channels linked.
-      const gain=Math.min(1,edgeL?(x-a+1)/fade:1,edgeR?(b-x)/fade:1);
+      const gain=Math.max(.001,Math.min(1,edgeL?(x-a+1)/fade:1,edgeR?(b-x)/fade:1));
       weights[y]+=gain;
       for(let c=0;c<ch;c++)outputs[c][y]+=inputs[c][x]*gain;
     }
@@ -107,7 +107,7 @@ function render(buffer,edit,context){
     // the old attacks from the original track, which produces double hits.
     if(before>=0&&after>=0){
       for(let c=0;c<ch;c++){
-        const l=outputs[c][before]/weights[before],r=outputs[c][after]/weights[after];
+        const l=outputs[c][before],r=outputs[c][after]/weights[after];
         for(let t=0;t<length;t++){
           const alpha=(t+1)/(length+1);
           const edgeFade=length>sr*.025?
