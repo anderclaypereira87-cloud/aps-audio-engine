@@ -1,5 +1,5 @@
 /* APS Motor Elástico — Web Worker (processa fora da tela principal para não travar o celular). */
-self.importScripts('./aps-elastic-core.js?v=1', './aps-elastic-engine.js?v=1');
+self.importScripts('./aps-elastic-core.js?v=2', './aps-elastic-engine.js?v=2');
 self.onmessage = async (ev) => {
   const { id, cmd, data } = ev.data || {};
   try {

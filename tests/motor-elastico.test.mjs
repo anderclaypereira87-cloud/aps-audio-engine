@@ -69,7 +69,7 @@ test('aps-quant-core v2 (API síncrona do estúdio) continua funcionando', () =>
   const buf = { numberOfChannels: 1, length: x.length, sampleRate: SR, duration: x.length / SR, getChannelData: () => x };
   const ctx = { createBuffer: (ch, len, sr) => { const d = [new Float32Array(len)]; return { length: len, sampleRate: sr, copyToChannel: (c, i) => d[i].set(c), getChannelData: i => d[i] }; } };
   const ev = Q.detect(buf), p = Q.plan(buf, ev, { bpm: 100, subdivision: 16 }), r = Q.render(buf, p, ctx);
-  assert.equal(Q.version, '2.0.0-elastico'); assert.equal(r.buffer.length, x.length); assert.equal(r.metrics.nan, 0); assert.ok(r.metrics.longestSilentMs < 1);
+  assert.match(Q.version, /^2\.\d+\.\d+-/); assert.equal(r.buffer.length, x.length); assert.equal(r.metrics.nan, 0); assert.ok(r.metrics.longestSilentMs < 1);
 });
 
 // voz sintética com vibrato e formantes (pulsos glotais filtrados)

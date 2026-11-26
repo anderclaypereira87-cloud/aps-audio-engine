@@ -389,7 +389,7 @@ function renderSignalsmith(wasm, channels, sr, map, opt = {}) {
     if (opt.onProgress && (o / B) % 400 === 0) opt.onProgress(o / outLen);
   }
   // os primeiros ms do motor espectral saem com fade de partida: completa com o original mapeado
-  const head = Math.min(outLen, Math.round(sr * 0.012));
+  const head = Math.min(outLen, Math.round(sr * 0.045));
   for (let i = 0; i < head; i++) {
     const k = i / head, xi = Math.round(map.input(i / sr) * sr);
     for (let c = 0; c < ch; c++) { const v = xi >= 0 && xi < inLen ? channels[c][xi] : 0; out[c][i] = v * (1 - k) + out[c][i] * k; }
@@ -643,7 +643,207 @@ C.metrics = function (channels, sr, opt = {}) {
   return { nan, peak, longestSilentMs: longestSilent / sr * 1000 };
 };
 
-C.version = 'aps-elastic-core 1.0.0';
+// ---------------- Tempo, compasso e alinhamento multitrack (Quant Multitrack) ----------------
+// Compassos aceitos. "beat" = unidade do clique em semínimas (x/8 => colcheia = 0,5 semínima).
+// O BPM do APS é sempre em semínimas: duração do compasso = num × (4/den) × 60/BPM.
+C.METERS = {
+  '4/4': { num: 4, den: 4, accents: [2, 0, 1, 0] },
+  '3/4': { num: 3, den: 4, accents: [2, 0, 0] },
+  '2/4': { num: 2, den: 4, accents: [2, 0] },
+  '6/8': { num: 6, den: 8, accents: [2, 0, 0, 1, 0, 0] },
+  '5/4': { num: 5, den: 4, accents: [2, 0, 0, 1, 0] },
+  '7/8': { num: 7, den: 8, accents: [2, 0, 1, 0, 1, 0, 0] },
+  '12/8': { num: 12, den: 8, accents: [2, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0] }
+};
+C.METER_LIST = ['4/4', '3/4', '2/4', '6/8', '5/4', '7/8', '12/8'];
+function meterInfo(sig, bpm) {
+  const m = C.METERS[sig] || C.METERS['4/4'], q = 60 / clamp(Number(bpm) || 100, 30, 300);
+  const click = q * 4 / m.den;
+  return { sig: C.METERS[sig] ? sig : '4/4', num: m.num, den: m.den, accents: m.accents, click, bar: click * m.num, quarter: q };
+}
+C.meterInfo = meterInfo;
+// Grade de compasso/tempo num intervalo [t0,t1] (segundos locais). offset = onde cai o tempo 1 do compasso 1.
+function meterGrid(sig, bpm, t0, t1, offset = 0) {
+  const mi = meterInfo(sig, bpm), out = [];
+  const k0 = Math.floor((t0 - offset) / mi.click) - 1, k1 = Math.ceil((t1 - offset) / mi.click) + 1;
+  for (let k = k0; k <= k1 && out.length < 20000; k++) {
+    const t = offset + k * mi.click; if (t < t0 - 1e-9 || t > t1 + 1e-9) continue;
+    const pos = ((k % mi.num) + mi.num) % mi.num;
+    out.push({ t, beat: pos + 1, bar: Math.floor(k / mi.num) + 1, downbeat: pos === 0, accent: mi.accents[pos] });
+  }
+  return out;
+}
+C.meterGrid = meterGrid;
+
+// Força de cada ataque medida no próprio áudio (pico + graves), usada para achar o tempo 1.
+function onsetAccents(channels, sr, onsets) {
+  const x = channels.length > 1 ? mono(channels) : channels[0], win = Math.round(0.05 * sr), a = Math.exp(-2 * Math.PI * 180 / sr);
+  const out = onsets.map(o => {
+    const i0 = Math.max(0, Math.round(o.time * sr)), i1 = Math.min(x.length, i0 + win);
+    let pk = 0, lo = 0, y = 0, le = 0;
+    for (let i = i0; i < i1; i++) { const v = x[i]; pk = Math.max(pk, Math.abs(v)); y = (1 - a) * v + a * y; le += y * y; }
+    lo = Math.sqrt(le / Math.max(1, i1 - i0));
+    return { pk, lo };
+  });
+  const mp = Math.max(1e-9, ...out.map(v => v.pk)), ml = Math.max(1e-9, ...out.map(v => v.lo));
+  return onsets.map((o, i) => ({ ...o, accent: 0.65 * out[i].pk / mp + 0.35 * out[i].lo / ml }));
+}
+C.onsetAccents = onsetAccents;
+
+// BPM pela autocorrelação de um envelope de ataques + ajuste fino por mínimos quadrados.
+function estimateTempo(onsets, opt = {}) {
+  const ev = (onsets || []).filter(o => Number.isFinite(o.time)).map(o => ({ t: o.time, w: Number.isFinite(o.accent) ? 0.75 + 0.25 * o.accent : 1 })).sort((a, b) => a.t - b.t);
+  if (ev.length < 4) return { bpm: 0, confidence: 0, phase: 0, period: 0 };
+  const fs = 200, t0 = ev[0].t, dur = ev[ev.length - 1].t - t0 + 0.5, n = Math.ceil(dur * fs) + 1, env = new Float64Array(n), sig = 0.012 * fs;
+  for (const e of ev) { const c = (e.t - t0) * fs; for (let i = Math.max(0, Math.floor(c - 3 * sig)); i <= Math.min(n - 1, Math.ceil(c + 3 * sig)); i++) env[i] += e.w * Math.exp(-0.5 * ((i - c) / sig) ** 2); }
+  let mean = 0; for (const v of env) mean += v; mean /= n; for (let i = 0; i < n; i++) env[i] -= mean;
+  const ac = lag => { const L = Math.floor(lag), f = lag - L; let s = 0; for (let i = 0; i + L + 1 < n; i++) s += env[i] * (env[i + L] * (1 - f) + env[i + L + 1] * f); return s / (n - lag); };
+  const lo = opt.minBpm || 55, hi = opt.maxBpm || 210, center = opt.preferBpm || 110, cands = [];
+  for (let b = lo; b <= hi; b += 0.5) {
+    const P = 60 / b * fs; if (P * 2 >= n) continue;
+    const s = ac(P) + 0.5 * ac(2 * P) + 0.25 * ac(3 * P);
+    const prior = Math.exp(-0.5 * (Math.log2(b / center) / 0.9) ** 2);
+    cands.push({ b, s, score: s * (0.55 + 0.45 * prior) });
+  }
+  if (!cands.length) return { bpm: 0, confidence: 0, phase: 0, period: 0 };
+  let best = cands[0]; for (const c of cands) if (c.score > best.score) best = c;
+  // refino: casa cada ataque ao tempo mais próximo e ajusta t = fase + k·período
+  let P = 60 / best.b, phase = 0;
+  { let sx = 0, sy = 0; for (const e of ev) { const a = 2 * Math.PI * e.t / P; sx += e.w * Math.cos(a); sy += e.w * Math.sin(a); } phase = ((Math.atan2(sy, sx) / (2 * Math.PI)) * P + P) % P; }
+  for (let it = 0; it < 4; it++) {
+    let sw = 0, sk = 0, st = 0, skk = 0, skt = 0;
+    for (const e of ev) { const k = Math.round((e.t - phase) / P), r = e.t - (phase + k * P); if (Math.abs(r) > 0.18 * P) continue; sw += e.w; sk += e.w * k; st += e.w * e.t; skk += e.w * k * k; skt += e.w * k * e.t; }
+    const den = sw * skk - sk * sk; if (sw < 3 || Math.abs(den) < 1e-9) break;
+    const nP = (sw * skt - sk * st) / den, nPh = (st - nP * sk) / sw;
+    if (!(nP > 0) || Math.abs(nP / P - 1) > 0.06) break; P = nP; phase = ((nPh % P) + P) % P;
+  }
+  const scores = cands.map(c => c.score).sort((a, b) => a - b), med = scores[scores.length >> 1];
+  let onW = 0, allW = 0; for (const e of ev) { const r = Math.abs(e.t - (phase + Math.round((e.t - phase) / P) * P)); const rh = Math.abs(e.t - (phase + P / 2 + Math.round((e.t - phase - P / 2) / P) * P)); allW += e.w; if (Math.min(r, rh) < 0.07 * P) onW += e.w; }
+  const peakness = best.score > 0 ? clamp((best.score - med) / best.score, 0, 1) : 0;
+  return { bpm: 60 / P, period: P, phase, confidence: clamp(0.5 * peakness + 0.5 * onW / allW, 0, 1) };
+}
+C.estimateTempo = estimateTempo;
+
+// Compasso: periodicidade de acentuação nos tempos detectados (contraste tempo 1 × outros tempos).
+function estimateMeter(onsets, tempo) {
+  const P = tempo.period || 60 / tempo.bpm, phase = tempo.phase || 0;
+  const ev = onsets.map(o => ({ t: o.time, a: Number.isFinite(o.accent) ? o.accent : (o.strength || 1) }));
+  if (!(P > 0) || ev.length < 6) return { sig: '4/4', confidence: 0, downbeat: phase, beatsPerBar: 4, compound: false, scores: {} };
+  const first = Math.floor((Math.min(...ev.map(e => e.t)) - phase) / P), last = Math.ceil((Math.max(...ev.map(e => e.t)) - phase) / P);
+  const beats = [];
+  for (let k = first; k <= last; k++) { const bt = phase + k * P; let a = 0; for (const e of ev) if (Math.abs(e.t - bt) < 0.12 * P) a = Math.max(a, e.a); beats.push({ k, a }); }
+  // subdivisão ternária (colcheias de 6/8) × binária
+  let tern = 0, bin = 0, tot = 0;
+  for (const e of ev) { const f = (((e.t - phase) / P) % 1 + 1) % 1; tot += e.a; if (Math.abs(f - 1 / 3) < 0.07 || Math.abs(f - 2 / 3) < 0.07) tern += e.a; else if (Math.abs(f - 0.5) < 0.07 || Math.abs(f - 0.25) < 0.05 || Math.abs(f - 0.75) < 0.05) bin += e.a; }
+  const compound = tern > 0.15 * tot && tern > 1.5 * bin;
+  const scores = {}, contrast = (n) => {
+    let best = { c: -1, p: 0 };
+    for (let p = 0; p < n; p++) {
+      let sd = 0, nd = 0, so = 0, no = 0;
+      for (const b of beats) { if ((((b.k - p) % n) + n) % n === 0) { sd += b.a; nd++; } else { so += b.a; no++; } }
+      if (nd < 2 || no < 2) continue;
+      const md = sd / nd, mo = so / no, c = (md - mo) / (md + mo + 1e-9);
+      if (c > best.c) best = { c, p };
+    }
+    return best;
+  };
+  for (const n of [2, 3, 4, 5, 7]) if (beats.length >= 2 * n) scores[n] = contrast(n);
+  let n = 4; const s = k => (scores[k] ? scores[k].c : -1);
+  const base = [2, 3, 4].filter(k => scores[k]).sort((a, b) => s(b) - s(a));
+  if (base.length) n = base[0];
+  if (n === 2 && !compound && s(4) >= 0.9 * s(2)) n = 4; // 1 e 3 iguais: o mais comum é 4/4
+  if (n === 4 && compound && s(2) >= 0.9 * s(4)) n = 2; // colcheias ternárias: 6/8
+  if (n === 4 && s(2) > 1.25 * s(4)) n = 2;
+  for (const k of [5, 7]) if (s(k) > 1.3 * Math.max(s(2), s(3), s(4)) && s(k) > 0.15) n = k;
+  const ranked = Object.keys(scores).map(Number).sort((a, b) => s(b) - s(a)), second = ranked.find(k => k !== n);
+  let sig = n === 2 ? '2/4' : n === 3 ? '3/4' : n === 5 ? '5/4' : n === 7 ? '7/8' : '4/4';
+  if (compound && (n === 2 || n === 4)) sig = n === 2 ? '6/8' : '12/8';
+  const best = scores[n] || { c: 0, p: 0 }, margin = second ? best.c - s(second) : best.c;
+  const conf = clamp(0.25 + 1.2 * Math.max(0, best.c) * 0.8 + 1.6 * Math.max(0, margin), 0, 1) * clamp(beats.length / (4 * n), 0, 1);
+  return { sig, beatsPerBar: n, compound, downbeat: phase + best.p * P, confidence: conf, scores: Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, +v.c.toFixed(3)])) };
+}
+C.estimateMeter = estimateMeter;
+
+// Detecção completa: BPM (semínima) + compasso + onde cai o tempo 1.
+function detectTempoMeter(onsets, opt = {}) {
+  const t = estimateTempo(onsets, opt);
+  if (!t.bpm) return { bpm: 0, sig: '4/4', confidence: 0, bpmConfidence: 0, meterConfidence: 0, downbeat: 0 };
+  // Pulso rápido (> 130): se os pulsos ímpares são todos mais fracos que os pares, eles são colcheias
+  // (subdivisão) e o tempo de verdade é o dobro do período.
+  if (t.bpm > 130 && onsets.length >= 8) {
+    const P = t.period, acc = []; const end = Math.max(...onsets.map(o => o.time));
+    for (let k = 0; t.phase + k * P <= end + 1e-6; k++) { const bt = t.phase + k * P; let a = 0; for (const o of onsets) if (Math.abs(o.time - bt) < 0.15 * P) a = Math.max(a, Number.isFinite(o.accent) ? o.accent : (o.strength || 1)); acc.push(a); }
+    const q = (v, f) => { const s2 = v.slice().sort((x, y) => x - y); return s2.length ? s2[Math.min(s2.length - 1, Math.floor(f * s2.length))] : 0; };
+    for (const p of [0, 1]) {
+      const ev2 = acc.filter((_, i) => i % 2 === p), od = acc.filter((_, i) => i % 2 !== p);
+      if (ev2.length >= 4 && od.length >= 4 && q(od, 0.75) < 0.8 * q(ev2, 0.25)) { t.period = 2 * P; t.bpm = 60 / t.period; t.phase = t.phase + p * P; break; }
+    }
+  }
+  const m = estimateMeter(onsets, t);
+  let bpm = t.bpm, P = t.period;
+  if (m.sig === '6/8' || m.sig === '12/8') bpm = t.bpm * 1.5; // pulso = semínima pontuada
+  else if (m.sig === '3/4') {
+    // 3/4 × 6/8 no pulso de semínima: em 6/8 o acento secundário cai no meio do compasso (contratempo do 2º tempo)
+    const acc = at => { let a = 0; for (const o of onsets) if (Math.abs(o.time - at) < 0.1 * P) a = Math.max(a, Number.isFinite(o.accent) ? o.accent : (o.strength || 1)); return a; };
+    let mid = 0, b23 = 0, nb = 0, nm = 0; const end = Math.max(...onsets.map(o => o.time));
+    for (let d = m.downbeat; d < end; d += 3 * P) { mid += acc(d + 1.5 * P); nm++; b23 += acc(d + P) + acc(d + 2 * P); nb += 2; }
+    if (nm >= 2 && mid / nm > 1.3 * (b23 / Math.max(1, nb)) && mid / nm > 0.15) m.sig = '6/8';
+  }
+  if (m.sig === '7/8') bpm = t.bpm / 2; // pulso = colcheia
+  while (bpm > 240) bpm /= 2; while (bpm < 40) bpm *= 2;
+  const mi = meterInfo(m.sig, bpm), downbeat = ((m.downbeat % mi.bar) + mi.bar) % mi.bar;
+  return { bpm: Math.round(bpm * 10) / 10, sig: m.sig, downbeat, beatPeriod: P, compound: m.compound, bpmConfidence: t.confidence, meterConfidence: m.confidence, confidence: Math.min(t.confidence, m.confidence), meterScores: m.scores };
+}
+C.detectTempoMeter = detectTempoMeter;
+
+// Desvio de cada ataque em relação à grade (ms); off = fora da tolerância.
+function gridDeviation(times, opt = {}) {
+  const bpm = clamp(Number(opt.bpm) || 100, 30, 300), sub = Number(opt.subdivision) || 16, unit = 60 / bpm * 4 / sub, off = Number(opt.gridOffset) || 0;
+  const tol = (opt.toleranceMs ?? Math.min(25, unit * 1000 * 0.18)) / 1000;
+  return times.map(t => { const g = Math.round((t - off) / unit) * unit + off, d = t - g; return { time: t, grid: g, devMs: d * 1000, off: Math.abs(d) > tol }; });
+}
+C.gridDeviation = gridDeviation;
+
+// Alinhamento pela pista guia: cada ataque é puxado (elástico, sem cortes) para o ataque mais próximo da guia.
+// Casamento 1:1 por distância; ataques sem par ficam no lugar (ou vão para a grade, se pedido).
+function planGuideWarp(onsets, guideTimes, opt = {}) {
+  const duration = opt.duration, strength = clamp((opt.strength ?? 100) / 100, 0, 1), maxShift = (opt.maxShiftMs ?? 90) / 1000;
+  const edits = opt.edits || {}, removed = new Set(opt.removed || []), guide = (guideTimes || []).filter(Number.isFinite).slice().sort((a, b) => a - b);
+  const bpm = clamp(Number(opt.bpm) || 100, 30, 300), sub = [4, 8, 12, 16, 24, 32].includes(Number(opt.subdivision)) ? Number(opt.subdivision) : 16, unit = 60 / bpm * 4 / sub, goff = Number(opt.gridOffset) || 0;
+  const list = [];
+  for (const o of onsets) { const id = 'o' + o.index; if (!removed.has(id)) list.push({ id, src: o.time, auto: true }); }
+  for (const a of (opt.added || [])) list.push({ id: a.id, src: a.src, auto: false });
+  list.sort((a, b) => a.src - b.src);
+  const pairs = [];
+  const near = t => { let lo = 0, hi = guide.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (guide[m] < t) lo = m + 1; else hi = m; } return lo; };
+  list.forEach((m, i) => { if (!guide.length) return; const j = near(m.src); for (const k of [j - 1, j, j + 1]) if (k >= 0 && k < guide.length && Math.abs(guide[k] - m.src) <= maxShift) pairs.push({ i, k, d: Math.abs(guide[k] - m.src) }); });
+  pairs.sort((a, b) => a.d - b.d);
+  const usedM = new Map(), usedG = new Set();
+  for (const p of pairs) if (!usedM.has(p.i) && !usedG.has(p.k)) { usedM.set(p.i, guide[p.k]); usedG.add(p.k); }
+  const markers = []; let matched = 0;
+  list.forEach((m, i) => {
+    if (m.src <= 0.003 || m.src >= duration - 0.003) return;
+    const e = edits[m.id] || {}, g = usedM.get(i);
+    let dst, target = null;
+    if (Number.isFinite(e.dst)) dst = e.dst;
+    else if (e.locked) dst = m.src;
+    else if (Number.isFinite(g)) { dst = m.src + (g - m.src) * strength; target = g; matched++; }
+    else if (opt.unmatched === 'grid') { const gr = Math.round((m.src - goff) / unit) * unit + goff; dst = m.src + clamp((gr - m.src) * strength, -unit / 2, unit / 2); }
+    else dst = m.src;
+    markers.push({ id: m.id, src: m.src, dst, locked: !!e.locked, manual: Number.isFinite(e.dst), auto: m.auto, guide: target, grid: Math.round((m.src - goff) / unit) * unit + goff });
+  });
+  return { markers: sanitizeMarkers(markers, duration), unit, bpm, subdivision: sub, strength, duration, mode: 'guide', matched, guideCount: guide.length };
+}
+C.planGuideWarp = planGuideWarp;
+// Ímã do arraste manual: grade e/ou pontos das outras pistas.
+C.snapTime = function (t, opt = {}) {
+  let best = t, bd = (opt.radiusMs ?? 60) / 1000;
+  if (opt.grid) { const u = opt.grid.unit, o = opt.grid.offset || 0, g = Math.round((t - o) / u) * u + o; if (Math.abs(g - t) < bd) { bd = Math.abs(g - t); best = g; } }
+  for (const p of (opt.points || [])) if (Math.abs(p - t) < bd) { bd = Math.abs(p - t); best = p; }
+  return best;
+};
+
+C.version = 'aps-elastic-core 1.1.0';
 root.APSElasticCore = C;
 if (typeof module === 'object' && module.exports) module.exports = C;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

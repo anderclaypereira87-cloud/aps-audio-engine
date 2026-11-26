@@ -93,16 +93,21 @@ small,h3{color:var(--muted)}
 <div class="statrow"><span class="stat" id="trackDuration">Duração: —</span><span class="stat" id="trackRate">Taxa: —</span><span class="stat" id="trackEngine">Motor: Signalsmith Stretch (MIT) · Web Worker</span></div>
 </section>
 <section class="panel" style="margin-top:15px">
-<h2>2. Editor de marcadores (warp)</h2>
+<h2>2. Tempo, compasso e metrônomo</h2>
+<p class="hint">Gire o botão para escolher o compasso (4/4, 3/4, 2/4, 6/8, 5/4, 7/8, 12/8) ou toque em <b>⚡ Auto</b> para o APS detectar o BPM e o compasso. Ligue o <b>♩ Metrônomo</b> e toque <b>▶ Ouvir</b> para conferir de ouvido se os ataques caem no tempo.</p>
+<div id="rhythmHost"></div>
+</section>
+<section class="panel" style="margin-top:15px">
+<h2>3. Editor de marcadores (warp)</h2>
 <div id="quantHost"></div>
 </section>
 <section class="panel" style="margin-top:15px">
-<h2>3. Escutar e baixar</h2>
+<h2>4. Escutar e baixar</h2>
 <div class="audioRow">
 <button id="play" type="button" class="secondary" disabled>▶ Reproduzir</button>
 <button id="stop" type="button" class="ghost" disabled>■ Parar</button>
 </div>
-<p class="hint" id="compare">Use o botão A/B do editor para alternar entre o original (A) e o quantizado (B). O ▶ toca o que estiver selecionado.</p>
+<p class="hint" id="compare">Use o botão A/B do editor para alternar entre o original (A) e o quantizado (B). O ▶ toca o que estiver selecionado (com o metrônomo, se ligado).</p>
 <div class="btnrow"><button id="download" type="button" disabled>↓ Baixar WAV quantizado</button></div>
 <p class="hint">O arquivo original nunca é substituído. O download usa WAV PCM 16 bits. Para mixar, importe o resultado na DAW.</p>
 </section>
@@ -112,21 +117,34 @@ small,h3{color:var(--muted)}
 <p>Trechos em vermelho foram esticados além de 0,75×–1,5× e podem soar artificiais.</p>
 </section>
 </div>
-<script src="./aps-elastic-core.js?v=1"></script>
-<script src="./aps-elastic.js?v=1"></script>
-<script src="./aps-elastic-quant-ui.js?v=1"></script>
+<script src="./aps-elastic-core.js?v=2"></script>
+<script src="./aps-elastic.js?v=2"></script>
+<script src="./aps-elastic-quant-ui.js?v=2"></script>
+<script src="./aps-quant-rhythm.js?v=1"></script>
 <script>
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
-let ctx=null,original=null,current=null,fileId=0,node=null,result=null;
+let ctx=null,original=null,current=null,fileId=0,node=null,result=null,bpmV=100,sigV='4/4',gridZero=0;
+try{const sv=localStorage.getItem('aps-quant-sig');if(sv&&APSElasticCore.METERS[sv])sigV=sv;}catch(e){}
 function ac(){if(!ctx){const A=window.AudioContext||window.webkitAudioContext;if(!A)throw Error('Este navegador não suporta Web Audio.');ctx=new A();}return ctx;}
-function stop(){if(node){try{node.stop()}catch(e){}node.disconnect();node=null;}$('play').textContent='▶ Reproduzir';}
+function stop(){if(rhythm&&rhythm.isPlaying())rhythm.stop();$('play').textContent='▶ Reproduzir';}
+let rhythm=null;
 const ui=APSElasticQuantUI.mount($('quantHost'),{
  idPrefix:'q',defaultStrength:100,
+ bpm:()=>bpmV, meter:()=>sigV, gridOffset:()=>gridZero,
  getSource:()=>original?{id:'file'+fileId,buffer:original}:null,
  apply:(buf)=>{stop();current=buf;result=buf;$('download').disabled=false;$('compare').textContent='Tocando agora: B (quantizado). Use A/B no editor para comparar.';},
  restore:(buf,info)=>{stop();current=buf;if(info&&info.undo){result=null;$('download').disabled=true;}$('compare').textContent='Tocando agora: A (original).';}
+});
+rhythm=APSQuantRhythm.mountBar($('rhythmHost'),{
+ idPrefix:'qr',
+ onState:p=>{$('play').textContent=p?'❚❚ Parar':'▶ Reproduzir';},
+ getBpm:()=>bpmV, setBpm:v=>{bpmV=v;ui.redraw();},
+ getSig:()=>sigV, setSig:s=>{sigV=s;try{localStorage.setItem('aps-quant-sig',s);}catch(e){}ui.redraw();},
+ getGridZero:()=>gridZero, setGridZero:t=>{const bar=APSElasticCore.meterInfo(sigV,bpmV).bar;gridZero=((t%bar)+bar)%bar;ui.redraw();},
+ analyze:async()=>{if(!original)throw Error('Escolha um arquivo MP3 ou WAV primeiro.');return APSElastic.tempoMeter(original);},
+ audio:()=>{const b=ui.audible()||current;return b?{ctx:ac(),from:ui.viewStart(),items:[{buffer:b,start:0}],label:ui.listening()==='B'?'Ouvindo B (quantizado).':'Ouvindo A (original).'}:null;}
 });
 $('audioFile').addEventListener('change',async e=>{
  const f=e.target.files[0];stop();if(!f)return;
@@ -142,10 +160,10 @@ $('audioFile').addEventListener('change',async e=>{
   ui.analyze();
  }catch(err){$('fileName').textContent=err.message||String(err);}
 });
-$('play').addEventListener('click',async()=>{if(!current)return;if(node){stop();return;}const c=ac();await c.resume();node=c.createBufferSource();node.buffer=current;node.connect(c.destination);node.onended=()=>stop();node.start();$('play').textContent='❚❚ Parar';});
+$('play').addEventListener('click',async()=>{if(!current)return;if(rhythm.isPlaying()){stop();return;}await rhythm.play();if(rhythm.isPlaying())$('play').textContent='❚❚ Parar';});
 $('stop').addEventListener('click',stop);
 $('download').addEventListener('click',()=>{if(!result)return;const url=URL.createObjectURL(APSElastic.wav16(result));const a=document.createElement('a');a.href=url;a.download='aps-quantizado-elastico.wav';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);});
-window.__apsQuantPage={ui,setOriginal:b=>{original=b;current=b;result=null;fileId++;$('play').disabled=false;$('stop').disabled=false;}};
+window.__apsQuantPage={ui,rhythm,state:()=>({bpm:bpmV,sig:sigV,gridZero}),setOriginal:b=>{original=b;current=b;result=null;fileId++;$('play').disabled=false;$('stop').disabled=false;}};
 })();
 </script>
 <p class="aps-credit" style="text-align:center;color:#9aa0aa;font-size:13px">APS Audio Engine · <b style="color:#e5be74">Criado por Anderclay Pereira Silva</b></p>

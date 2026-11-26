@@ -10,7 +10,7 @@
 <p class="msg" id="which">O ▶ toca o que estiver no A/B do editor (A = original, B = afinado).</p>
 <button class="btn" id="dl" disabled>⬇ Baixar WAV afinado</button></section>
 <section class="card"><small>Como funciona: o APS lê as notas com SwiftF0 (rede neural pequena, MIT) e usa MPM nos graves; a correção é feita por TD-PSOLA com marcas de ciclo refinadas, no próprio aparelho, sem enviar sua voz. Limites honestos: com voz misturada com instrumentos, reverb forte ou duas vozes juntas a leitura erra; mudanças muito grandes (mais de 5 semitons) soam menos naturais. Músicas longas demoram mais em celular simples.</small></section>
-<script src="./aps-elastic-core.js?v=1"></script><script src="./aps-elastic.js?v=1"></script><script src="./aps-elastic-tune-ui.js?v=1"></script>
+<script src="./aps-elastic-core.js?v=2"></script><script src="./aps-elastic.js?v=2"></script><script src="./aps-elastic-tune-ui.js?v=1"></script>
 <script>
 (function(){'use strict';
 const $=i=>document.getElementById(i);let ctx=null,original=null,current=null,result=null,node=null,fid=0;

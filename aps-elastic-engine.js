@@ -69,6 +69,8 @@ H.tune = async (d, progress) => {
 };
 
 H.onsets = async (d) => ({ onsets: C.detectOnsets(d.channels, d.sampleRate, d.options || {}) });
+// BPM + compasso automáticos (a partir dos ataques e da força de cada um)
+H.tempoMeter = async (d) => { const on = C.onsetAccents(d.channels, d.sampleRate, C.detectOnsets(d.channels, d.sampleRate, d.options || {})); return Object.assign(C.detectTempoMeter(on), { onsets: on }); };
 
 H.quantize = async (d, progress) => {
   const sr = d.sampleRate, len = d.channels[0].length, dur = len / sr, o = d.options || {};

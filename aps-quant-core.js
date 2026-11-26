@@ -31,7 +31,20 @@ function render(buffer, edit, context) {
   const m = C.metrics(out, buffer.sampleRate);
   return { buffer: result, engine: 'wsola', metrics: m, warnings: map.warnings, gapSamples: 0, longestGapSeconds: m.longestSilentMs / 1000, moved: edit.markers.filter(k => Math.abs(k.dst - k.src) > 0.002).length };
 }
-const API = Object.freeze({ version: '2.0.0-elastico', detect, plan, render });
+// Multitrack: BPM + compasso automáticos e alinhamento pela pista guia (sem cortes).
+function analyzeTempoMeter(buffer, onsets) {
+  const C = core(), ch = channels(buffer);
+  const on = C.onsetAccents(ch, buffer.sampleRate, onsets || C.detectOnsets(ch, buffer.sampleRate));
+  return Object.assign(C.detectTempoMeter(on), { onsets: on.length });
+}
+function planGuide(buffer, events, guideTimes, opts = {}) {
+  const onsets = (events || []).map(e => ({ index: e.index, time: Number.isFinite(e.time) ? e.time : e.sample / buffer.sampleRate, strength: e.strength || 1 }));
+  if (!onsets.length) throw Error('Nenhum ataque rítmico detectado.');
+  const p = core().planGuideWarp(onsets, guideTimes, Object.assign({ duration: buffer.duration }, opts));
+  p.sampleRate = buffer.sampleRate; p.frameLength = buffer.length; p.protectMs = opts.protectMs ?? 25;
+  return p;
+}
+const API = Object.freeze({ version: '2.1.0-multitrack', detect, plan, render, analyzeTempoMeter, planGuide, meters: () => core().METER_LIST.slice(), meterGrid: (...a) => core().meterGrid(...a) });
 global.APSQuantCore = API;
 if (typeof module === 'object' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

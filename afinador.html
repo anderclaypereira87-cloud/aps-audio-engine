@@ -18,7 +18,7 @@
 <div class="beats" id="bts"></div>
 <button class="big" id="mgo" type="button">▶ Iniciar metrônomo</button></div></section>
 <p class="foot">APS Audio Engine · <b>Criado por Anderclay Pereira Silva</b></p>
-</main><script src="./aps-elastic-core.js?v=1"></script><script>
+</main><script src="./aps-elastic-core.js?v=2"></script><script>
 const $=id=>document.getElementById(id),N=['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
 let AC=null;const ac=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
 $('tA').onclick=()=>{$('tA').classList.add('on');$('tM').classList.remove('on');$('pA').hidden=false;$('pM').hidden=true;};
@@ -52,7 +52,7 @@ function drawStrobe(ts){if(!strobeMode||!stream)return;const cv=$('strobe'),W=cv
 $('mNeedle').onclick=()=>{strobeMode=false;$('mNeedle').classList.add('on');$('mStrobe').classList.remove('on');$('strobe').hidden=true;$('needle').style.display='';};
 $('mStrobe').onclick=()=>{strobeMode=true;$('mStrobe').classList.add('on');$('mNeedle').classList.remove('on');$('strobe').hidden=false;$('needle').style.display='none';lastFrame=0;requestAnimationFrame(drawStrobe);};
 async function startTuner(){const c=ac();await c.resume();const src=c.createMediaStreamSource(stream);
- try{if(!c.audioWorklet)throw Error('sem AudioWorklet');await c.audioWorklet.addModule('./aps-elastic-core.js?v=1');await c.audioWorklet.addModule('./aps-tuner-worklet.js?v=1');
+ try{if(!c.audioWorklet)throw Error('sem AudioWorklet');await c.audioWorklet.addModule('./aps-elastic-core.js?v=2');await c.audioWorklet.addModule('./aps-tuner-worklet.js?v=1');
   const node=new AudioWorkletNode(c,'aps-mpm-tuner',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});node.port.onmessage=e=>onPitch(e.data);
   const mute=c.createGain();mute.gain.value=0;src.connect(node).connect(mute).connect(c.destination);tuner={node,src,mute,mode:'worklet'};}
  catch(e){ // reserva: mesma DSP na página, em lotes (navegadores antigos)
