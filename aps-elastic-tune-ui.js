@@ -3,7 +3,8 @@
  * em curva entre notas vizinhas e formantes preservados (TD-PSOLA). Sem voz robótica.
  * Uso: APSElasticTuneUI.mount(host, adapter)
  *   adapter.getSource() -> {id, buffer}; adapter.apply(buffer, info); adapter.restore(buffer, info)
- *   adapter.originalOf?(id) -> AudioBuffer original guardado */
+ *   adapter.originalOf?(id) -> AudioBuffer original guardado
+ *   adapter.deck (opcional) -> barra "✓ Aplicar afinação na música" + "▶ Ouvir afinação" logo abaixo (aps-apply-play.js) */
 (function (root) {
 'use strict';
 const C = () => root.APSElasticCore;
@@ -49,9 +50,11 @@ function mount(host, adapter) {
  <div class="row"><label style="flex-direction:row;align-items:center">Janela <select id="${id('Zoom')}"><option value="4">4 s</option><option value="8">8 s</option><option value="16" selected>16 s</option><option value="0">Tudo</option></select></label><input id="${id('Scroll')}" type="range" min="0" max="1000" value="0" aria-label="Deslocar janela" style="flex:1;accent-color:#e2bc76"></div>
  <div class="row" id="${id('NoteBar')}" hidden><span id="${id('NoteInfo')}" style="font-size:12px">Toque numa nota.</span><button type="button" class="alt" id="${id('Up')}">▲ +1</button><button type="button" class="alt" id="${id('Down')}">▼ −1</button><button type="button" class="alt" id="${id('Off')}">⊘ Não corrigir</button><button type="button" class="alt" id="${id('Auto')}">↺ Automática</button></div>
  <div class="legend">Azul: voz original. Blocos dourados: notas (arraste). Linha dourada: como vai ficar. Faixas claras: notas da escala.</div>
- <div class="status" id="${id('Status')}" role="status" aria-live="polite">Selecione a pista de voz (uma voz por vez) e toque em 🔍 Analisar voz.</div></div>`;
+ <div class="status" id="${id('Status')}" role="status" aria-live="polite">Selecione a pista de voz (uma voz por vez) e toque em 🔍 Analisar voz.</div>${adapter.deck && !adapter.deck.host ? `<div id="${id('Deck')}"></div>` : ''}</div>`;
   const $ = s => document.getElementById(id(s)), cv = $('Canvas');
-  const st = { srcId: null, original: null, track: null, an: null, key: null, edits: {}, plan: null, result: null, listening: 'B', sel: -1, drag: null };
+  let deck = null;
+  const st = { srcId: null, original: null, track: null, an: null, key: null, edits: {}, plan: null, result: null, listening: 'B', sel: -1, drag: null,
+    preview: null, previewSig: '', previewR: null, previewJob: null, resultR: null, appliedSig: null, playhead: null, deckNote: '' };
   const say = (t, k) => { const e = $('Status'); e.textContent = t; e.dataset.kind = k || ''; };
   function labels() {
     $('AmtV').textContent = $('Amt').value + '%'; $('VibV').textContent = $('Vib').value + '%'; $('TransV').textContent = $('Trans').value + ' ms';
@@ -61,10 +64,39 @@ function mount(host, adapter) {
   labels();
   const keyNow = () => $('Key').value === 'auto' ? (st.key ? st.key.key : 0) : Number($('Key').value);
   const options = () => ({ key: keyNow(), scale: $('Scale').value, amount: Number($('Amt').value), vibrato: Number($('Vib').value), transitionMs: Number($('Trans').value), formant: Number($('Form').value), humanize: Number($('Hum').value), drift: Number($('Drift').value), edits: st.edits });
-  function replan() { if (!st.track) return; st.plan = Cc.pitchPlan(st.track, st.an, options()); draw(); noteInfo(); }
+  function replan() { if (!st.track) return; st.plan = Cc.pitchPlan(st.track, st.an, options()); draw(); noteInfo(); afterChange(); }
+  // ------- prévia afinada em segundo plano + estado "aplicada" (barra Aplicar/Ouvir) -------
+  const planSig = () => st.track && st.original ? JSON.stringify([st.srcId, options()]) : '';
+  const isDirty = () => !!st.plan && planSig() !== st.appliedSig;
+  let previewTimer = 0;
+  function afterChange() { if (!deck) return; deckState(); clearTimeout(previewTimer); previewTimer = setTimeout(() => ensurePreview().then(() => { if (deck.isPlaying() && deck.listen() === 'edit' && st.deckPlayedSig !== st.previewSig) deck.restart(); }).catch(() => {}), 420); }
+  async function ensurePreview() {
+    for (;;) {
+      if (!st.track || !st.original) return null;
+      const sig = planSig();
+      if (st.previewSig === sig && st.preview) return st.preview;
+      if (st.result && st.appliedSig === sig) { st.preview = st.result; st.previewR = st.resultR; st.previewSig = sig; return st.result; }
+      if (st.previewJob) { try { await st.previewJob.p; } catch (_) {} continue; }
+      const orig = st.original, job = { sig, p: root.APSElastic.tune(orig, st.track, options()) };
+      st.previewJob = job;
+      try { const r = await job.p; if (orig === st.original) { st.previewR = r; st.preview = r.buffer; st.previewSig = sig; } }
+      finally { if (st.previewJob === job) st.previewJob = null; }
+      if (st.previewSig === sig) return st.preview;
+    }
+  }
+  function deckState() {
+    if (!deck) return;
+    const name = (adapter.deck.targetName && adapter.deck.targetName()) || 'ativa', applied = !!st.result && st.appliedSig != null, dirty = isDirty(), b = $('Apply');
+    b.classList.toggle('done', applied && !dirty);
+    b.textContent = applied && !dirty ? (adapter.deck.appliedLabel || '✓ Afinação aplicada') : (adapter.deck.applyLabel || '✓ Aplicar afinação na música');
+    if (st.deckNote && st.deckNoteSig === planSig()) deck.msg(st.deckNote, 'ok');
+    else if (applied && !dirty) deck.msg(adapter.deck.appliedText ? adapter.deck.appliedText(name) : `✓ Afinação aplicada na pista ${name} · Original guardado`, 'ok');
+    else if (dirty) deck.msg(adapter.deck.dirtyText || 'Alterações prontas para aplicar — ouça no ▶ abaixo e toque em ✓ Aplicar afinação na música.', 'dirty');
+    else deck.msg(st.original ? '' : (adapter.deck.idleText || 'Toque em 🔍 Analisar voz: depois arraste as notas, ouça e aplique na música.'));
+  }
   async function analyze() {
     const s = adapter.getSource(); if (!s || !s.buffer) throw Error('Selecione uma pista de voz primeiro.');
-    if (s.id !== st.srcId || !st.original) { st.srcId = s.id; st.original = (adapter.originalOf && adapter.originalOf(s.id)) || s.buffer; st.result = null; st.edits = {}; st.sel = -1; }
+    if (s.id !== st.srcId || !st.original) { st.srcId = s.id; st.original = (adapter.originalOf && adapter.originalOf(s.id)) || s.buffer; st.result = null; st.resultR = null; st.appliedSig = null; st.preview = null; st.previewSig = ''; st.previewR = null; st.edits = {}; st.sel = -1; if (deck) deck.stop(true); }
     if (st.original.duration > 600) throw Error('Use trechos de até 10 minutos.');
     const r = await root.APSElastic.analyzePitch(st.original, (p, m) => say((m || 'Analisando…') + ' ' + Math.round(p * 100) + '%'));
     st.track = r.track; st.an = Cc.analyzeNotes(st.track); st.key = r.key;
@@ -73,23 +105,27 @@ function mount(host, adapter) {
     replan();
     $('Apply').disabled = false; $('Reset').disabled = false;
     const src = r.track.source === 'mpm' ? 'MPM (reserva)' : r.track.source === 'swiftf0+mpm' ? 'SwiftF0 + MPM nos graves' : 'SwiftF0';
-    say(`${st.an.notes.length} notas encontradas (${src}). Tom provável: ${Cc.NOTE[r.key.key]} ${Cc.SCALE_NAMES[r.key.scale]}. Arraste as notas ou toque ✨ Aplicar afinação.${r.swiftError ? ' (SwiftF0 indisponível: usei MPM.)' : ''}`, 'ok');
+    say(`${st.an.notes.length} notas encontradas (${src}). Tom provável: ${Cc.NOTE[r.key.key]} ${Cc.SCALE_NAMES[r.key.scale]}. ${deck ? 'Arraste as notas, ouça no ▶ abaixo e toque em ✓ Aplicar afinação na música.' : 'Arraste as notas ou toque ✨ Aplicar afinação.'}${r.swiftError ? ' (SwiftF0 indisponível: usei MPM.)' : ''}`, 'ok');
   }
   async function apply() {
     if (!st.track) throw Error('Analise a voz primeiro.');
     const s = adapter.getSource(); if (!s || s.id !== st.srcId) throw Error('A pista selecionada mudou. Toque em 🔍 Analisar voz de novo.');
     $('Apply').disabled = true;
     try {
-      const r = await root.APSElastic.tune(st.original, st.track, options(), (p, m) => say((m || 'Afinando…') + ' ' + Math.round(p * 100) + '%'));
-      st.result = r.buffer; st.listening = 'B'; adapter.apply(r.buffer, { id: st.srcId, original: st.original, metrics: r.metrics });
+      const sig = planSig();
+      const r = deck && adapter.deck.reusePreview && st.previewSig === sig && st.previewR ? st.previewR : await root.APSElastic.tune(st.original, st.track, options(), (p, m) => say((m || 'Afinando…') + ' ' + Math.round(p * 100) + '%'));
+      st.result = r.buffer; st.resultR = r; st.appliedSig = sig; st.preview = r.buffer; st.previewR = r; st.previewSig = sig; st.deckNote = ''; st.listening = 'B'; adapter.apply(r.buffer, { id: st.srcId, original: st.original, metrics: r.metrics });
       $('AB').disabled = false; $('Undo').disabled = false; abLabel();
       const manual = Object.values(st.edits).filter(e => Number.isFinite(e.target)).length;
       say(`✓ Voz afinada em ${Cc.NOTE[keyNow()]} ${Cc.SCALE_NAMES[$('Scale').value]}${manual ? ` · ${manual} nota(s) puxada(s) à mão` : ''}. Formantes ${Number($('Form').value) ? 'deslocados ' + $('Form').value + ' st' : 'preservados'}. Toque ▶ para ouvir e A/B para comparar.`, 'ok');
+      deckState(); if (deck && deck.isPlaying()) deck.restart();
     } finally { $('Apply').disabled = false; }
   }
   function abLabel() { $('AB').textContent = st.listening === 'B' ? 'A/B: ouvindo B (afinado)' : 'A/B: ouvindo A (original)'; $('AB').classList.toggle('on', st.listening === 'A'); }
   function ab() { if (!st.result) return; st.listening = st.listening === 'B' ? 'A' : 'B'; if (st.listening === 'A') adapter.restore(st.original, { id: st.srcId, ab: true }); else adapter.apply(st.result, { id: st.srcId, ab: true, original: st.original }); abLabel(); }
-  function undo() { if (!st.original) return; adapter.restore(st.original, { id: st.srcId, undo: true }); st.result = null; st.listening = 'B'; $('AB').disabled = true; $('Undo').disabled = true; abLabel(); say('Gravação original de volta. Suas edições de nota continuam no gráfico.', 'ok'); }
+  function undo() { if (!st.original) return; adapter.restore(st.original, { id: st.srcId, undo: true }); st.result = null; st.listening = 'B'; $('AB').disabled = true; $('Undo').disabled = true; abLabel(); say('Gravação original de volta. Suas edições de nota continuam no gráfico.', 'ok');
+    st.resultR = null; st.appliedSig = null;
+    if (deck) { st.deckNote = `↶ Original de volta na pista ${(adapter.deck.targetName && adapter.deck.targetName()) || 'ativa'} · nada foi perdido. Ajuste e toque em ✓ Aplicar quando quiser.`; st.deckNoteSig = planSig(); deckState(); if (deck.isPlaying()) deck.restart(); } }
   function resetNotes() { st.edits = {}; replan(); say('Notas voltaram para a correção automática.'); }
   // ------- desenho -------
   function view() { const dur = st.original ? st.original.duration : 1, z = Number($('Zoom').value) || dur, w = Math.min(dur, z); return { start: Math.max(0, (dur - w) * Number($('Scroll').value) / 1000), w, dur }; }
@@ -129,6 +165,7 @@ function mount(host, adapter) {
     g.strokeStyle = '#f1c66e'; g.lineWidth = 1.6; g.beginPath(); let pen = false;
     for (let i = i0; i < i1; i++) { const m = st.plan.outMidi[i]; if (!m) { pen = false; continue; } const x = X(i * hop), y = Y(m); if (!pen) { g.moveTo(x, y); pen = true; } else g.lineTo(x, y); }
     g.stroke(); g.lineWidth = 1;
+    if (st.playhead != null && st.playhead >= v.start && st.playhead <= v.start + v.w) { const x = X(st.playhead); g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); g.lineWidth = 1; g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + 6, 0); g.lineTo(x, 8); g.closePath(); g.fill(); }
   }
   function noteInfo() {
     const bar = $('NoteBar'); if (!st.plan || st.sel < 0 || !st.plan.notes[st.sel]) { bar.hidden = true; return; }
@@ -154,7 +191,7 @@ function mount(host, adapter) {
     st.drag.moved = true; const fine = $('Fine').checked, raw = st.drag.t0 + dy, target = fine ? Math.round(raw * 10) / 10 : Math.round(raw);
     const cur = st.plan.notes[st.drag.k]; if (cur.target !== target || cur.off) setTarget(st.drag.k, target);
   });
-  const end = () => { if (st.drag && st.drag.moved) { const n = st.plan.notes[st.drag.k]; say(`Nota ${st.drag.k + 1} puxada para ${Cc.noteName(n.target)}. Toque ✨ Aplicar afinação para ouvir.`); } st.drag = null; };
+  const end = () => { if (st.drag && st.drag.moved) { const n = st.plan.notes[st.drag.k]; say(`Nota ${st.drag.k + 1} puxada para ${Cc.noteName(n.target)}. ${deck ? 'Ouça no ▶ abaixo e toque em ✓ Aplicar afinação na música.' : 'Toque ✨ Aplicar afinação para ouvir.'}`); } st.drag = null; };
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => cv.addEventListener(n, end));
   const guard = fn => () => Promise.resolve().then(fn).catch(e => say(e.message || String(e), 'err'));
   $('Analyze').addEventListener('click', guard(analyze)); $('Apply').addEventListener('click', guard(apply));
@@ -166,8 +203,25 @@ function mount(host, adapter) {
   ['Amt', 'Vib', 'Trans', 'Form', 'Hum', 'Drift'].forEach(k => $(k).addEventListener('input', () => { labels(); replan(); }));
   ['Key', 'Scale'].forEach(k => $(k).addEventListener('change', replan));
   $('Zoom').addEventListener('change', draw); $('Scroll').addEventListener('input', draw); root.addEventListener('resize', draw);
+  let lastPh = 0;
+  if (adapter.deck && root.APSApplyPlay) deck = root.APSApplyPlay.mount(adapter.deck.host || $('Deck'), Object.assign({}, adapter.deck, {
+    idPrefix: id('Deck'), applyButton: $('Apply'), undoButton: $('Undo'), playLabel: adapter.deck.playLabel || '▶ Ouvir afinação',
+    audio: async o => {
+      if (!st.original) { const s = adapter.getSource(); if (!s || !s.buffer) throw Error('Carregue a voz primeiro.'); if (o.listen === 'edit') throw Error('Toque em 🔍 Analisar voz primeiro: a prévia afinada aparece aqui.'); return adapter.deck.audio(Object.assign({}, o, { buffer: s.buffer, viewStart: 0 })); }
+      let buffer = st.original;
+      if (o.listen === 'edit') { buffer = st.track ? await ensurePreview() : st.result; if (!buffer) throw Error('Toque em 🔍 Analisar voz primeiro: a prévia afinada aparece aqui.'); st.deckPlayedSig = st.previewSig; }
+      return adapter.deck.audio(Object.assign({}, o, { buffer, viewStart: st.plan ? view().start : 0 }));
+    },
+    onPlayhead: t => {
+      const loc = t == null ? null : (adapter.deck.toLocal ? adapter.deck.toLocal(t) : t), now = Date.now();
+      if (loc != null && now - lastPh < 33) return; lastPh = now; st.playhead = loc;
+      if (loc != null && st.original) { const v = view(); if (v.w < v.dur && (loc < v.start || loc > v.start + v.w * 0.92)) $('Scroll').value = String(Math.round(Math.max(0, Math.min(1, (loc - v.w * 0.08) / (v.dur - v.w))) * 1000)); }
+      draw();
+    }
+  }));
+  deckState();
   draw();
-  const api = { state: st, analyze: guard(analyze), apply: guard(apply), redraw: draw }; host.__apsTune = api; return api;
+  const api = { state: st, analyze: guard(analyze), apply: guard(apply), ab: guard(ab), undo: guard(undo), redraw: draw, deck, preview: () => ensurePreview(), dirty: isDirty }; host.__apsTune = api; return api;
 }
 root.APSElasticTuneUI = { mount };
 })(typeof window !== 'undefined' ? window : globalThis);

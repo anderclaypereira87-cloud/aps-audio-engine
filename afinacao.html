@@ -8,23 +8,36 @@
 <section class="card" id="tuneHost"></section>
 <section class="card"><div class="row2"><button class="btn alt" id="play" disabled>▶ Ouvir</button><button class="btn alt" id="stop" disabled>■ Parar</button></div>
 <p class="msg" id="which">O ▶ toca o que estiver no A/B do editor (A = original, B = afinado).</p>
-<button class="btn" id="dl" disabled>⬇ Baixar WAV afinado</button></section>
+<button class="btn" id="dl" disabled>⬇ Baixar WAV afinado</button><button class="btn alt" id="tSendDaw" disabled style="margin-top:8px">📤 Enviar para a DAW</button>
+<p class="msg">Dica: a barra verde <b>✓ Aplicar afinação</b> e o <b>▶ Ouvir afinação</b> ficam logo abaixo do editor, sempre à mão no celular.</p></section>
 <section class="card"><small>Como funciona: o APS lê as notas com SwiftF0 (rede neural pequena, MIT) e usa MPM nos graves; a correção é feita por TD-PSOLA com marcas de ciclo refinadas, no próprio aparelho, sem enviar sua voz. Limites honestos: com voz misturada com instrumentos, reverb forte ou duas vozes juntas a leitura erra; mudanças muito grandes (mais de 5 semitons) soam menos naturais. Músicas longas demoram mais em celular simples.</small></section>
-<script src="./aps-elastic-core.js?v=2"></script><script src="./aps-elastic.js?v=2"></script><script src="./aps-elastic-tune-ui.js?v=1"></script>
+<script src="./aps-elastic-core.js?v=2"></script><script src="./aps-elastic.js?v=2"></script><script src="./aps-apply-play.js?v=1"></script><script src="./aps-elastic-tune-ui.js?v=2"></script>
 <script>
 (function(){'use strict';
-const $=i=>document.getElementById(i);let ctx=null,original=null,current=null,result=null,node=null,fid=0;
+const $=i=>document.getElementById(i);let ctx=null,original=null,current=null,result=null,node=null,fid=0,fileName='voz';
 const ac=()=>ctx||(ctx=new (window.AudioContext||window.webkitAudioContext)());
 function stop(){if(node){try{node.stop()}catch(e){}node.disconnect();node=null;}$('play').textContent='▶ Ouvir';}
 const ui=APSElasticTuneUI.mount($('tuneHost'),{idPrefix:'t',defaultAmount:80,
  getSource:()=>original?{id:'file'+fid,buffer:original}:null,
- apply:b=>{stop();current=b;result=b;$('dl').disabled=false;$('which').textContent='Tocando agora: B (afinado).';},
- restore:(b,info)=>{stop();current=b;if(info&&info.undo){result=null;$('dl').disabled=true;}$('which').textContent='Tocando agora: A (original).';}});
+ deck:{sticky:false,applyLabel:'✓ Aplicar afinação',appliedLabel:'✓ Afinação aplicada',playLabel:'▶ Ouvir afinação',scopes:false,
+  targetName:()=>'“'+fileName+'”',
+  appliedText:()=>'✓ Afinação aplicada · original guardado. Ouça no ▶ abaixo, baixe o WAV ou envie para a DAW.',
+  record:(()=>{const m=APSApplyPlay.micRecorder(ac);return {isRecording:m.isRecording,toggle:async()=>{if(!m.isRecording()){stop();await m.start();$('msg').textContent='● Gravando pelo microfone… toque ⏹ Parar quando terminar.';return;}
+   const b=await m.stop();if(!b)return;if(b.duration>600)throw Error('Grave até 10 minutos.');original=b;current=b;result=null;fid++;fileName='Voz gravada';$('play').disabled=false;$('stop').disabled=false;$('dl').disabled=true;$('tSendDaw').disabled=true;toDawBtn(false);
+   $('msg').textContent='Gravação pronta: '+b.duration.toFixed(0)+' s (fica só no aparelho). Analisando a voz…';await ui.analyze();}};})(),
+  extras:[{id:'tToDaw',label:'📤 Enviar para a DAW',onClick:()=>sendDaw()}],
+  audio:({buffer,viewStart})=>{stop();return {ctx:ac(),from:viewStart||0,items:[{buffer,start:0}]};}},
+ apply:b=>{stop();current=b;result=b;$('dl').disabled=false;$('tSendDaw').disabled=false;toDawBtn(true);$('which').textContent='Tocando agora: B (afinado).';},
+ restore:(b,info)=>{stop();current=b;if(info&&info.undo){result=null;$('dl').disabled=true;$('tSendDaw').disabled=true;toDawBtn(false);}$('which').textContent='Tocando agora: A (original).';}});
 $('f').onchange=async e=>{const fl=e.target.files[0];stop();if(!fl)return;if(!/\.(mp3|wav)$/i.test(fl.name)){$('msg').textContent='Escolha um arquivo MP3 ou WAV no app Arquivos.';return;}
- $('msg').textContent='Lendo…';try{const b=await ac().decodeAudioData(await fl.arrayBuffer());if(b.duration>600)throw Error('Use trechos de até 10 minutos.');original=b;current=b;result=null;fid++;$('play').disabled=false;$('stop').disabled=false;$('dl').disabled=true;
+ $('msg').textContent='Lendo…';try{const b=await ac().decodeAudioData(await fl.arrayBuffer());if(b.duration>600)throw Error('Use trechos de até 10 minutos.');original=b;current=b;result=null;fid++;fileName=fl.name.replace(/\.[^.]+$/,'');$('play').disabled=false;$('stop').disabled=false;$('dl').disabled=true;$('tSendDaw').disabled=true;toDawBtn(false);
  $('msg').textContent='Pronto: '+b.duration.toFixed(0)+' s.'+(b.duration>240?' Arquivo longo: vai demorar um pouco.':'');ui.analyze();}catch(err){$('msg').textContent=err.message||'Não consegui ler esse áudio.';}};
-$('play').onclick=async()=>{if(!current)return;if(node){stop();return;}const c=ac();await c.resume();node=c.createBufferSource();node.buffer=current;node.connect(c.destination);node.onended=()=>stop();node.start();$('play').textContent='❚❚ Parar';};
-$('stop').onclick=stop;
+$('play').onclick=async()=>{if(!current)return;if(node){stop();return;}if(window.APSApplyPlay&&APSApplyPlay.current)APSApplyPlay.current.stop(true);const c=ac();await c.resume();node=c.createBufferSource();node.buffer=current;node.connect(c.destination);node.onended=()=>stop();node.start();$('play').textContent='❚❚ Parar';};
+$('stop').onclick=()=>{stop();if(window.APSApplyPlay&&APSApplyPlay.current)APSApplyPlay.current.stop();};
+function toDawBtn(on){const b=document.getElementById('tToDaw');if(b)b.disabled=!on;}
+async function sendDaw(){if(!result)throw Error('Toque em ✓ Aplicar afinação primeiro.');stop();await APSApplyPlay.sendToDaw(result,'Voz afinada · '+fileName,'vocals');}
+toDawBtn(false);
+$('tSendDaw').onclick=()=>sendDaw().catch(e=>alert(e.message||e));
 $('dl').onclick=()=>{if(!result)return;const u=URL.createObjectURL(APSElastic.wav16(result));const a=document.createElement('a');a.href=u;a.download='voz-afinada-natural.wav';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);};
 window.__apsTunePage={ui,setOriginal:b=>{original=b;current=b;result=null;fid++;$('play').disabled=false;$('stop').disabled=false;}};
 })();

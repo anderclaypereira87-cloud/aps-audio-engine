@@ -9,7 +9,9 @@
  *   adapter.onChange?()
  *   Multitrack (opcionais): adapter.meter() -> '3/4' · adapter.gridOffset() -> s (tempo 1 do compasso 1, tempo local)
  *   adapter.overlays() -> [{id,name,color,times}] pontos das outras pistas (tempo local)
- *   adapter.target() -> {mode:'grid'} | {mode:'guide', times, name}  (alinhar pela pista guia) */
+ *   adapter.target() -> {mode:'grid'} | {mode:'guide', times, name}  (alinhar pela pista guia)
+ *   adapter.deck (opcional) -> barra "✓ Aplicar … na música" + "▶ Ouvir" logo abaixo (aps-apply-play.js):
+ *     {reusePreview (Aplicar reaproveita a prévia já renderizada), applyLabel, playLabel, scopes, metronome, extras, targetName(), appliedText(name), audio({listen,scope,buffer,viewStart}), toLocal(sessionTime)} */
 (function (root) {
 'use strict';
 const C = () => root.APSElasticCore;
@@ -51,10 +53,12 @@ function mount(host, adapter) {
  <div class="mtlegend" id="${id('MtLegend')}" hidden></div>
  <div class="legend">Em cima: original com ataques (branco). Embaixo: prévia elástica com os marcadores (dourado = vai para a grade, azul = travado, rosa = ajustado à mão). Vermelho = trecho esticado fora de 0,75×–1,5×.</div>
  <div class="warn" id="${id('Warn')}"></div>
- <div class="status" id="${id('Status')}" role="status" aria-live="polite">Selecione o áudio e toque em ⌁ Analisar ataques.</div></div>`;
+ <div class="status" id="${id('Status')}" role="status" aria-live="polite">Selecione o áudio e toque em ⌁ Analisar ataques.</div>${adapter.deck && !adapter.deck.host ? `<div id="${id('Deck')}"></div>` : ''}</div>`;
   const $ = s => document.getElementById(id(s));
   const cv = $('Canvas');
-  const st = { srcId: null, original: null, onsets: null, edits: {}, removed: new Set(), added: [], plan: null, map: null, result: null, listening: 'B', tool: 'move', drag: null, addSeq: 0, busy: false };
+  let deck = null;
+  const st = { srcId: null, original: null, onsets: null, edits: {}, removed: new Set(), added: [], plan: null, map: null, result: null, listening: 'B', tool: 'move', drag: null, addSeq: 0, busy: false,
+    preview: null, previewSig: '', previewR: null, previewJob: null, resultR: null, appliedSig: null, playhead: null, deckNote: '' };
   const say = (t, k) => { const e = $('Status'); e.textContent = t; e.dataset.kind = k || ''; };
   const bpm = () => adapter.bpm ? Number(adapter.bpm()) || 100 : Number($('Bpm').value) || 100;
   const meter = () => (adapter.meter && adapter.meter()) || '4/4';
@@ -72,7 +76,37 @@ function mount(host, adapter) {
     st.map = C().buildTimeMap(st.plan.markers, st.original.duration, { protectMs: Number($('Protect').value) });
     const w = st.map.warnings;
     $('Warn').textContent = w.length ? `⚠ ${w.length} trecho(s) fora de 0,75×–1,5× (ex.: ${w[0].from.toFixed(2)} s, ${w[0].ratio.toFixed(2)}×). Pode soar artificial: reduza a força, trave ou ajuste o marcador.` : '';
-    draw();
+    draw(); afterChange();
+  }
+  // ------- prévia em segundo plano + estado "aplicada" (barra Aplicar/Ouvir) -------
+  const planSig = () => st.plan && st.original ? JSON.stringify([st.srcId, $('Engine').value, Number($('Protect').value), st.plan.markers.map(m => [+m.src.toFixed(4), +m.dst.toFixed(4)])]) : '';
+  const isDirty = () => !!st.plan && planSig() !== st.appliedSig;
+  let previewTimer = 0;
+  function afterChange() { if (!deck) return; deckState(); clearTimeout(previewTimer); previewTimer = setTimeout(() => ensurePreview().then(() => { if (deck.isPlaying() && deck.listen() === 'edit' && st.deckPlayedSig !== st.previewSig) deck.restart(); }).catch(() => {}), 320); }
+  // renderiza a prévia (sem tocar na pista) no Worker; uma por vez, sempre a do plano mais recente
+  async function ensurePreview() {
+    for (;;) {
+      if (!st.plan || !st.original) return null;
+      const sig = planSig();
+      if (st.previewSig === sig && st.preview) return st.preview;
+      if (st.result && st.appliedSig === sig) { st.preview = st.result; st.previewR = st.resultR; st.previewSig = sig; return st.result; }
+      if (st.previewJob) { try { await st.previewJob.p; } catch (_) {} continue; }
+      const orig = st.original, job = { sig, p: root.APSElastic.quantize(orig, st.plan.markers, { engine: $('Engine').value, protectMs: Number($('Protect').value) }) };
+      st.previewJob = job;
+      try { const r = await job.p; if (orig === st.original) { st.previewR = r; st.preview = r.buffer; st.previewSig = sig; } }
+      finally { if (st.previewJob === job) st.previewJob = null; }
+      if (st.previewSig === sig) return st.preview;
+    }
+  }
+  function deckState() {
+    if (!deck) return;
+    const name = (adapter.deck.targetName && adapter.deck.targetName()) || 'ativa', applied = !!st.result && st.appliedSig != null, dirty = isDirty(), b = $('Apply');
+    b.classList.toggle('done', applied && !dirty);
+    b.textContent = applied && !dirty ? (adapter.deck.appliedLabel || '✓ Quantização aplicada') : (adapter.deck.applyLabel || '✓ Aplicar quantização na música');
+    if (st.deckNote && st.deckNoteSig === planSig()) deck.msg(st.deckNote, 'ok');
+    else if (applied && !dirty) deck.msg(adapter.deck.appliedText ? adapter.deck.appliedText(name) : `✓ Quantização aplicada na pista ${name} · Original guardado`, 'ok');
+    else if (dirty) deck.msg(adapter.deck.dirtyText || 'Alterações prontas para aplicar — ouça no ▶ abaixo e toque em ✓ Aplicar quantização na música.', 'dirty');
+    else deck.msg(st.original ? '' : (adapter.deck.idleText || 'Toque em ⌁ Analisar ataques: depois ajuste, ouça e aplique na música.'));
   }
   function sourceChanged() {
     const s = adapter.getSource(); if (!s || !s.buffer) return true;
@@ -80,7 +114,7 @@ function mount(host, adapter) {
   }
   async function analyze() {
     const s = adapter.getSource(); if (!s || !s.buffer) throw Error('Selecione uma pista ou arquivo de áudio primeiro.');
-    if (s.id !== st.srcId || !st.original) { st.srcId = s.id; st.original = (adapter.originalOf && adapter.originalOf(s.id)) || s.buffer; st.result = null; st.edits = {}; st.removed = new Set(); st.added = []; }
+    if (s.id !== st.srcId || !st.original) { st.srcId = s.id; st.original = (adapter.originalOf && adapter.originalOf(s.id)) || s.buffer; st.result = null; st.resultR = null; st.appliedSig = null; st.preview = null; st.previewSig = ''; st.previewR = null; st.edits = {}; st.removed = new Set(); st.added = []; if (deck) deck.stop(true); }
     say('Procurando ataques (fluxo espectral + energia)…');
     const r = await root.APSElastic.onsets(st.original);
     st.onsets = r.onsets;
@@ -88,7 +122,7 @@ function mount(host, adapter) {
     rebuild();
     $('Apply').disabled = false; $('Reset').disabled = false;
     const dev = C().gridDeviation(st.onsets.map(o => o.time), { bpm: bpm(), subdivision: Number($('Grid').value), gridOffset: gridOffset() }), off = dev.filter(d => d.off).length;
-    say(`${st.onsets.length} ataques encontrados (${off} fora da grade). ` + (st.mode === 'guide' ? `Modo pista guia: ${st.plan.matched} ataques pareados com “${target().name || 'guia'}”. ` : '') + 'Arraste os marcadores dourados se quiser e toque em ✦ Quantizar sem cortes.', 'ok');
+    say(`${st.onsets.length} ataques encontrados (${off} fora da grade). ` + (st.mode === 'guide' ? `Modo pista guia: ${st.plan.matched} ataques pareados com “${target().name || 'guia'}”. ` : '') + (deck ? 'Ouça no ▶ abaixo (Editado × Original) e toque em ✓ Aplicar quantização na música.' : 'Arraste os marcadores dourados se quiser e toque em ✦ Quantizar sem cortes.'), 'ok');
     adapter.onAnalyzed && adapter.onAnalyzed({ id: st.srcId, onsets: st.onsets, buffer: st.original });
   }
   async function apply() {
@@ -96,20 +130,22 @@ function mount(host, adapter) {
     if (sourceChanged()) throw Error('A pista selecionada mudou. Toque em ⌁ Analisar ataques de novo.');
     st.busy = true; $('Apply').disabled = true;
     try {
-      const engine = $('Engine').value;
-      const r = await root.APSElastic.quantize(st.original, st.plan.markers, { engine, protectMs: Number($('Protect').value) }, (p, m) => say((m || 'Processando…') + ' ' + Math.round(p * 100) + '%'));
-      st.result = r.buffer; st.listening = 'B';
+      const engine = $('Engine').value, sig = planSig();
+      const r = deck && adapter.deck.reusePreview && st.previewSig === sig && st.previewR ? st.previewR : await root.APSElastic.quantize(st.original, st.plan.markers, { engine, protectMs: Number($('Protect').value) }, (p, m) => say((m || 'Processando…') + ' ' + Math.round(p * 100) + '%'));
+      st.result = r.buffer; st.resultR = r; st.listening = 'B'; st.appliedSig = sig; st.preview = r.buffer; st.previewR = r; st.previewSig = sig; st.deckNote = '';
       adapter.apply(r.buffer, { id: st.srcId, original: st.original, engine: r.engine, metrics: r.metrics });
       $('AB').disabled = false; $('Undo').disabled = false; abLabel();
       const moved = st.plan.markers.filter(m => Math.abs(m.dst - m.src) > 0.002).length;
       const eng = r.engine === 'poly' ? 'Signalsmith Stretch' : r.engine === 'mono' ? 'TD-PSOLA' : 'WSOLA (reserva)';
       say(`✓ ${moved} ataques puxados ${st.mode === 'guide' ? 'para a pista guia' : 'para a grade'} sem cortes (${eng}). Maior silêncio criado: ${r.metrics.longestSilentMs.toFixed(1)} ms · pico ${r.metrics.peak.toFixed(2)}. Toque A/B para comparar.`, 'ok');
-      draw();
+      draw(); deckState();
+      if (deck && deck.isPlaying()) deck.restart();
     } finally { st.busy = false; $('Apply').disabled = !st.plan; }
   }
   function abLabel() { $('AB').textContent = st.listening === 'B' ? 'A/B: ouvindo B (quantizado)' : 'A/B: ouvindo A (original)'; $('AB').classList.toggle('on', st.listening === 'A'); }
   function ab() { if (!st.result) return; st.listening = st.listening === 'B' ? 'A' : 'B'; if (st.listening === 'A') adapter.restore(st.original, { id: st.srcId, ab: true }); else adapter.apply(st.result, { id: st.srcId, ab: true, original: st.original }); abLabel(); draw(); }
-  function undo() { if (!st.original) return; adapter.restore(st.original, { id: st.srcId, undo: true }); st.result = null; st.listening = 'B'; $('AB').disabled = true; $('Undo').disabled = true; abLabel(); say('Original de volta. Seus marcadores continuam aqui para tentar de novo.', 'ok'); draw(); }
+  function undo() { if (!st.original) return; adapter.restore(st.original, { id: st.srcId, undo: true }); st.result = null; st.resultR = null; st.appliedSig = null; st.listening = 'B'; $('AB').disabled = true; $('Undo').disabled = true; abLabel(); say('Original de volta. Seus marcadores continuam aqui para tentar de novo.', 'ok'); draw();
+    if (deck) { st.deckNote = `↶ Original de volta na pista ${(adapter.deck.targetName && adapter.deck.targetName()) || 'ativa'} · nada foi perdido. Ajuste e toque em ✓ Aplicar quando quiser.`; st.deckNoteSig = planSig(); deckState(); if (deck.isPlaying()) deck.restart(); } }
   function reset() { st.edits = {}; st.removed = new Set(); st.added = []; rebuild(); say('Ajustes manuais limpos.'); }
 
   // ------- desenho -------
@@ -164,6 +200,7 @@ function mount(host, adapter) {
       if (offT.has(m.src)) { g.strokeStyle = '#ff5a5a'; g.lineWidth = 2; g.beginPath(); g.arc(xs, top + 6, 4, 0, Math.PI * 2); g.stroke(); g.lineWidth = 1; }
       if (Number.isFinite(m.guide)) { g.strokeStyle = 'rgba(255,255,255,.55)'; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(X(m.guide), mid + 4); g.lineTo(X(m.guide), bot); g.stroke(); g.setLineDash([]); }
     }
+    if (st.playhead != null && st.playhead >= v.start && st.playhead <= v.start + v.w) { const x = X(st.playhead); g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); g.lineWidth = 1; g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + 6, 0); g.lineTo(x, 8); g.closePath(); g.fill(); }
     // pontos das outras pistas: linha fina na prévia + faixa própria embaixo (vermelho = fora da grade)
     ov.slice(0, 8).forEach((o, i) => {
       const y = 240 + 8 + i * 15, dev = C().gridDeviation(o.times, { bpm: bpm(), subdivision: Number($('Grid').value), gridOffset: gridOffset() }); let offN = 0, shown = 0;
@@ -201,7 +238,7 @@ function mount(host, adapter) {
     const ts = sm === 'off' ? t : C().snapTime(t, { grid: (sm === 'grid' || sm === 'both') && u ? { unit: u, offset: gridOffset() } : null, points: pts, radiusMs: 45 });
     st.edits[st.drag.id] = { dst: Math.max(0, Math.min(st.original.duration, ts)) }; rebuild();
   });
-  const endDrag = () => { if (st.drag) { const m = st.plan && st.plan.markers.find(m => m.id === st.drag.id); st.drag = null; draw(); if (m) say(`Marcador ajustado: ${m.src.toFixed(3)} s → ${m.dst.toFixed(3)} s. Toque ✦ Quantizar sem cortes para aplicar.`); } };
+  const endDrag = () => { if (st.drag) { const m = st.plan && st.plan.markers.find(m => m.id === st.drag.id); st.drag = null; draw(); if (m) say(`Marcador ajustado: ${m.src.toFixed(3)} s → ${m.dst.toFixed(3)} s. ${deck ? 'Ouça no ▶ abaixo e toque em ✓ Aplicar quantização na música.' : 'Toque ✦ Quantizar sem cortes para aplicar.'}`); } };
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => cv.addEventListener(n, endDrag));
   host.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => { st.tool = b.dataset.tool; host.querySelectorAll('[data-tool]').forEach(o => o.classList.toggle('on', o === b)); }));
   const guard = fn => () => Promise.resolve().then(fn).catch(e => say(e.message || String(e), 'err'));
@@ -212,15 +249,34 @@ function mount(host, adapter) {
   $('Reset').addEventListener('click', guard(reset));
   ['Grid', 'Strength', 'Protect'].forEach(k => $(k).addEventListener('input', () => { labels(); rebuild(); }));
   if ($('Bpm')) $('Bpm').addEventListener('change', rebuild);
+  $('Engine').addEventListener('change', () => afterChange());
   $('Zoom').addEventListener('change', draw); $('Scroll').addEventListener('input', draw);
   root.addEventListener('resize', draw);
+  // barra fixa "✓ Aplicar … na música" + "▶ Ouvir" logo abaixo do editor (o botão Aplicar e o Desfazer vão para ela)
+  let lastPh = 0;
+  if (adapter.deck && root.APSApplyPlay) deck = root.APSApplyPlay.mount(adapter.deck.host || $('Deck'), Object.assign({}, adapter.deck, {
+    idPrefix: id('Deck'), applyButton: $('Apply'), undoButton: $('Undo'),
+    audio: async o => {
+      if (!st.original) { const s = adapter.getSource(); if (!s || !s.buffer) throw Error('Carregue o áudio primeiro.'); if (o.listen === 'edit') throw Error('Toque em ⌁ Analisar ataques primeiro: a prévia editada aparece aqui.'); return adapter.deck.audio(Object.assign({}, o, { buffer: s.buffer, viewStart: 0 })); }
+      let buffer = st.original;
+      if (o.listen === 'edit') { buffer = st.plan ? await ensurePreview() : st.result; if (!buffer) throw Error('Toque em ⌁ Analisar ataques primeiro: a prévia editada aparece aqui.'); st.deckPlayedSig = st.previewSig; }
+      return adapter.deck.audio(Object.assign({}, o, { buffer, viewStart: view().start }));
+    },
+    onPlayhead: t => {
+      const loc = t == null ? null : (adapter.deck.toLocal ? adapter.deck.toLocal(t) : t), now = Date.now();
+      if (loc != null && now - lastPh < 33) return; lastPh = now; st.playhead = loc;
+      if (loc != null && st.original) { const v = view(); if (v.w < v.dur && (loc < v.start || loc > v.start + v.w * 0.92)) $('Scroll').value = String(Math.round(Math.max(0, Math.min(1, (loc - v.w * 0.08) / (v.dur - v.w))) * 1000)); }
+      draw();
+    }
+  }));
+  deckState();
   draw();
-  const api = { state: st, analyze: guard(analyze), apply: guard(apply), ab: guard(ab), undo: guard(undo), redraw: () => { if (st.onsets) rebuild(); else draw(); }, setBpm: v => { if ($('Bpm')) { $('Bpm').value = v; } if (st.onsets) rebuild(); else draw(); },
+  const api = { state: st, deck, preview: () => ensurePreview(), dirty: isDirty, analyze: guard(analyze), apply: guard(apply), ab: guard(ab), undo: guard(undo), redraw: () => { if (st.onsets) rebuild(); else draw(); }, setBpm: v => { if ($('Bpm')) { $('Bpm').value = v; } if (st.onsets) rebuild(); else draw(); },
     // o que está tocando agora (A = original, B = quantizado) e a janela visível — usado pelo ▶ com metrônomo
     listening: () => (st.listening === 'B' && st.result ? 'B' : 'A'), audible: () => (st.listening === 'B' && st.result) ? st.result : st.original, viewStart: () => (st.original ? view().start : 0),
     sourceId: () => st.srcId, settings: () => ({ subdivision: Number($('Grid').value), strength: Number($('Strength').value), protectMs: Number($('Protect').value), engine: $('Engine').value }),
     // pista processada fora do editor (lote): sincroniza A/B e Desfazer sem perder o original
-    adopt: (id, original, result, listening) => { if (id !== st.srcId) return; st.original = original; st.result = result; st.listening = result ? (listening || 'B') : 'B'; $('AB').disabled = !result; $('Undo').disabled = !result; abLabel(); draw(); },
+    adopt: (id, original, result, listening) => { if (id !== st.srcId) return; st.original = original; st.result = result; st.listening = result ? (listening || 'B') : 'B'; $('AB').disabled = !result; $('Undo').disabled = !result; abLabel(); st.resultR = null; st.appliedSig = result && st.plan ? planSig() : null; if (result && st.appliedSig) { st.preview = result; st.previewR = null; st.previewSig = ''; } deckState(); draw(); },
     forget: id => { if (id === st.srcId) { st.srcId = null; st.original = null; st.onsets = null; st.plan = null; st.result = null; $('AB').disabled = true; $('Undo').disabled = true; $('Apply').disabled = true; draw(); } } };
   host.__apsQuant = api; return api;
 }
