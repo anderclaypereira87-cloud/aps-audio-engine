@@ -609,7 +609,23 @@ function loginDone(url, env, origin) {
   return new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APS Voz Studio</title><body style="background:#0b0e17;color:#f5f0e6;font:16px system-ui;padding:24px"><h1 style="color:#e2bc76">APS Voz Studio</h1><p>Acesso confirmado. Volte para a página do APS Voz Studio e toque em “Testar conexão”.</p><p><a style="color:#e2bc76" href="https://apsaudio.com.br/voice-singer.html">Abrir APS Voz Studio</a></p></body>', { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...corsHeaders(origin) } });
 }
 
-export async function handle(request, env = {}) {
+// Página do estúdio servida pelo próprio Worker (mesma origem da API, atrás do Access):
+// funciona no iPhone/Safari sem cookie de terceiros e sem preflight CORS.
+export function studioPage(html, env = {}) {
+  const site = String(env.SITE_ORIGIN || 'https://apsaudio.com.br').replace(/\/+$/, '');
+  const inject = `<base href="${site}/"><script>window.APS_VOZ_API=location.origin;window.APS_VOZ_HOSTED=true;window.APS_VOZ_SITE=${JSON.stringify(site)};</script>`;
+  return new Response(html.replace('<head>', '<head>' + inject), {
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'content-security-policy': `default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri ${site}; form-action 'none'`
+    }
+  });
+}
+
+export async function handle(request, env = {}, opts = {}) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const origin = allowedOrigin(request.headers.get('Origin'), env);
@@ -619,10 +635,12 @@ export async function handle(request, env = {}) {
   const user = devBypass(request, env) ? { email: 'dev@localhost' } : await verifyAccessJwt(request.headers.get('Cf-Access-Jwt-Assertion'), env);
 
   if ((path === '/api/health' || path === '/health') && request.method === 'GET') return health(env, user, url.searchParams.get('deep') === '1', origin);
-  if (path === '/' && request.method === 'GET') {
-    return new Response(null, { status: 302, headers: { location: 'https://apsaudio.com.br/voice-singer.html', 'cache-control': 'no-store' } });
+  if ((path === '/' || path === '/studio') && request.method === 'GET') {
+    if (!opts.studioHtml) return new Response(null, { status: 302, headers: { location: 'https://apsaudio.com.br/voice-singer.html', 'cache-control': 'no-store' } });
+    if (!user) return new Response('<!doctype html><meta charset="utf-8"><title>APS Voz Studio</title><p>Acesso restrito. Faça login pelo Cloudflare Access.</p>', { status: 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+    return studioPage(opts.studioHtml, env);
   }
-  if (!user) return err(401, 'Faça login no APS Voz Studio para continuar.', { code: 'login', loginUrl: '/api/auth/login' }, origin);
+  if (!user) return err(401, 'Faça login no APS Voz Studio para continuar.', { code: 'login', loginUrl: '/' }, origin);
   if (path === '/api/auth/login' && request.method === 'GET') return loginDone(url, env, origin);
 
   const missing = requireStorage(env, origin); if (missing) return missing;
@@ -632,6 +650,8 @@ export async function handle(request, env = {}) {
     if (path === '/api/voices' && request.method === 'POST') return await createVoice(request, env, origin);
     let m = path.match(/^\/api\/voices\/(voz_[a-f0-9]{20})$/);
     if (m && request.method === 'DELETE') return await deleteVoice(env, m[1], origin);
+    m = path.match(/^\/api\/voices\/(voz_[a-f0-9]{20})\/delete$/); // POST simples (sem preflight CORS)
+    if (m && request.method === 'POST') return await deleteVoice(env, m[1], origin);
     m = path.match(/^\/api\/voices\/(voz_[a-f0-9]{20})\/rapido$/);
     if (m && request.method === 'POST') return await linkRapido(request, env, m[1], origin);
     if (path === '/api/convert' && request.method === 'POST') return await convert(request, env, origin);

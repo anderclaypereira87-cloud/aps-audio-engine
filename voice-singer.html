@@ -171,6 +171,8 @@ code{color:#f6d79b;overflow-wrap:anywhere}
 'use strict';
 const $ = id => document.getElementById(id);
 const DEFAULT_API = 'https://aps-voice-vault.aps-audio.workers.dev';
+const HOSTED = window.APS_VOZ_HOSTED === true; // página servida pelo próprio servidor seguro (mesma origem da API)
+const SITE = String(window.APS_VOZ_SITE || 'https://apsaudio.com.br').replace(/\/+$/, '');
 const MAX_UPLOAD = 50 * 1024 * 1024, MIN_SAMPLE = 20, REC_MIN = 120, REC_MAX = 600, MAX_SAMPLE = 900, MAX_GUIDE = 600;
 
 // ---------- endereço do servidor (permite ?api= para testes locais) ----------
@@ -181,6 +183,7 @@ let API = (window.APS_VOZ_API || (() => { try { return localStorage.getItem('aps
 if (!okBase(API)) API = DEFAULT_API;
 $('apiBase').textContent = API;
 
+const JSONH = { 'content-type': 'text/plain;charset=UTF-8' }; // corpo JSON como requisição simples (sem preflight CORS)
 class AuthError extends Error { constructor(m) { super(m || 'É preciso entrar com segurança para usar o APS Voz Studio.'); this.auth = true; } }
 async function api(path, opts = {}) {
   let r;
@@ -213,7 +216,7 @@ function pill(text, kind) { const p = $('connPill'); p.textContent = text; p.cla
 function showLogin(msg) {
   $('loginBtn').classList.remove('hidden');
   pill('Precisa entrar', 'warn');
-  $('connMsg').textContent = msg || 'Por segurança, o APS Voz Studio exige login. Toque em “Entrar com segurança”, faça o login e você volta para cá automaticamente.';
+  $('connMsg').textContent = HOSTED ? (msg || 'Sessão expirada. Toque em “Entrar com segurança”.') : 'Por segurança, o APS Voz Studio abre no endereço protegido do APS. Toque em “Entrar com segurança”, faça o login com seu e-mail e use o estúdio por lá.';
 }
 function chips(h) {
   const box = $('engineChips'); box.innerHTML = '';
@@ -247,7 +250,8 @@ async function checkConnection(deep) {
 }
 $('testBtn').onclick = () => checkConnection(false);
 $('deepBtn').onclick = () => checkConnection(true);
-$('loginBtn').onclick = () => { location.href = API + '/api/auth/login?return=' + encodeURIComponent(location.href.split('#')[0]); };
+// Login: abre o estúdio no endereço seguro (Cloudflare Access). Lá a API é da mesma origem → funciona no iPhone.
+$('loginBtn').onclick = () => { location.href = HOSTED ? location.origin + '/' : API + '/'; };
 
 // ---------- áudio: decodificar, reamostrar, WAV, ZIP ----------
 let actx;
@@ -372,7 +376,7 @@ function renderVoices() {
     const p = document.createElement('span'); p.className = 'pill ' + st[1]; p.textContent = st[0];
     info.append(b, small);
     const del = document.createElement('button'); del.className = 'danger'; del.type = 'button'; del.textContent = 'Excluir'; del.style.minHeight = '40px'; del.style.padding = '8px 12px';
-    del.onclick = async () => { if (!confirm('Excluir a voz “' + v.name + '”?')) return; try { await api('/api/voices/' + v.id, { method: 'DELETE' }); loadVoices(); } catch (e) { handleErr('createStatus', e); } };
+    del.onclick = async () => { if (!confirm('Excluir a voz “' + v.name + '”?')) return; try { await api('/api/voices/' + v.id + '/delete', { method: 'POST' }); loadVoices(); } catch (e) { handleErr('createStatus', e); } };
     li.append(info, p, del); ul.append(li);
   }
   const sel = $('voiceSelect'), cur = sel.value; sel.innerHTML = '';
@@ -400,7 +404,7 @@ $('createBtn').onclick = async () => {
   try {
     if (mode === 'rapido') {
       const id = $('rapidoModel').value; if (!id) throw new Error('Escolha um modelo do Motor Rápido.');
-      await api('/api/voices', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, engine: 'rapido', rapidoModelId: id, consent: true }) });
+      await api('/api/voices', { method: 'POST', headers: JSONH, body: JSON.stringify({ name, engine: 'rapido', rapidoModelId: id, consent: true }) });
       say('createStatus', 'Voz “' + name + '” pronta para converter.', 'ok'); await loadVoices(); return;
     }
     if (!sample) throw new Error('Grave ou envie sua voz no passo 1 (mínimo 20 segundos).');
@@ -409,11 +413,11 @@ $('createBtn').onclick = async () => {
       const ds = await buildDataset(sample.buf);
       if (ds.zip.size > MAX_UPLOAD) throw new Error('A amostra ficou grande demais. Use até 10 minutos.');
       say('createStatus', 'Enviando amostra (' + (ds.zip.size / 1048576).toFixed(1) + ' MB)…');
-      const up = await api('/api/uploads?kind=dataset', { method: 'POST', headers: { 'content-type': 'application/zip', 'x-aps-filename': 'amostra.zip', 'x-aps-duration': String(Math.round(ds.voiced)) }, body: ds.zip });
+      const up = await api('/api/uploads?kind=dataset&filename=amostra.zip&duration=' + Math.round(ds.voiced), { method: 'POST', body: await ds.zip.arrayBuffer() });
       uploadedDataset = up.id;
     }
     if (!confirm('Iniciar o treino da voz “' + name + '”?\n\nO APS não cobra por isso, mas o Motor Treino pode consumir créditos da conta do servidor. Leva de 10 a 30 minutos.')) { say('createStatus', 'Treino não iniciado.'); return; }
-    const d = await api('/api/voices', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, engine: 'treino', datasetId: uploadedDataset, consent: true, confirmCost: true }) });
+    const d = await api('/api/voices', { method: 'POST', headers: JSONH, body: JSON.stringify({ name, engine: 'treino', datasetId: uploadedDataset, consent: true, confirmCost: true }) });
     say('createStatus', 'Treino iniciado. Você pode sair desta página; o status aparece em “Vozes salvas”.', 'ok');
     await loadVoices(); watchJob(d.job.id);
   } catch (e) { handleErr('createStatus', e); }
@@ -486,10 +490,10 @@ $('convertBtn').onclick = async () => {
   const btn = $('convertBtn'); btn.disabled = true;
   try {
     say('convertStatus', 'Enviando guia…');
-    const up = await api('/api/uploads?kind=guide', { method: 'POST', headers: { 'content-type': guide.blob.type || 'audio/wav', 'x-aps-filename': guide.name, 'x-aps-duration': guide.duration.toFixed(2) }, body: guide.blob });
+    const up = await api('/api/uploads?kind=guide&filename=' + encodeURIComponent(guide.name) + '&duration=' + guide.duration.toFixed(2), { method: 'POST', body: await guide.blob.arrayBuffer() });
     if (!confirm('Converter a guia para a voz escolhida?\n\nO resultado será voz gerada por IA. O motor pode consumir créditos da conta do servidor.')) { say('convertStatus', 'Conversão não iniciada.'); btn.disabled = false; return; }
     const v = voices.find(x => x.id === voiceId);
-    const { job } = await api('/api/convert', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voiceId, guideId: up.id, pitch: +$('pitch').value, fidelity: +$('fidelity').value / 100, engine: $('engineSelect').value, confirmCost: true }) });
+    const { job } = await api('/api/convert', { method: 'POST', headers: JSONH, body: JSON.stringify({ voiceId, guideId: up.id, pitch: +$('pitch').value, fidelity: +$('fidelity').value / 100, engine: $('engineSelect').value, confirmCost: true }) });
     pendingOriginal[job.id] = { blob: guide.file, name: guide.file.name, voice: v ? v.name : '' };
     say('convertStatus', statusText(job)); watchJob(job.id);
   } catch (e) { handleErr('convertStatus', e); btn.disabled = false; }
@@ -560,12 +564,53 @@ $('toDaw').onclick = async () => {
     const ext = /wav/.test(cur.clone.type) ? 'wav' : 'mp3';
     const stems = [{ id: 'vocals', name: 'Voz clonada IA - ' + (cur.job.voiceName || 'APS') + '.' + ext, type: cur.clone.type || 'audio/mpeg', blob: cur.clone }];
     if (cur.orig) stems.push({ id: 'other', name: 'Guia original.' + (/wav/.test(cur.orig.type) ? 'wav' : 'mp3'), type: cur.orig.type || 'audio/wav', blob: cur.orig });
+    const row = { id: Date.now() + '-' + Math.random().toString(36).slice(2), name: 'APS Voz Studio — ' + cur.name + ' (voz gerada por IA)', stems, createdAt: Date.now() };
+    if (HOSTED) { await handoffToSite(row); btn.disabled = false; return; }
     db = await new Promise((res, rej) => { const r = indexedDB.open('aps-stems-transfer-v1', 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-    await new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put({ id: Date.now() + '-' + Math.random().toString(36).slice(2), name: 'APS Voz Studio — ' + cur.name + ' (voz gerada por IA)', stems, createdAt: Date.now() }, 'latest'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('Falha ao salvar.')); });
+    await new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put(row, 'latest'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('Falha ao salvar.')); });
     location.href = './daw.html?modulo=gravacao&importStems=1&origem=voz';
   } catch (e) { handleErr('resultStatus', e); btn.disabled = false; }
   finally { db?.close(); }
 };
+
+// Servidor seguro → site APS: o Estúdio (DAW) fica em outra origem; os áudios vão por postMessage
+// para voice-singer.html#receber-daw no site, que grava no IndexedDB do site e abre a DAW.
+function handoffToSite(row) {
+  return new Promise((resolve, reject) => {
+    const w = window.open(SITE + '/voice-singer.html#receber-daw', '_blank');
+    if (!w) return reject(new Error('O navegador bloqueou a nova aba. Permita pop-ups ou baixe o WAV e importe no Estúdio.'));
+    say('resultStatus', 'Abrindo o Estúdio do APS em outra aba…');
+    const timer = setTimeout(() => { window.removeEventListener('message', onMsg); reject(new Error('O Estúdio não respondeu. Baixe o WAV e importe no Estúdio.')); }, 30000);
+    function onMsg(e) {
+      if (e.origin !== SITE || e.source !== w) return;
+      if (e.data?.type === 'aps-voz-pronto') w.postMessage({ type: 'aps-voz-stems', row }, SITE);
+      if (e.data?.type === 'aps-voz-ok') { clearTimeout(timer); window.removeEventListener('message', onMsg); say('resultStatus', 'Enviado ao Estúdio (DAW) na outra aba.', 'ok'); resolve(); }
+      if (e.data?.type === 'aps-voz-erro') { clearTimeout(timer); window.removeEventListener('message', onMsg); reject(new Error(e.data.message || 'Falha ao abrir no Estúdio.')); }
+    }
+    window.addEventListener('message', onMsg);
+  });
+}
+// Lado do site: recebe os áudios do servidor seguro e abre a DAW.
+function receiveForDaw() {
+  const allowed = new Set([new URL(DEFAULT_API).origin, new URL(API).origin]);
+  document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+  const p = document.createElement('p'); p.className = 'panel'; p.id = 'receiveMsg'; p.textContent = 'Recebendo áudio do APS Voz Studio…'; document.querySelector('main').append(p);
+  if (!window.opener) { p.textContent = 'Abra esta página pelo botão “Abrir no Estúdio (DAW)” do APS Voz Studio.'; return; }
+  window.addEventListener('message', async e => {
+    if (!allowed.has(e.origin) || e.data?.type !== 'aps-voz-stems') return;
+    const row = e.data.row; let db;
+    try {
+      if (!row || !Array.isArray(row.stems) || !row.stems.length || row.stems.length > 6 || !row.stems.every(x => x.blob instanceof Blob)) throw new Error('Áudio inválido.');
+      db = await new Promise((res, rej) => { const r = indexedDB.open('aps-stems-transfer-v1', 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      await new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put({ id: String(row.id), name: String(row.name).slice(0, 160), stems: row.stems.map(x => ({ id: x.id === 'other' ? 'other' : 'vocals', name: String(x.name).slice(0, 160), type: x.blob.type || 'audio/wav', blob: x.blob })), createdAt: Date.now() }, 'latest'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+      e.source.postMessage({ type: 'aps-voz-ok' }, e.origin);
+      location.href = './daw.html?modulo=gravacao&importStems=1&origem=voz';
+    } catch (err) { p.textContent = 'Não foi possível abrir no Estúdio: ' + err.message; e.source.postMessage({ type: 'aps-voz-erro', message: err.message }, e.origin); }
+    finally { db?.close(); }
+  });
+  window.opener.postMessage({ type: 'aps-voz-pronto' }, '*'); // sem dados; só avisa que está pronta
+}
+if (!HOSTED && location.hash === '#receber-daw') { receiveForDaw(); return; }
 
 window.APSVoz = { get api() { return API; }, results, checkConnection, buildDataset, zipStore, crc32 };
 checkConnection(false);

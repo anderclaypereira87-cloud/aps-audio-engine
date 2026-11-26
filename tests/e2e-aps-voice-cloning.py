@@ -48,7 +48,8 @@ def main():
     guide = voice_wav(TMP / 'guia.wav', 4, f0=330)
     web = free_port(); srv = ThreadingHTTPServer(('127.0.0.1', web), Quiet); Thread(target=srv.serve_forever, daemon=True).start()
     api, api_auth = free_port(), free_port()
-    mock, mock_auth = start_mock(api), start_mock(api_auth, 'auth')
+    site = f'http://127.0.0.1:{web}'
+    mock, mock_auth = start_mock(api, 'ok', site), start_mock(api_auth, 'auth', site)
     page_url = f'http://127.0.0.1:{web}/voice-singer.html?api=http://127.0.0.1:{api}'
     try:
         with sync_playwright() as pw:
@@ -158,6 +159,8 @@ def main():
             expect(pg.locator('#convertStatus')).to_contain_text('Sem saldo', timeout=15000)
             check('erro de saldo mostrado em português sem nome do provedor', 'replicate' not in pg.locator('#convertStatus').inner_text().lower(), pg.locator('#convertStatus').inner_text())
             log = json.loads(urlopen(f'http://127.0.0.1:{api}/__mock/log').read())
+            meth = json.loads(urlopen(f'http://127.0.0.1:{api}/__mock/methods').read())
+            check('sem preflight CORS (todas as chamadas são requisições simples)', not any(m.startswith('OPTIONS') for m in meth), f'{len(meth)} requisições, 0 OPTIONS')
             check('nenhuma chamada real: só provedores mockados', all(('api.replicate.com' in x or 'arpeggi.io' in x or 'mock.delivery' in x) for x in log), f'{len(log)} chamadas mockadas')
             ctx.close()
 
@@ -168,9 +171,9 @@ def main():
             expect(pg2.locator('#connPill')).to_have_text('Precisa entrar', timeout=10000)
             check('Access sem login: mostra “Entrar com segurança”', pg2.locator('#loginBtn').is_visible(), pg2.locator('#connMsg').inner_text())
             pg2.screenshot(path='/workspace/aps-voice-03.png', full_page=False)
-            pg2.route(f'http://127.0.0.1:{api_auth}/api/auth/login**', lambda r: r.fulfill(status=200, body='login-mock'))
-            pg2.click('#loginBtn'); pg2.wait_for_url(f'**/api/auth/login?return=*', timeout=5000)
-            check('botão de login leva ao Access com retorno para a página', 'voice-singer.html' in pg2.url)
+            pg2.route(f'http://127.0.0.1:{api_auth}/', lambda r: r.fulfill(status=200, body='login-mock'))
+            pg2.click('#loginBtn'); pg2.wait_for_url(f'http://127.0.0.1:{api_auth}/', timeout=5000)
+            check('botão de login abre o estúdio no endereço seguro (Access)', pg2.url == f'http://127.0.0.1:{api_auth}/')
             # redirecionamento 302 do Access (opaqueredirect) também é tratado
             pg2.goto(f'http://127.0.0.1:{web}/voice-singer.html?api=http://127.0.0.1:{api}')
             pg2.route(f'http://127.0.0.1:{api}/api/health**', lambda r: r.fulfill(status=302, headers={'location': 'https://mock.cloudflareaccess.com/cdn-cgi/access/login', 'access-control-allow-origin': f'http://127.0.0.1:{web}', 'access-control-allow-credentials': 'true'}))
@@ -182,7 +185,37 @@ def main():
             pg2.click('#testBtn')
             expect(pg2.locator('#connPill')).to_have_text('Conectado', timeout=10000)
             pg2.screenshot(path='/workspace/aps-voice-04-desktop.png', full_page=True)
-            ctx2.close(); b.close()
+            ctx2.close()
+
+            # ---------- estúdio servido pelo próprio servidor seguro (modo publicado, celular) ----------
+            urlopen(f'http://127.0.0.1:{api}/__mock/mode?m=ok').read()
+            ctx3 = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+            pg3 = ctx3.new_page(); err3 = []
+            pg3.on('pageerror', lambda e: err3.append(str(e))); pg3.on('dialog', lambda d: d.accept())
+            # no ar, o site já confia no servidor padrão; no teste, registra o servidor local no site (via ?api=)
+            pg3.goto(f'{site}/voice-singer.html?api=http://127.0.0.1:{api}')
+            pg3.goto(f'http://127.0.0.1:{api}/')
+            expect(pg3.locator('#connPill')).to_have_text('Conectado', timeout=10000)
+            check('estúdio no servidor seguro (mesma origem) conecta', pg3.evaluate('() => window.APSVoz.api') == f'http://127.0.0.1:{api}')
+            check('links do estúdio apontam para o site APS', pg3.evaluate("() => document.querySelector('nav a[href=\"./daw.html\"]').href") == site + '/daw.html')
+            pg3.select_option('#voiceSelect', label='Minha Voz Teste')
+            pg3.set_input_files('#guideFile', guide)
+            expect(pg3.locator('#convertStatus')).to_contain_text('Guia pronta', timeout=10000)
+            pg3.click('#convertBtn')
+            expect(pg3.locator('#resultBox')).to_be_visible(timeout=40000)
+            check('conversão no servidor seguro', True)
+            pg3.screenshot(path='/workspace/aps-voice-05-servidor-seguro.png')
+            with ctx3.expect_page() as newp:
+                pg3.click('#toDaw')
+            daw = newp.value
+            daw.wait_for_url('**/daw.html?modulo=gravacao&importStems=1*', timeout=20000)
+            expect(pg3.locator('#resultStatus')).to_contain_text('Enviado ao Estúdio', timeout=10000)
+            st = daw.evaluate("""() => new Promise((res) => { const r = indexedDB.open('aps-stems-transfer-v1', 1);
+                r.onsuccess = () => { const q = r.result.transaction('sessions', 'readonly').objectStore('sessions').get('latest');
+                q.onsuccess = () => res(q.result ? q.result.stems.map(s => s.id + ':' + s.blob.size) : null); }; })""")
+            check('Abrir no Estúdio a partir do servidor seguro (postMessage → DAW do site)', bool(st) and len(st) == 2 and st[0].startswith('vocals:'), st)
+            check('sem erros de JavaScript no servidor seguro', not err3, err3[:3])
+            ctx3.close(); b.close()
     finally:
         mock.terminate(); mock_auth.terminate(); srv.shutdown()
     ok = all(r['ok'] for r in results)

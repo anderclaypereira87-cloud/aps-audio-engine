@@ -2,8 +2,13 @@
 // Todo acesso a provedores é feito com fetch mockado — zero chamadas reais, zero gasto.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../workers/aps-voice-vault.js';
+import { readFileSync } from 'node:fs';
 import * as L from '../workers/aps-voice-vault/lib.js';
+
+// O entry (workers/aps-voice-vault.js) importa a página HTML como texto via regra do wrangler;
+// aqui usamos a mesma lógica com a página lida do disco.
+const STUDIO = readFileSync(new URL('../voice-singer.html', import.meta.url), 'utf8');
+const worker = { fetch: (r, e) => L.handle(r, e, { studioHtml: STUDIO }) };
 
 const BASE = 'https://aps-voice-vault.aps-audio.workers.dev';
 const SITE = 'https://apsaudio.com.br';
@@ -405,7 +410,9 @@ test('jobs: id inválido, inexistente e rota desconhecida', async () => {
   assert.equal((await req(env, '/api/jobs/job_' + 'a'.repeat(20))).r.status, 404);
   assert.equal((await req(env, '/api/nada')).r.status, 404);
   const root = await worker.fetch(new Request(BASE + '/'), env);
-  assert.equal(root.status, 302);
+  assert.equal(root.status, 401, 'sem login do Access a página não é servida');
+  const noHtml = await L.handle(new Request(BASE + '/'), env);
+  assert.equal(noHtml.status, 302);
 });
 
 test('multipartBody monta corpo correto (fallback sem FixedLengthStream)', async () => {
@@ -413,4 +420,31 @@ test('multipartBody monta corpo correto (fallback sem FixedLengthStream)', async
   const buf = new Uint8Array(await new Response(mp.body).arrayBuffer());
   assert.equal(buf.length, mp.length);
   assert.match(new TextDecoder().decode(buf), /name="a"\r\n\r\n1\r\n.*name="f"; filename="x.wav"/s);
+});
+
+test('estúdio servido pelo Worker em / (mesma origem): injeta API, base do site e CSP restritiva', async () => {
+  const env = makeEnv({ SITE_ORIGIN: 'https://apsaudio.com.br' });
+  const r = await worker.fetch(new Request(BASE + '/', { headers: { 'Cf-Access-Jwt-Assertion': await makeJwt() } }), env);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/html/);
+  const csp = r.headers.get('content-security-policy');
+  assert.match(csp, /connect-src 'self'/); assert.match(csp, /frame-ancestors 'none'/);
+  const html = await r.text();
+  assert.match(html, /<head><base href="https:\/\/apsaudio\.com\.br\/"><script>window\.APS_VOZ_API=location\.origin;window\.APS_VOZ_HOSTED=true/);
+  assert.match(html, /APS Voz Studio/);
+  assert.ok(!/replicate|kits\.ai|rvc/i.test(html));
+});
+
+test('requisições simples (sem preflight): upload com nome/duração na query e exclusão via POST', async () => {
+  const env = makeEnv();
+  const z = zipStore([['dataset/voz/split_0.wav', wav(1)]]);
+  const up = await req(env, '/api/uploads?kind=dataset&filename=amostra.zip&duration=150', { method: 'POST', body: z });
+  assert.equal(up.r.status, 201); assert.equal(up.data.duration, 150);
+  const meta = JSON.parse(await env.VOICE_KV.get('upload:' + up.data.id));
+  assert.equal(meta.filename, 'amostra.zip');
+  const json = await req(env, '/api/voices', { method: 'POST', body: JSON.stringify({ name: 'X' }), headers: { 'content-type': 'text/plain;charset=UTF-8' } });
+  assert.equal(json.data.code, 'nome', 'JSON enviado como text/plain é aceito');
+  const v = await readyVoice(env, { rapido: { modelId: '1' } });
+  const del = await req(env, '/api/voices/' + v.id + '/delete', { method: 'POST' });
+  assert.equal(del.data.deleted, v.id);
 });

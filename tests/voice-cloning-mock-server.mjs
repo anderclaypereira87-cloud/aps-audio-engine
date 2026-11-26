@@ -1,13 +1,16 @@
 // Servidor local para E2E: roda o código REAL do Worker (workers/aps-voice-vault/lib.js) com KV/R2 em memória
 // e provedores 100% mockados (nenhuma chamada externa, zero gasto).
-// Uso: node tests/voice-cloning-mock-server.mjs <porta> [auth]   (auth = exige login do Access → 401)
+// Uso: node tests/voice-cloning-mock-server.mjs <porta> [auth|ok] [origem-do-site]   (auth = exige login do Access → 401)
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
 import { handle } from '../workers/aps-voice-vault/lib.js';
+const studioHtml = readFileSync(new URL('../voice-singer.html', import.meta.url), 'utf8');
 
 const port = Number(process.argv[2] || 8799);
 const requireAuth = process.argv[3] === 'auth';
 let mode = 'ok'; // ok | saldo
 const providerLog = [];
+const methods = [];
 
 class KV { constructor() { this.m = new Map(); } async get(k) { return this.m.has(k) ? this.m.get(k) : null; } async put(k, v) { this.m.set(k, String(v)); } async delete(k) { this.m.delete(k); } }
 class R2 {
@@ -19,7 +22,7 @@ class R2 {
 }
 const env = {
   REPLICATE_API_TOKEN: 'mock-token', KITS_API_KEY: 'mock-key', VOICE_KV: new KV(), VOICE_AUDIO: new R2(),
-  DEV_ALLOW_NO_ACCESS: requireAuth ? 'false' : 'true', CF_ACCESS_AUD: 'x', CF_ACCESS_TEAM_DOMAIN: 'https://mock.cloudflareaccess.com'
+  DEV_ALLOW_NO_ACCESS: requireAuth ? 'false' : 'true', SITE_ORIGIN: process.argv[4] || 'https://apsaudio.com.br', EXTRA_ORIGINS: process.argv[4] || '', CF_ACCESS_AUD: 'x', CF_ACCESS_TEAM_DOMAIN: 'https://mock.cloudflareaccess.com'
 };
 
 function sineWav(seconds, freq, rate = 44100) {
@@ -67,11 +70,13 @@ http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${port}`);
   if (u.pathname === '/__mock/mode') { mode = u.searchParams.get('m') || 'ok'; res.writeHead(200, { 'access-control-allow-origin': '*' }); return res.end(mode); }
   if (u.pathname === '/__mock/log') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); return res.end(JSON.stringify(providerLog)); }
+  methods.push(req.method + ' ' + u.pathname);
+  if (u.pathname === '/__mock/methods') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); return res.end(JSON.stringify(methods)); }
   const chunks = []; for await (const c of req) chunks.push(c);
   const body = chunks.length ? Buffer.concat(chunks) : undefined;
   const headers = new Headers(); for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
   const request = new Request(u.href, { method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body });
-  const r = await handle(request, env);
+  const r = await handle(request, env, { studioHtml });
   const out = Buffer.from(await r.arrayBuffer());
   const h = {}; r.headers.forEach((v, k) => { h[k] = v; });
   res.writeHead(r.status, h); res.end(out);

@@ -34,7 +34,14 @@ Modo **Automático**: usa Motor Rápido se a voz tiver modelo Kits vinculado; se
 
 Proteções: limites diários (`TRAIN_DAILY_LIMIT`=2, `CONVERT_DAILY_LIMIT`=20, dia de Recife), 1 treino por vez, interruptor `PAID_JOBS_ENABLED=false`, `ALLOWED_EMAILS` opcional, `Cancel-After` nos jobs, falhas não contam no limite. Mensagens de saldo (402), chave (401/403), limite (429) e entrada (400/422) em português, sem nome do provedor.
 
-## Passos para publicar (só com aprovação do Anderclay)
+## Publicação de 26/11/2026 (aprovada pelo Anderclay)
+- Rollback do Worker: versão anterior `133257f0-7fd3-4b97-9113-e7ac542c1934` → `npx wrangler rollback 133257f0-7fd3-4b97-9113-e7ac542c1934 --name aps-voice-vault`. `origin/main` antes do merge: `9c6b6da`.
+- Criados: R2 `aps-voice-vault-audio`, KV `aps-voice-vault-state` (`f51782d8b0784fa99a14f5e44fb05fd5`).
+- **Caminho ativo (funciona no iPhone sem mexer no Zero Trust):** o Worker serve o próprio APS Voz Studio em `https://aps-voice-vault.aps-audio.workers.dev/` (mesma origem da API, atrás do Access → cookie first-party, sem CORS). `https://apsaudio.com.br/voice-singer.html` tenta a API direto; se o Access pedir login, o botão “Entrar com segurança” leva ao estúdio seguro. “Abrir no Estúdio (DAW)” no estúdio seguro abre `apsaudio.com.br/voice-singer.html#receber-daw` em outra aba e envia os áudios por `postMessage` (origem verificada) → IndexedDB do site → DAW.
+- Todas as chamadas do front são *requisições simples* (sem preflight): JSON como `text/plain`, nome/duração na query, exclusão via `POST /api/voices/:id/delete`.
+- `voz-api.apsaudio.com.br` **não** foi ativado: ficaria fora do app do Access (token do wrangler sem permissão de Access) e toda chamada daria 401.
+
+## Passos para publicar (referência)
 ```bash
 cd workers/aps-voice-vault
 npx wrangler r2 bucket create aps-voice-vault-audio
