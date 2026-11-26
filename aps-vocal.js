@@ -1,4 +1,5 @@
-/* APS 2.4.0 — Afinação de voz no aparelho (estilo auto-tune).
+/* APS 2.5.0 — Afinação de voz no aparelho. API YIN/PSOLA mantida para Partituras e MIDI;
+ * a tela do estúdio usa o Motor Elástico (aps-elastic-*.js): arraste de nota, vibrato e formantes preservados.
  * Detecção de altura YIN + correção por PSOLA (preserva o tempo). Tonalidade/escala, velocidade de correção,
  * intensidade e edição simples por nota. Nada é enviado para a internet. */
 (function(root){'use strict';
@@ -53,40 +54,19 @@ function guessKey(trk){const h=new Float64Array(12);let first=-1,last=-1;for(let
 const API={track,snap,notes,ratios,psola,tune,guessKey,midiOf,freqOf,NOTE,SCALES,SCALE_NAMES};root.APSVocal=API;
 // ================= Interface no estúdio =================
 if(typeof document==='undefined')return;
-function ui(){const host=document.getElementById('apsVocalTune'),B=root.APSMixBridge;if(!host||!B)return;const $=id=>document.getElementById(id);
- host.innerHTML=`<div class="aps-vt"><h3>🎤 Afinação de voz (no aparelho)</h3><p class="aps-vt-sub">Estilo auto-tune: escolha o tom e a escala, a velocidade da correção e ouça. A gravação original fica guardada para desfazer.</p>
- <div class="aps-vt-grid"><label>Tom<select id="apsVtKey">${NOTE.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select></label><label>Escala<select id="apsVtScale">${Object.entries(SCALE_NAMES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
- <label>Velocidade <span id="apsVtSpeedV">40 ms</span><input id="apsVtSpeed" type="range" min="0" max="400" step="5" value="40"></label><label>Intensidade <span id="apsVtAmtV">100%</span><input id="apsVtAmt" type="range" min="0" max="100" value="100"></label></div>
- <p class="aps-vt-hint">Velocidade 0 = efeito robótico (T-Pain). 20–60 ms = natural pop/sertanejo. 100+ ms = correção suave.</p>
- <div class="aps-vt-acts"><button id="apsVtAnalyze" type="button">🔍 Analisar voz</button><button id="apsVtKeyGuess" type="button" disabled>🎯 Descobrir o tom</button><button id="apsVtApply" type="button" class="gold" disabled>✨ Afinar pista</button><button id="apsVtUndo" type="button" disabled>↩ Voltar original</button></div>
- <p id="apsVtStatus" class="aps-vt-status" role="status">Selecione a pista de voz (uma voz por vez) e toque em 🔍 Analisar voz.</p>
- <canvas id="apsVtCanvas" width="680" height="200" hidden aria-label="Notas da voz"></canvas>
- <div id="apsVtNoteBar" class="aps-vt-acts" hidden><span id="apsVtNoteInfo">Toque numa nota no gráfico para editar.</span><button id="apsVtUp" type="button">▲ +1</button><button id="apsVtDown" type="button">▼ −1</button><button id="apsVtOff" type="button">⊘ Não corrigir</button></div></div>`;
- let trk=null,segs=null,trackId=null,sel=-1;const originals=root.__apsVtOriginals||(root.__apsVtOriginals=new Map());
- const say=(t,k)=>{const e=$('apsVtStatus');e.textContent=t;e.dataset.kind=k||'';};
- const opts=()=>({key:Number($('apsVtKey').value),scale:$('apsVtScale').value,speed:Number($('apsVtSpeed').value),amount:Number($('apsVtAmt').value),segs});
- $('apsVtSpeed').oninput=()=>{$('apsVtSpeedV').textContent=$('apsVtSpeed').value+' ms';draw();};$('apsVtAmt').oninput=()=>{$('apsVtAmtV').textContent=$('apsVtAmt').value+'%';draw();};
- $('apsVtKey').onchange=$('apsVtScale').onchange=()=>{if(trk){segs=notes(trk,Number($('apsVtKey').value),$('apsVtScale').value);sel=-1;draw();}};
- function cur(){const t=B.current?.();if(!t)throw Error('Selecione uma pista de voz no estúdio.');return t;}
- function draw(){if(!trk)return;const c=$('apsVtCanvas');c.hidden=false;$('apsVtNoteBar').hidden=false;const g=c.getContext('2d'),W=c.width,H=c.height,{tgt}=ratios(trk,opts());
-  const ms=[...trk.f0].filter(f=>f).map(midiOf);if(!ms.length)return;const lo=Math.floor(Math.min(...ms))-2,hi=Math.ceil(Math.max(...ms))+2,yOf=m=>H-14-(m-lo)/(hi-lo)*(H-24),xOf=i=>i/trk.f0.length*W;
-  g.fillStyle='#0f141d';g.fillRect(0,0,W,H);const key=Number($('apsVtKey').value),sc=SCALES[$('apsVtScale').value];
-  for(let m=lo;m<=hi;m++){const inS=sc.includes(((m-key)%12+12)%12);g.fillStyle=inS?'rgba(229,189,114,.10)':'rgba(255,255,255,.02)';g.fillRect(0,yOf(m+.5),W,yOf(m-.5)-yOf(m+.5));if(inS&&m%1===0){g.fillStyle='#7d6a49';g.font='10px system-ui';g.fillText(NOTE[((m%12)+12)%12]+(Math.floor(m/12)-1),2,yOf(m)+3);}}
-  (segs||[]).forEach((s,k)=>{g.fillStyle=s.off?'rgba(140,140,140,.35)':k===sel?'rgba(97,220,196,.55)':'rgba(229,189,114,.35)';const y=yOf(s.note+s.shift);g.fillRect(xOf(s.start),y-4,Math.max(2,xOf(s.end)-xOf(s.start)),8);});
-  g.lineWidth=1.5;g.strokeStyle='#8fb4ff';g.beginPath();let on=false;for(let i=0;i<trk.f0.length;i++){if(!trk.f0[i]){on=false;continue;}const p=[xOf(i),yOf(midiOf(trk.f0[i]))];on?g.lineTo(...p):g.moveTo(...p);on=true;}g.stroke();
-  g.strokeStyle='#e5bd72';g.beginPath();on=false;for(let i=0;i<tgt.length;i++){if(!tgt[i]){on=false;continue;}const p=[xOf(i),yOf(tgt[i])];on?g.lineTo(...p):g.moveTo(...p);on=true;}g.stroke();
-  g.fillStyle='#8fb4ff';g.fillText('— voz original',W-200,12);g.fillStyle='#e5bd72';g.fillText('— depois da afinação',W-110,12);}
- $('apsVtCanvas').addEventListener('click',e=>{if(!segs)return;const c=e.target,r=c.getBoundingClientRect(),i=(e.clientX-r.left)/r.width*trk.f0.length;sel=segs.findIndex(s=>i>=s.start-2&&i<=s.end+2);info();draw();});
- function info(){const s=segs?.[sel];$('apsVtNoteInfo').textContent=s?'Nota selecionada: '+NOTE[(((s.note+s.shift)%12)+12)%12]+(s.shift?' ('+(s.shift>0?'+':'')+s.shift+' semitom)':'')+(s.off?' · sem correção':''):'Toque numa nota no gráfico para editar.';}
- const edit=fn=>()=>{const s=segs?.[sel];if(!s)return say('Toque numa nota no gráfico primeiro.');fn(s);info();draw();};
- $('apsVtUp').onclick=edit(s=>{s.shift++;s.off=false;});$('apsVtDown').onclick=edit(s=>{s.shift--;s.off=false;});$('apsVtOff').onclick=edit(s=>{s.off=!s.off;});
- const guard=fn=>async()=>{try{await fn();}catch(e){say(e.message,'error');}};
- $('apsVtAnalyze').onclick=guard(async()=>{const t=cur();const buf=originals.get(t.id)||t.buf;if(buf.duration>600)throw Error('Máximo 10 minutos.');say('Ouvindo a voz de '+t.name+'…');const mono=buf.getChannelData(0);trk=await track(mono,buf.sampleRate,{onProgress:p=>say('Ouvindo a voz… '+Math.round(p*100)+'%')});trackId=t.id;
-  const voiced=trk.f0.filter(f=>f).length;if(voiced<10)throw Error('Não encontrei uma voz afinável. Use uma pista só de voz (ou instrumento solo).');const k=guessKey(trk);$('apsVtKey').value=k.key;$('apsVtScale').value=k.scale;segs=notes(trk,k.key,k.scale);sel=-1;draw();
-  $('apsVtApply').disabled=false;$('apsVtKeyGuess').disabled=false;say('Voz analisada: '+segs.length+' notas. Tom provável: '+NOTE[k.key]+' '+SCALE_NAMES[k.scale]+'. Ajuste e toque em ✨ Afinar pista.','ok');});
- $('apsVtKeyGuess').onclick=()=>{if(!trk)return;const k=guessKey(trk);$('apsVtKey').value=k.key;$('apsVtScale').value=k.scale;segs=notes(trk,k.key,k.scale);draw();say('Tom provável: '+NOTE[k.key]+' '+SCALE_NAMES[k.scale]+'.','ok');};
- $('apsVtApply').onclick=guard(async()=>{const t=cur();if(t.id!==trackId||!trk)throw Error('Analise esta pista primeiro.');const src=originals.get(t.id)||t.buf;$('apsVtApply').disabled=true;try{const ctx=new (root.OfflineAudioContext||root.webkitOfflineAudioContext)(1,1,src.sampleRate);const r=await APSVocal.tune(src,ctx,{...opts(),trk},p=>say('Afinando… '+Math.round(p*100)+'%'));if(!originals.has(t.id))originals.set(t.id,src);B.setBuffer(t.id,r.buffer);$('apsVtUndo').disabled=false;say('✨ Voz afinada em '+NOTE[opts().key]+' '+SCALE_NAMES[opts().scale]+' (velocidade '+opts().speed+' ms). Toque ▶ para ouvir; ↩ volta o original.','ok');}finally{$('apsVtApply').disabled=false;}});
- $('apsVtUndo').onclick=guard(async()=>{const t=cur();const o=originals.get(t.id);if(!o)throw Error('Esta pista ainda não foi afinada.');B.setBuffer(t.id,o);originals.delete(t.id);$('apsVtUndo').disabled=true;say('Gravação original de volta.','ok');});
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ui);else ui();
+// ================= Interface no estúdio: APS Afinação Natural (Motor Elástico) =================
+// A API acima (track, psola, tune…) continua igual para Partituras/MIDI. A tela do estúdio agora usa
+// o editor de notas com arraste (aps-elastic-tune-ui.js), que preserva vibrato e formantes.
+function loadOnce(src){return new Promise((res,rej)=>{if(document.querySelector('script[data-aps-src="'+src+'"]')){const t=setInterval(()=>{if(root.APSElasticTuneUI&&root.APSElastic&&root.APSElasticCore){clearInterval(t);res();}},30);setTimeout(()=>{clearInterval(t);res();},8000);return;}const s=document.createElement('script');s.src='./'+src;s.dataset.apsSrc=src;s.onload=res;s.onerror=()=>rej(Error('Falha ao carregar '+src));document.head.appendChild(s);});}
+async function ui(){const host=document.getElementById('apsVocalTune'),B=root.APSMixBridge;if(!host||!B)return;
+ if(!root.APSElasticCore)await loadOnce('aps-elastic-core.js?v=1');if(!root.APSElastic)await loadOnce('aps-elastic.js?v=1');if(!root.APSElasticTuneUI)await loadOnce('aps-elastic-tune-ui.js?v=1');
+ const originals=root.__apsVtOriginals||(root.__apsVtOriginals=new Map());
+ root.APSElasticTuneUI.mount(host,{idPrefix:'apsVt',
+  getSource:()=>{const t=B.current&&B.current();return t?{id:t.id,buffer:t.buf}:null;},
+  originalOf:id=>originals.get(id)||null,
+  apply:(buf,info)=>{if(!originals.has(info.id))originals.set(info.id,info.original);B.setBuffer(info.id,buf);},
+  restore:(buf,info)=>{B.setBuffer(info.id,buf);if(info.undo)originals.delete(info.id);}
+ });}
+function start(){ui().catch(e=>{const h=document.getElementById('apsVocalTune');if(h)h.textContent='Afinação indisponível: '+(e&&e.message||e);});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })(typeof window!=='undefined'?window:globalThis);

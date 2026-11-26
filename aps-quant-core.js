@@ -1,93 +1,37 @@
-/* APS Quant Pro v1 — time-domain slice editor, no playback-rate or pitch resampling.
- * Local-only; no API, recording upload or paid processing.
- */
-(function(global){
+/* APS Quant Pro v2 — núcleo de quantização ELÁSTICA (sem cortes).
+ * Substitui o editor de fatias da v1: agora os ataques viram marcadores de warp e o áudio é
+ * esticado/comprimido de forma contínua entre eles (sem buracos, sem trechos dobrados).
+ * Esta API síncrona usa o WSOLA de reserva do APSElasticCore; as telas usam o Web Worker
+ * (aps-elastic.js) com Signalsmith Stretch (MIT). Local, sem envio de áudio. */
+(function (global) {
 'use strict';
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function detect(buffer){
-  if(!buffer||!buffer.length||!buffer.sampleRate)throw Error('Selecione uma pista de áudio.');
-  const sr=buffer.sampleRate,hop=Math.max(64,Math.round(sr/200)),frames=Math.ceil(buffer.length/hop),ch=buffer.numberOfChannels;
-  const energy=new Float32Array(frames),rise=new Float32Array(frames);
-  let max=0,mean=0;
-  for(let k=0;k<frames;k++){
-    const start=k*hop,end=Math.min(buffer.length,start+hop);
-    let sum=0,count=0;
-    for(let c=0;c<ch;c++){
-      const data=buffer.getChannelData(c);
-      for(let n=start;n<end;n+=4){sum+=data[n]*data[n];count++;}
-    }
-    energy[k]=Math.sqrt(sum/Math.max(1,count));
-    max=Math.max(max,energy[k]);
-  }
-  if(max<0.001)return [];
-  for(let k=2;k<frames;k++){
-    const baseline=(energy[k-1]+energy[k-2])/2;
-    rise[k]=Math.max(0,energy[k]-baseline);
-    mean+=rise[k];
-  }
-  mean/=frames;
-  const spacing=Math.max(1,Math.round(.067*sr/hop));
-  const candidates=[];
-  for(let k=3;k<frames-1;k++){
-    const threshold=Math.max(.0015,mean*1.85,max*.014);
-    if(energy[k]<max*.045||rise[k]<threshold||rise[k]<rise[k-1]||rise[k]<rise[k+1])continue;
-    const prev=candidates[candidates.length-1];
-    if(prev&&k-prev.frame<spacing){
-      if(rise[k]>prev.peak)candidates[candidates.length-1]={frame:k,peak:rise[k]};
-    }else candidates.push({frame:k,peak:rise[k]});
-  }
-  return candidates.slice(0,4000).map((v,i)=>({index:i,sample:clamp(v.frame*hop-Math.round(.004*sr),0,buffer.length-1),strength:v.peak}));
+const core = () => global.APSElasticCore || (typeof require === 'function' ? require('./aps-elastic-core.js') : null);
+function channels(buffer) { return Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)); }
+function detect(buffer) {
+  if (!buffer || !buffer.length || !buffer.sampleRate) throw Error('Selecione uma pista de áudio.');
+  return core().detectOnsets(channels(buffer), buffer.sampleRate).map(o => ({ index: o.index, time: o.time, sample: Math.round(o.time * buffer.sampleRate), strength: o.strength }));
 }
-function plan(buffer,events,opts={}){
- const sr=buffer.sampleRate,bpm=clamp(Number(opts.bpm)||100,40,240);
- const sub=[4,8,16,32].includes(Number(opts.subdivision))?Number(opts.subdivision):16;
- const unit=60/bpm*4/sub,strength=clamp(Number(opts.strength??65)/100,0,1);
- const limit=Math.round(clamp(Number(opts.maxShiftMs??65),10,120)*sr/1000),lead=Math.round(.010*sr),minLength=Math.round(.035*sr);
- const list=[...(events||[])].filter(e=>Number.isInteger(e.sample)&&e.sample>=0&&e.sample<buffer.length).sort((a,b)=>a.sample-b.sample);
- if(!list.length)throw Error("Nenhum ataque rítmico detectado.");
- const targets=opts.manualTargets||{},regions=[];let lastCut=0,lastTarget=-1;
- for(const e of list){
-  const cut=e.sample-lead;if(cut-lastCut<minLength||cut>=buffer.length-minLength)continue;
-  if(regions.length)regions[regions.length-1].end=cut;
-  else regions.push({start:0,end:cut,onset:null,offset:0,index:null});
-  const manual=targets[e.index],onset=e.sample/sr;
-  const target=Number.isFinite(manual)?clamp(manual,0,buffer.duration):Math.round(onset/unit)*unit;
-  const desired=(target-onset)*(Number.isFinite(manual)?1:strength);
-  let offset=Math.round(clamp(desired*sr,-limit,limit));
-  if(e.sample+offset<0)offset=-e.sample;
-  if(e.sample+offset<=lastTarget)offset=lastTarget+1-e.sample;
-  lastTarget=e.sample+offset;
-  regions.push({start:cut,end:buffer.length,onset:e.sample,index:e.index,offset,targetSample:e.sample+offset,rawTarget:target});
-  lastCut=cut;
- }
- if(regions.length<2)throw Error("Não há ataques suficientemente separados para cortar.");
- return {regions,events:list,frameLength:buffer.length,sampleRate:sr,bpm,subdivision:sub,interval:unit,strength};
+function plan(buffer, events, opts = {}) {
+  const C = core(), edits = {};
+  for (const [k, v] of Object.entries(opts.manualTargets || {})) if (Number.isFinite(v)) edits['o' + k] = { dst: v };
+  for (const k of (opts.locked || [])) edits['o' + k] = { locked: true };
+  const onsets = (events || []).map(e => ({ index: e.index, time: Number.isFinite(e.time) ? e.time : e.sample / buffer.sampleRate, strength: e.strength || 1 }));
+  if (!onsets.length) throw Error('Nenhum ataque rítmico detectado.');
+  const p = C.planWarp(onsets, { duration: buffer.duration, bpm: opts.bpm, subdivision: opts.subdivision, strength: opts.strength ?? 100, edits });
+  p.sampleRate = buffer.sampleRate; p.frameLength = buffer.length; p.protectMs = opts.protectMs ?? 25;
+  return p;
 }
-function render(buffer,edit,context){
- if(!edit?.regions||edit.frameLength!==buffer.length||edit.sampleRate!==buffer.sampleRate)throw Error("Plano incompatível com o áudio.");
- const sr=buffer.sampleRate,n=buffer.length,ch=buffer.numberOfChannels,result=context.createBuffer(ch,n,sr);
- const inputs=Array.from({length:ch},(_,c)=>buffer.getChannelData(c)),outputs=Array.from({length:ch},(_,c)=>result.getChannelData(c));
- const weights=new Float32Array(n),fade=Math.max(12,Math.round(.006*sr));
- for(let i=0;i<edit.regions.length;i++){
-  const r=edit.regions[i],left=i>0&&edit.regions[i-1].offset!==r.offset,right=i<edit.regions.length-1&&edit.regions[i+1].offset!==r.offset;
-  for(let x=r.start;x<r.end;x++){
-   const y=x+r.offset;if(y<0||y>=n)continue;
-   const w=Math.max(.0001,Math.min(1,left?(x-r.start+1)/fade:1,right?(r.end-x)/fade:1));
-   weights[y]+=w;for(let c=0;c<ch;c++)outputs[c][y]+=inputs[c][x]*w;
-  }
- }
- for(let x=0;x<n;x++)if(weights[x])for(let c=0;c<ch;c++)outputs[c][x]/=weights[x];
- let gaps=0,longest=0;
- for(let x=0;x<n;){
-  if(weights[x]){x++;continue;}
-  const begin=x;while(x<n&&!weights[x])x++;const size=x-begin;gaps+=size;longest=Math.max(longest,size);
-  const ramp=Math.max(1,Math.min(Math.round(.006*sr),Math.floor(size/2)));
-  for(let c=0;c<ch;c++){
-   const left=begin>0?outputs[c][begin-1]:0,right=x<n?outputs[c][x]:0;
-   for(let j=0;j<size;j++)outputs[c][begin+j]=j<ramp?left*(1-(j+1)/ramp):j>=size-ramp?right*(j-(size-ramp)+1)/ramp:0;
-  }
- }
- return {buffer:result,gapSamples:gaps,longestGapSeconds:longest/sr,moved:edit.regions.filter(r=>Math.abs(r.offset)>.002*sr).length};
+function render(buffer, edit, context) {
+  const C = core();
+  if (!edit || !edit.markers || edit.frameLength !== buffer.length || edit.sampleRate !== buffer.sampleRate) throw Error('Plano incompatível com o áudio.');
+  const src = channels(buffer), map = C.buildTimeMap(edit.markers, buffer.duration, { protectMs: edit.protectMs ?? 25 });
+  const out = C.protectAttacks(C.renderWSOLA(src, buffer.sampleRate, map, { outLength: buffer.length }), src, buffer.sampleRate, map);
+  const result = context.createBuffer(out.length, buffer.length, buffer.sampleRate);
+  out.forEach((c, i) => result.copyToChannel(c, i));
+  const m = C.metrics(out, buffer.sampleRate);
+  return { buffer: result, engine: 'wsola', metrics: m, warnings: map.warnings, gapSamples: 0, longestGapSeconds: m.longestSilentMs / 1000, moved: edit.markers.filter(k => Math.abs(k.dst - k.src) > 0.002).length };
 }
-global.APSQuantCore=Object.freeze({detect,plan,render});
-})(typeof window!=='undefined'?window:globalThis);
+const API = Object.freeze({ version: '2.0.0-elastico', detect, plan, render });
+global.APSQuantCore = API;
+if (typeof module === 'object' && module.exports) module.exports = API;
+})(typeof window !== 'undefined' ? window : globalThis);
