@@ -59,7 +59,7 @@ if(typeof document==='undefined')return;
 // o editor de notas com arraste (aps-elastic-tune-ui.js), que preserva vibrato e formantes.
 function loadOnce(src){return new Promise((res,rej)=>{if(document.querySelector('script[data-aps-src="'+src+'"]')){const t=setInterval(()=>{if(root.APSElasticTuneUI&&root.APSElastic&&root.APSElasticCore){clearInterval(t);res();}},30);setTimeout(()=>{clearInterval(t);res();},8000);return;}const s=document.createElement('script');s.src='./'+src;s.dataset.apsSrc=src;s.onload=res;s.onerror=()=>rej(Error('Falha ao carregar '+src));document.head.appendChild(s);});}
 async function ui(){const host=document.getElementById('apsVocalTune'),B=root.APSMixBridge;if(!host||!B)return;
- if(!root.APSElasticCore)await loadOnce('aps-elastic-core.js?v=1');if(!root.APSElastic)await loadOnce('aps-elastic.js?v=1');if(!root.APSElasticTuneUI)await loadOnce('aps-elastic-tune-ui.js?v=1');
+ if(!root.APSElasticCore)await loadOnce('aps-elastic-core.js?v=2');if(!root.APSElastic)await loadOnce('aps-elastic.js?v=2');if(!root.APSElasticTuneUI)await loadOnce('aps-elastic-tune-ui.js?v=1');
  const originals=root.__apsVtOriginals||(root.__apsVtOriginals=new Map());
  root.APSElasticTuneUI.mount(host,{idPrefix:'apsVt',
   getSource:()=>{const t=B.current&&B.current();return t?{id:t.id,buffer:t.buf}:null;},

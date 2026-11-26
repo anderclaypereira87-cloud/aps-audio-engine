@@ -10,7 +10,7 @@ function getWorker() {
   if (workerBroken || typeof Worker === 'undefined') return null;
   if (worker) return worker;
   try {
-    worker = new Worker(base + 'aps-elastic-worker.js?v=1');
+    worker = new Worker(base + 'aps-elastic-worker.js?v=2');
     worker.onmessage = ev => {
       const m = ev.data, p = pending.get(m.id); if (!p) return;
       if ('progress' in m) { p.onProgress && p.onProgress(m.progress, m.message); return; }
@@ -25,8 +25,8 @@ let inlineP = null;
 function inlineEngine() {
   if (!inlineP) inlineP = (async () => {
     const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = base + src; s.onload = res; s.onerror = () => rej(Error('Falha ao carregar ' + src)); document.head.appendChild(s); });
-    if (!root.APSElasticCore) await load('aps-elastic-core.js?v=1');
-    if (!root.APSElasticEngine) await load('aps-elastic-engine.js?v=1');
+    if (!root.APSElasticCore) await load('aps-elastic-core.js?v=2');
+    if (!root.APSElasticEngine) await load('aps-elastic-engine.js?v=2');
     return root.APSElasticEngine;
   })();
   return inlineP;
@@ -63,6 +63,7 @@ const API = {
   analyzePitch: (buffer, onProgress, opt = {}) => run('analyzePitch', () => ({ channels: [monoOf(buffer)], sampleRate: buffer.sampleRate, engine: opt.engine }), onProgress),
   tune: async (buffer, track, options, onProgress) => { const r = await run('tune', () => ({ channels: channelsOf(buffer), sampleRate: buffer.sampleRate, track, options }), onProgress); r.buffer = toAudioBuffer(r.channels, buffer.sampleRate); return r; },
   onsets: (buffer, options) => run('onsets', () => ({ channels: [monoOf(buffer)], sampleRate: buffer.sampleRate, options })),
+  tempoMeter: (buffer, options) => run('tempoMeter', () => ({ channels: [monoOf(buffer)], sampleRate: buffer.sampleRate, options })),
   quantize: async (buffer, markers, options, onProgress) => { const r = await run('quantize', () => ({ channels: channelsOf(buffer), sampleRate: buffer.sampleRate, markers, options }), onProgress); r.buffer = toAudioBuffer(r.channels, buffer.sampleRate); return r; },
   transpose: async (buffer, options) => { const r = await run('transpose', () => ({ channels: channelsOf(buffer), sampleRate: buffer.sampleRate, options })); r.buffer = toAudioBuffer(r.channels, buffer.sampleRate); return r; },
   wav16(buffer) { // WAV PCM 16 bits para baixar

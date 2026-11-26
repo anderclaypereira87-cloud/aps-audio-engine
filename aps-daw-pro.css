@@ -70,3 +70,6 @@ body.aps-pro-on .aps-pro-back{display:none!important}
 body.aps-pro-on>#apsDrumNotice{position:fixed;left:8px;right:8px;bottom:8px;z-index:60;box-shadow:0 6px 24px #000a}body.aps-pro-on>#apsDrumNotice[hidden]{display:none!important}
 
 body.aps-pro-on #proIR{white-space:nowrap;flex:none;background:#3a2f17;border:1px solid #caa45b;color:#f4dba2;font-weight:700}
+
+/* Quantizar · Afinar (multitrack): o painel precisa de mais altura para o gráfico + pistas */
+.pro-dock[data-dock="elastico"]:not(.closed){height:min(72vh,760px)}
