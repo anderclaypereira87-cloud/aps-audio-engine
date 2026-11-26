@@ -1,0 +1,31 @@
+// Worker aps-voice-vault (APS Voz Studio). NÃO publicar sem aprovação do Anderclay.
+// Recursos criados em 26/11/2026: R2 aps-voice-vault-audio e KV aps-voice-vault-state.
+// Secrets já existentes no Worker (não ficam neste arquivo): REPLICATE_API_TOKEN, KITS_API_KEY.
+{
+  "name": "aps-voice-vault",
+  "main": "../aps-voice-vault.js",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": true,
+  "preview_urls": false, // URLs de preview ficariam fora do Cloudflare Access
+  "observability": { "enabled": true },
+  // voice-singer.html é embutida no Worker como texto (estúdio na mesma origem da API).
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": false }],
+  // Valores públicos do aplicativo Cloudflare Access que já protege o Worker (não são segredos).
+  "vars": {
+    "CF_ACCESS_AUD": "8fe97658c3d9ad0ddc6e29e7c473fdeda7ef79adb45b3b2d62e0d067fe0bd8e6",
+    "CF_ACCESS_TEAM_DOMAIN": "https://sparkling-sunset-889c.cloudflareaccess.com",
+    "PAID_JOBS_ENABLED": "true",
+    "TRAIN_DAILY_LIMIT": "2",
+    "CONVERT_DAILY_LIMIT": "20"
+  },
+  "r2_buckets": [
+    { "binding": "VOICE_AUDIO", "bucket_name": "aps-voice-vault-audio" }
+  ],
+  "kv_namespaces": [
+    { "binding": "VOICE_KV", "id": "f51782d8b0784fa99a14f5e44fb05fd5" }
+  ]
+  // Domínio próprio (voz-api.apsaudio.com.br) NÃO ativado: ficaria fora do app do Cloudflare Access
+  // (o token do wrangler não tem permissão de Access). Para ativar, primeiro inclua o hostname no app
+  // do Access no Zero Trust e depois descomente:
+  // "routes": [{ "pattern": "voz-api.apsaudio.com.br", "custom_domain": true }]
+}
