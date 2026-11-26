@@ -1,0 +1,122 @@
+{
+ "ok": true,
+ "total": 23,
+ "passaram": 23,
+ "resultados": [
+  {
+   "teste": "carrega e conecta ao worker (/api/health)",
+   "ok": true,
+   "detalhe": "Motor Treino: pronto | Motor Rápido: pronto | Armazenamento: ok | Hoje: 0/2 vozes · 0/20 conversões"
+  },
+  {
+   "teste": "UI sem nomes de provedores externos",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "código da página sem nomes de provedores",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "valida amostra curta demais (< 20 s)",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "envio de amostra com player e checagem de duração",
+   "ok": true,
+   "detalhe": "minha-voz.wav · 0:32 min. Funciona, mas a voz fica mais fiel com 2 minutos ou mais."
+  },
+  {
+   "teste": "exige consentimento antes de criar voz",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "criação de voz (Motor Treino) inicia treino e mostra status",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "polling de status: voz fica Pronta",
+   "ok": true,
+   "detalhe": "Voz “Minha Voz Teste” pronta! Vá para o passo 3."
+  },
+  {
+   "teste": "voz pelo Motor Rápido registrada",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "transposição em semitons",
+   "ok": true,
+   "detalhe": "+3 semitons"
+  },
+  {
+   "teste": "conversão concluída e resultado exibido",
+   "ok": true,
+   "detalhe": "Conversão (Motor Treino): Pronto!"
+  },
+  {
+   "teste": "aviso de voz gerada por IA no resultado",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "A/B original vs voz clonada",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "A/B mantém a posição ao trocar",
+   "ok": true,
+   "detalhe": "clone=0.35s original=0.51s"
+  },
+  {
+   "teste": "baixar WAV",
+   "ok": true,
+   "detalhe": "APS Voz IA - Minha Voz Teste — 17-04.wav"
+  },
+  {
+   "teste": "Desfazer preserva o original e remove o resultado",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "Abrir no Estúdio (DAW) via handoff aps-stems-transfer-v1",
+   "ok": true,
+   "detalhe": "{\"name\": \"APS Voz Studio — Minha Voz Teste — 17:04 (voz gerada por IA)\", \"stems\": [{\"id\": \"vocals\", \"name\": \"Voz clonada IA - Minha Voz Teste.wav\", \"size\": 352844}, {\"id\": \"other\", \"name\": \"Guia original.wav\", \"size\": 352844}]}"
+  },
+  {
+   "teste": "sem erros de JavaScript na página",
+   "ok": true,
+   "detalhe": []
+  },
+  {
+   "teste": "erro de saldo mostrado em português sem nome do provedor",
+   "ok": true,
+   "detalhe": "Erro: Sem saldo na conta do Motor Treino. Adicione créditos no painel do provedor e tente novamente. Nada foi cobrado agora."
+  },
+  {
+   "teste": "nenhuma chamada real: só provedores mockados",
+   "ok": true,
+   "detalhe": "19 chamadas mockadas"
+  },
+  {
+   "teste": "Access sem login: mostra “Entrar com segurança”",
+   "ok": true,
+   "detalhe": "Por segurança, o APS Voz Studio exige login. Toque em “Entrar com segurança”, faça o login e você volta para cá automaticamente."
+  },
+  {
+   "teste": "botão de login leva ao Access com retorno para a página",
+   "ok": true,
+   "detalhe": ""
+  },
+  {
+   "teste": "Access 302 (redirecionamento) tratado com pedido de login",
+   "ok": true,
+   "detalhe": ""
+  }
+ ]
+}

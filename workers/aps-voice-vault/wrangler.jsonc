@@ -1,0 +1,28 @@
+// Worker aps-voice-vault (APS Voz Studio). NÃO publicar sem aprovação do Anderclay.
+// Antes do primeiro deploy, crie os recursos (comandos em docs/APS-VOICE-SINGER-PROVIDERS.md):
+//   npx wrangler r2 bucket create aps-voice-vault-audio
+//   npx wrangler kv namespace create aps-voice-vault-state   -> copie o id para VOICE_KV abaixo
+// Secrets já existentes no Worker (não ficam neste arquivo): REPLICATE_API_TOKEN, KITS_API_KEY.
+{
+  "name": "aps-voice-vault",
+  "main": "../aps-voice-vault.js",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  // Valores públicos do aplicativo Cloudflare Access que já protege o Worker (não são segredos).
+  "vars": {
+    "CF_ACCESS_AUD": "8fe97658c3d9ad0ddc6e29e7c473fdeda7ef79adb45b3b2d62e0d067fe0bd8e6",
+    "CF_ACCESS_TEAM_DOMAIN": "https://sparkling-sunset-889c.cloudflareaccess.com",
+    "PAID_JOBS_ENABLED": "true",
+    "TRAIN_DAILY_LIMIT": "2",
+    "CONVERT_DAILY_LIMIT": "20"
+  },
+  "r2_buckets": [
+    { "binding": "VOICE_AUDIO", "bucket_name": "aps-voice-vault-audio" }
+  ],
+  "kv_namespaces": [
+    { "binding": "VOICE_KV", "id": "PREENCHER_COM_ID_DO_KV_aps-voice-vault-state" }
+  ]
+  // Recomendado para iPhone/Safari (cookie do Access no mesmo site que apsaudio.com.br):
+  // "routes": [{ "pattern": "voz-api.apsaudio.com.br", "custom_domain": true }]
+}

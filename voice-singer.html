@@ -1,1 +1,575 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0e17"><title>APS Voice & Singer — Testes</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b0e17;color:#f5f0e6;font:16px/1.5 system-ui}main{max-width:780px;margin:auto;padding:24px}h1{color:#e2bc76}.panel{background:#171d2b;border:1px solid #514b48;border-radius:16px;padding:20px;margin:18px 0}a{color:#e2bc76}input[type=file]{display:block;width:100%;padding:14px 0;max-width:100%;font-size:16px}input[type=file]::file-selector-button{background:#e2bc76;color:#171d2b;border:0;border-radius:9px;padding:12px 14px;font-weight:700;margin-right:10px;cursor:pointer}input[type=range]{width:100%;accent-color:#e2bc76}label{display:block;margin:18px 0}output{float:right}audio{width:100%;margin-top:10px}button{background:#e2bc76;color:#171d2b;border:0;border-radius:9px;padding:12px 16px;font-weight:700}button:disabled{opacity:.55;cursor:not-allowed}.note{color:#c5c9d2}.warning{border-left:4px solid #e2bc76;padding-left:12px}</style></head><body><main><a href="./index.html">← APS Audio Engine</a> · <a href="./daw.html">Abrir DAW multitrack</a><h1>APS Voice & Singer</h1><p>Área de testes de áudio — MP3 e WAV. Escolha arquivos diretamente do celular (app Arquivos) ou computador. Ouça seus arquivos e prepare a conversão para seu timbre vocal.</p><section class="panel"><h2>Conta e pacotes APS</h2><p>O cadastro e os pagamentos são feitos no APS Audio Engine. A conversão vocal paga ainda está indisponível nesta prévia.</p><p><a href="https://apsaudio.com.br/login.html">Criar conta ou entrar</a> · <a href="https://apsaudio.com.br/planos.html">Ver pacotes e pagamentos</a></p><p class="note">Planos atuais: Grátis (R$ 0), Pro (R$ 19,90/mês ou R$ 179/ano) e Estúdio (R$ 49,90/mês ou R$ 449/ano). Créditos de voz não incluídos até a definição de limites e custos.</p></section><section class="panel"><h2>Trabalhar com a DAW</h2><p>Para editar, quantizar e afinar pistas, abra a DAW e importe os mesmos arquivos MP3 ou WAV. A transferência automática de áudio entre as duas telas ainda não está implementada.</p><p><a href="./daw.html">Abrir DAW e importar minhas pistas</a></p></section><section class="panel"><h2>1. Arquivos</h2><label>Gravação vocal ou música com voz — toque em Escolher arquivo<input id="voice" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"></label><audio id="voicePlayer" controls preload="metadata"></audio><label>Instrumental separado (opcional) — escolher arquivo<input id="instrumental" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"></label><audio id="instrumentalPlayer" controls preload="metadata"></audio><p id="files" class="note">Nenhum arquivo selecionado.</p></section><section class="panel"><h2>Criar minha voz</h2><p>Envie suas gravações de referência para preparar a clonagem de voz. Para preservar seu timbre, use gravações suas, de preferência sem acompanhamento musical.</p><label>Minha voz falada (MP3 ou WAV) — escolher arquivo<input id="referenceSpeech" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"></label><audio id="speechPlayer" controls preload="metadata"></audio><label>Minha voz cantada (MP3 ou WAV) — escolher arquivo<input id="referenceSinging" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"></label><audio id="singingPlayer" controls preload="metadata"></audio><p id="referenceStatus" class="note">Amostras ainda não selecionadas.</p><button type="button" id="prepareReference">Verificar minhas amostras</button><p class="warning">Nesta versão, as amostras são verificadas e reproduzidas localmente no navegador. Elas não são enviadas para treinamento, pois o endpoint de treinamento do fornecedor ainda não foi integrado e validado.</p></section><section class="panel"><h2>2. Ajustes</h2><label>Correção de afinação <output id="pitchValue">65%</output><input id="pitch" type="range" min="0" max="100" value="65"></label><label>Naturalidade <output id="naturalValue">85%</output><input id="natural" type="range" min="0" max="100" value="85"></label><label><input type="checkbox" id="melody" checked> Preservar a melodia original</label><label><input type="checkbox" id="timing" checked> Preservar a expressão e o tempo</label></section><section class="panel"><h2>3. Converter para minha voz</h2><p class="warning">A conversão de voz cantada ainda não está habilitada. As chaves do Kits AI e Replicate estão no servidor, mas ainda faltam autenticação, modelo vocal autorizado e validação da API de processamento. Nenhum áudio é enviado a terceiros nesta versão.</p><button id="convert" disabled>Converter voz — aguardando integração</button><p id="status" role="status" class="note">Você pode carregar e ouvir MP3 e WAV neste dispositivo.</p></section></main><script>const urls={};function attach(input,player){const f=input.files?.[0];if(urls[player.id])URL.revokeObjectURL(urls[player.id]);if(!f){player.removeAttribute('src');player.load();return}const valid=/\.(mp3|wav)$/i.test(f.name)&&f.size<=200*1024*1024;if(!valid){input.value='';alert('Escolha MP3 ou WAV com até 200 MB.');return}urls[player.id]=URL.createObjectURL(f);player.src=urls[player.id];document.getElementById('files').textContent=[voice.files[0]?.name,instrumental.files[0]?.name].filter(Boolean).join(' + ')}voice.addEventListener('change',()=>attach(voice,voicePlayer));instrumental.addEventListener('change',()=>attach(instrumental,instrumentalPlayer));referenceSpeech.addEventListener('change',()=>attach(referenceSpeech,speechPlayer));referenceSinging.addEventListener('change',()=>attach(referenceSinging,singingPlayer));document.getElementById('prepareReference').addEventListener('click',()=>{const a=referenceSpeech.files[0],b=referenceSinging.files[0];referenceStatus.textContent=a&&b?'Amostras selecionadas: '+a.name+' e '+b.name+'. Prontas para envio quando o treinamento seguro estiver disponível.':'Selecione uma gravação falada e uma cantada em MP3 ou WAV.'});pitch.addEventListener('input',()=>pitchValue.textContent=pitch.value+'%');natural.addEventListener('input',()=>naturalValue.textContent=natural.value+'%');</script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0e17">
+<meta name="robots" content="noindex">
+<title>APS Voz Studio — Clonagem de voz</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0e17;--panel:#151b29;--line:#2c3447;--gold:#e2bc76;--txt:#f5f0e6;--mut:#aab1bf;--ok:#6fd39a;--warn:#ffcf7a;--bad:#ff7a7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:760px;margin:auto;padding:16px 14px calc(40px + env(safe-area-inset-bottom))}
+a{color:var(--gold)}
+header nav{display:flex;gap:14px;flex-wrap:wrap;font-size:15px}
+h1{color:var(--gold);margin:10px 0 2px;font-size:28px}
+h2{margin:0 0 6px;font-size:20px;display:flex;align-items:center;gap:10px}
+.sub{color:var(--mut);margin:0 0 10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:14px 0}
+.num{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#171d2b;font-weight:800;flex:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1 1 auto}
+button,.btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:13px 16px;min-height:48px;background:var(--gold);color:#171d2b;cursor:pointer;text-decoration:none;text-align:center;display:inline-block}
+button.sec,.btn.sec{background:#232b3d;color:var(--txt);border:1px solid #3a4459}
+button.danger{background:#3a1f25;color:#ffd0d0;border:1px solid #6b3340}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.rec{background:#c8434f;color:#fff}
+input[type=text],select{width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid #3a4459;background:#0f1420;color:var(--txt);min-height:48px}
+input[type=file]{width:100%;font-size:15px;padding:8px 0}
+input[type=file]::file-selector-button{background:#232b3d;color:var(--txt);border:1px solid #3a4459;border-radius:10px;padding:10px 12px;font-weight:700;margin-right:8px}
+input[type=range]{width:100%;accent-color:var(--gold);height:32px}
+label{display:block;margin:12px 0 4px;font-weight:600}
+label.check{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+label.check input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--gold)}
+audio{width:100%;margin-top:8px}
+.note{color:var(--mut);font-size:14px}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;background:#232b3d;color:var(--mut)}
+.pill.ok{background:#173527;color:var(--ok)}.pill.warn{background:#3a2f17;color:var(--warn)}.pill.bad{background:#3a1f25;color:var(--bad)}
+.ai{border:1px solid #7a6233;background:#2a2213;color:#ffe2a8;border-radius:12px;padding:10px 12px;font-size:14px}
+.status{min-height:24px;margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.status.err{color:var(--bad)}.status.ok{color:var(--ok)}
+.meter{height:10px;background:#0f1420;border-radius:999px;overflow:hidden;border:1px solid #2c3447;margin-top:8px}
+.meter>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8434f,#e2bc76 30%,#6fd39a 60%)}
+.voices{list-style:none;padding:0;margin:10px 0 0}
+.voices li{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.voices li b{display:block}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.ab button[aria-pressed=true]{outline:3px solid var(--txt);outline-offset:-3px}
+.ab button[aria-pressed=false]{background:#232b3d;color:var(--txt)}
+.time{font-variant-numeric:tabular-nums;color:var(--mut);font-size:14px}
+.hidden{display:none!important}
+.grid2{display:grid;grid-template-columns:1fr;gap:8px}
+@media(min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
+details summary{cursor:pointer;color:var(--mut)}
+code{color:#f6d79b;overflow-wrap:anywhere}
+.engines{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <nav><a href="./index.html">← APS Audio Engine</a><a href="./daw.html">Estúdio (DAW)</a><a href="./separador.html">Separador de voz</a></nav>
+ <h1>APS Voz Studio</h1>
+ <p class="sub">Clone a sua voz e transforme uma guia cantada ou falada no seu timbre. Seu áudio original fica sempre preservado.</p>
+</header>
+
+<section class="panel" id="connPanel" aria-labelledby="connTitle">
+ <h2 id="connTitle">Conexão <span id="connPill" class="pill">Verificando…</span></h2>
+ <div class="engines" id="engineChips"></div>
+ <p id="connMsg" class="note">Verificando o servidor seguro do APS Voz Studio…</p>
+ <div class="row">
+  <button id="loginBtn" class="hidden" type="button">Entrar com segurança</button>
+  <button id="testBtn" class="sec" type="button">Testar conexão</button>
+  <button id="deepBtn" class="sec hidden" type="button">Diagnóstico completo</button>
+ </div>
+ <details><summary>Detalhes técnicos</summary><p class="note">Servidor: <code id="apiBase"></code></p><pre id="diag" class="note" style="white-space:pre-wrap"></pre></details>
+</section>
+
+<section class="panel" aria-labelledby="s1">
+ <h2 id="s1"><span class="num">1</span> Sua voz de referência</h2>
+ <p class="note">Grave ou envie de <b>2 a 10 minutos</b> da sua voz, sem instrumental e sem eco (mínimo 20 segundos). WAV, MP3 ou M4A.</p>
+ <div class="row">
+  <button id="recSample" class="rec" type="button">● Gravar minha voz</button>
+  <span id="recSampleTime" class="time hidden">0:00</span>
+ </div>
+ <label for="sampleFile">ou escolha um arquivo do celular/computador</label>
+ <input id="sampleFile" type="file" accept=".wav,.mp3,.m4a,audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/*">
+ <audio id="samplePlayer" controls preload="metadata" class="hidden"></audio>
+ <div class="meter" aria-hidden="true"><i id="sampleMeter"></i></div>
+ <p id="sampleInfo" class="note">Nenhuma amostra ainda.</p>
+ <label class="check"><input id="consent" type="checkbox"> <span>Confirmo que esta voz é <b>minha</b> ou que tenho <b>autorização por escrito</b> da pessoa para cloná-la.</span></label>
+</section>
+
+<section class="panel" aria-labelledby="s2">
+ <h2 id="s2"><span class="num">2</span> Criar voz (modelo)</h2>
+ <label for="voiceName">Nome da voz</label>
+ <input id="voiceName" type="text" maxlength="60" placeholder="Ex.: Minha voz — tenor" autocomplete="off">
+ <label for="createMode">Como criar</label>
+ <select id="createMode">
+  <option value="treino">Treino Completo — Motor Treino (mais fiel, leva de 10 a 30 min)</option>
+  <option value="rapido">Rápido — Motor Rápido (usa um modelo de voz já pronto na sua conta)</option>
+ </select>
+ <div id="rapidoBox" class="hidden">
+  <label for="rapidoModel">Modelo do Motor Rápido</label>
+  <select id="rapidoModel"><option value="">Carregando modelos…</option></select>
+ </div>
+ <button id="createBtn" type="button" style="width:100%;margin-top:12px">Criar voz</button>
+ <p id="createStatus" class="status" role="status"></p>
+ <h3 style="margin:14px 0 0;font-size:16px">Vozes salvas</h3>
+ <ul id="voiceList" class="voices"><li class="note">Nenhuma voz salva ainda.</li></ul>
+</section>
+
+<section class="panel" aria-labelledby="s3">
+ <h2 id="s3"><span class="num">3</span> Converter uma guia</h2>
+ <label for="voiceSelect">Voz</label>
+ <select id="voiceSelect"><option value="">Crie ou escolha uma voz pronta</option></select>
+ <div class="row" style="margin-top:12px">
+  <button id="recGuide" class="rec" type="button">● Gravar guia</button>
+  <span id="recGuideTime" class="time hidden">0:00</span>
+ </div>
+ <label for="guideFile">ou envie a guia cantada/falada (só a voz, até 10 min)</label>
+ <input id="guideFile" type="file" accept=".wav,.mp3,.m4a,audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/*">
+ <p class="note">Música com instrumental? Separe a voz antes no <a href="./separador.html">Separador de voz</a>.</p>
+ <label for="pitch">Transposição: <output id="pitchOut">0 semitons</output></label>
+ <input id="pitch" type="range" min="-12" max="12" step="1" value="0" aria-describedby="pitchHelp">
+ <p id="pitchHelp" class="note">Use +12 / −12 para mudar uma oitava (ex.: guia feminina para voz masculina).</p>
+ <label for="fidelity">Fidelidade ao timbre: <output id="fidOut">70%</output></label>
+ <input id="fidelity" type="range" min="0" max="100" step="5" value="70">
+ <label for="engineSelect">Motor</label>
+ <select id="engineSelect">
+  <option value="auto">Automático (recomendado)</option>
+  <option value="rapido">Motor Rápido</option>
+  <option value="treino">Motor Treino</option>
+ </select>
+ <p class="ai">⚠️ O resultado é <b>voz gerada por IA</b>. Não use para enganar pessoas nem para imitar artistas sem autorização.</p>
+ <button id="convertBtn" type="button" style="width:100%;margin-top:12px">Converter para a voz escolhida</button>
+ <p id="convertStatus" class="status" role="status"></p>
+</section>
+
+<section class="panel" aria-labelledby="s4" id="resultPanel">
+ <h2 id="s4"><span class="num">4</span> Resultado</h2>
+ <p id="resultEmpty" class="note">O resultado aparece aqui. O áudio original nunca é alterado.</p>
+ <div id="resultBox" class="hidden">
+  <p class="ai" id="aiBadge">🤖 Voz gerada por IA — <span id="resultName"></span></p>
+  <div class="ab" role="group" aria-label="Comparar A/B">
+   <button id="abOriginal" type="button" aria-pressed="false">A · Original</button>
+   <button id="abClone" type="button" aria-pressed="true">B · Voz clonada</button>
+  </div>
+  <div class="row"><button id="playBtn" type="button">▶ Tocar</button><span id="abTime" class="time">0:00 / 0:00</span></div>
+  <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posição">
+  <audio id="origAudio" preload="auto" class="hidden"></audio>
+  <audio id="cloneAudio" preload="auto" class="hidden"></audio>
+  <div class="grid2" style="margin-top:10px">
+   <button id="dlWav" class="sec" type="button">⬇ Baixar WAV</button>
+   <button id="dlMp3" class="sec" type="button">⬇ Baixar MP3</button>
+   <button id="toDaw" type="button">🎚 Abrir no Estúdio (DAW)</button>
+   <button id="undoBtn" class="sec" type="button">↶ Desfazer</button>
+  </div>
+  <p id="resultStatus" class="status" role="status"></p>
+ </div>
+</section>
+
+<section class="panel">
+ <details><summary>Histórico de tarefas</summary><ul id="jobList" class="voices"></ul></details>
+ <p class="note">Proteção de gastos: o servidor limita criações e conversões por dia e pede confirmação antes de cada tarefa.</p>
+</section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const DEFAULT_API = 'https://aps-voice-vault.aps-audio.workers.dev';
+const MAX_UPLOAD = 50 * 1024 * 1024, MIN_SAMPLE = 20, REC_MIN = 120, REC_MAX = 600, MAX_SAMPLE = 900, MAX_GUIDE = 600;
+
+// ---------- endereço do servidor (permite ?api= para testes locais) ----------
+function okBase(s) { try { const u = new URL(s); return u.protocol === 'https:' || (u.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(u.hostname)); } catch { return false; } }
+const qp = new URLSearchParams(location.search).get('api');
+if (qp && okBase(qp)) try { localStorage.setItem('aps-voz-api', qp); } catch {}
+let API = (window.APS_VOZ_API || (() => { try { return localStorage.getItem('aps-voz-api'); } catch { return null; } })() || DEFAULT_API).replace(/\/+$/, '');
+if (!okBase(API)) API = DEFAULT_API;
+$('apiBase').textContent = API;
+
+class AuthError extends Error { constructor(m) { super(m || 'É preciso entrar com segurança para usar o APS Voz Studio.'); this.auth = true; } }
+async function api(path, opts = {}) {
+  let r;
+  try { r = await fetch(API + path, { credentials: 'include', redirect: 'manual', cache: 'no-store', ...opts }); }
+  catch { throw new AuthError('Não foi possível falar com o servidor. Se você ainda não entrou, toque em “Entrar com segurança”. Se já entrou, verifique a internet.'); }
+  if (r.type === 'opaqueredirect' || r.status === 0 || (r.status >= 300 && r.status < 400)) throw new AuthError();
+  let d = null; try { d = await r.json(); } catch {}
+  if (r.status === 401 || (r.status === 403 && !d)) throw new AuthError(d && d.error);
+  if (!d) throw new Error('Resposta inválida do servidor (' + r.status + ').');
+  if (!r.ok || d.ok === false) { const e = new Error(d.error || ('Erro ' + r.status)); e.code = d.code; e.status = r.status; throw e; }
+  return d;
+}
+async function apiBlob(path) {
+  let r;
+  try { r = await fetch(API + path, { credentials: 'include', redirect: 'manual' }); } catch { throw new AuthError(); }
+  if (r.type === 'opaqueredirect' || r.status === 401) throw new AuthError();
+  if (!r.ok) throw new Error('Não foi possível baixar o áudio (' + r.status + ').');
+  return r.blob();
+}
+const say = (id, msg, kind) => { const el = $(id); el.textContent = msg || ''; el.className = 'status' + (kind ? ' ' + kind : ''); };
+const fmt = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function handleErr(id, e) {
+  if (e && e.auth) { showLogin(e.message); say(id, e.message, 'err'); return; }
+  say(id, 'Erro: ' + ((e && e.message) || 'tente novamente.'), 'err');
+}
+
+// ---------- conexão ----------
+let health = null;
+function pill(text, kind) { const p = $('connPill'); p.textContent = text; p.className = 'pill ' + (kind || ''); }
+function showLogin(msg) {
+  $('loginBtn').classList.remove('hidden');
+  pill('Precisa entrar', 'warn');
+  $('connMsg').textContent = msg || 'Por segurança, o APS Voz Studio exige login. Toque em “Entrar com segurança”, faça o login e você volta para cá automaticamente.';
+}
+function chips(h) {
+  const box = $('engineChips'); box.innerHTML = '';
+  const add = (t, k) => { const s = document.createElement('span'); s.className = 'pill ' + k; s.textContent = t; box.append(s); };
+  if (!h) return;
+  add('Motor Treino: ' + (h.engines.treino.configured ? 'pronto' : 'não configurado'), h.engines.treino.configured ? 'ok' : 'bad');
+  add('Motor Rápido: ' + (h.engines.rapido.configured ? 'pronto' : 'não configurado'), h.engines.rapido.configured ? 'ok' : 'warn');
+  add('Armazenamento: ' + (h.storage.ok ? 'ok' : 'pendente'), h.storage.ok ? 'ok' : 'bad');
+  if (h.limits && h.usage) add('Hoje: ' + h.usage.train + '/' + h.limits.train + ' vozes · ' + h.usage.convert + '/' + h.limits.convert + ' conversões', '');
+}
+async function checkConnection(deep) {
+  pill('Verificando…'); $('connMsg').textContent = 'Verificando o servidor…';
+  try {
+    const h = await api('/api/health' + (deep ? '?deep=1' : ''));
+    health = h; chips(h);
+    $('diag').textContent = JSON.stringify({ authenticated: h.authenticated, engines: h.engines, storage: h.storage, limits: h.limits, usage: h.usage, checks: h.checks }, null, 1);
+    if (!h.authenticated) { showLogin(); return h; }
+    $('loginBtn').classList.add('hidden'); $('deepBtn').classList.remove('hidden');
+    if (!h.storage.ok) { pill('Servidor incompleto', 'bad'); $('connMsg').textContent = 'Conectado, mas o armazenamento do servidor ainda não foi configurado. O administrador precisa concluir a publicação.'; return h; }
+    if (!h.engines.treino.configured && !h.engines.rapido.configured) { pill('Sem motores', 'bad'); $('connMsg').textContent = 'Conectado, mas nenhum motor de voz está configurado no servidor.'; return h; }
+    if (h.paidJobsEnabled === false) { pill('Pausado', 'warn'); $('connMsg').textContent = 'Conectado. O processamento está pausado pelo administrador.'; return h; }
+    let msg = 'Conectado e pronto para clonar vozes.';
+    if (h.checks) msg += ' Diagnóstico: ' + Object.entries(h.checks).map(([k, c]) => (k === 'treino' ? 'Motor Treino' : 'Motor Rápido') + (c.ok ? ' ok' : ' com problema (' + (c.message || c.reason) + ')')).join(' · ');
+    pill('Conectado', 'ok'); $('connMsg').textContent = msg;
+    loadVoices(); loadJobs();
+    return h;
+  } catch (e) {
+    chips(null);
+    if (e.auth) showLogin(e.message); else { pill('Erro', 'bad'); $('connMsg').textContent = e.message; }
+  }
+}
+$('testBtn').onclick = () => checkConnection(false);
+$('deepBtn').onclick = () => checkConnection(true);
+$('loginBtn').onclick = () => { location.href = API + '/api/auth/login?return=' + encodeURIComponent(location.href.split('#')[0]); };
+
+// ---------- áudio: decodificar, reamostrar, WAV, ZIP ----------
+let actx;
+const ctx = () => (actx = actx || new (window.AudioContext || window.webkitAudioContext)());
+async function decode(blob) {
+  try { return await ctx().decodeAudioData(await blob.arrayBuffer()); }
+  catch { throw new Error('Não consegui ler este áudio. Use WAV, MP3 ou M4A.'); }
+}
+async function toMono(buf, rate) {
+  const len = Math.max(1, Math.ceil(buf.duration * rate));
+  const off = new OfflineAudioContext(1, len, rate);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  const out = await off.startRendering();
+  return out.getChannelData(0);
+}
+function wavBytes(samples, rate, gain = 1) {
+  const n = samples.length, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer);
+  const s = (p, t) => { for (let i = 0; i < t.length; i++) v.setUint8(p + i, t.charCodeAt(i)); };
+  s(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); s(8, 'WAVE'); s(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, samples[i] * gain)); v.setInt16(44 + i * 2, x < 0 ? x * 32768 : x * 32767, true); }
+  return b;
+}
+function wavFromBuffer(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, rate = buf.sampleRate, b = new Uint8Array(44 + n * ch * 2), v = new DataView(b.buffer);
+  const s = (p, t) => { for (let i = 0; i < t.length; i++) v.setUint8(p + i, t.charCodeAt(i)); };
+  s(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); s(8, 'WAVE'); s(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); s(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const data = Array.from({ length: ch }, (_, i) => buf.getChannelData(i)); let p = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const x = Math.max(-1, Math.min(1, data[c][i])); v.setInt16(p, x < 0 ? x * 32768 : x * 32767, true); p += 2; }
+  return new Blob([b], { type: 'audio/wav' });
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = -1; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const [name, data] of files) {
+    const n = enc.encode(name), crc = crc32(data), h = new Uint8Array(30 + n.length), dv = new DataView(h.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint32(14, crc, true); dv.setUint32(18, data.length, true); dv.setUint32(22, data.length, true); dv.setUint16(26, n.length, true); h.set(n, 30);
+    const c = new Uint8Array(46 + n.length), cv = new DataView(c.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true); cv.setUint16(28, n.length, true); cv.setUint32(42, off, true); c.set(n, 46);
+    parts.push(h, data); central.push(c); off += h.length + data.length;
+  }
+  const size = central.reduce((a, c) => a + c.length, 0), e = new Uint8Array(22), ev = new DataView(e.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true); ev.setUint32(12, size, true); ev.setUint32(16, off, true);
+  return new Blob([...parts, ...central, e], { type: 'application/zip' });
+}
+// Pacote de treino: mono 40 kHz, normalizado, trechos de 10 s sem silêncio → dataset/voz/split_N.wav
+async function buildDataset(buf) {
+  const RATE = 40000, CHUNK = RATE * 10, x = await toMono(buf, RATE);
+  let peak = 0; for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
+  if (peak < 0.01) throw new Error('A amostra está muda ou baixa demais. Grave mais perto do microfone.');
+  const gain = 0.89 / peak, files = []; let voiced = 0;
+  for (let p = 0, k = 0; p < x.length; p += CHUNK) {
+    const seg = x.subarray(p, Math.min(x.length, p + CHUNK)); if (seg.length < RATE * 1.5) continue;
+    let e = 0; for (let i = 0; i < seg.length; i++) e += seg[i] * seg[i];
+    if (Math.sqrt(e / seg.length) * gain < 0.004) continue; // pula silêncio
+    files.push(['dataset/voz/split_' + (k++) + '.wav', wavBytes(seg, RATE, gain)]); voiced += seg.length / RATE;
+  }
+  if (voiced < MIN_SAMPLE) throw new Error('Pouca voz útil na amostra (' + Math.round(voiced) + ' s). Grave pelo menos 20 segundos cantando ou falando.');
+  return { zip: zipStore(files), voiced, parts: files.length };
+}
+
+// ---------- gravação pelo microfone ----------
+function recorder(btnId, timeId, onDone) {
+  let mr = null, chunks = [], t0 = 0, timer = 0, stream = null;
+  const btn = $(btnId), label = btn.textContent;
+  btn.onclick = async () => {
+    if (mr) { mr.stop(); return; }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { alert('Este navegador não permite gravar. Envie um arquivo de áudio.'); return; }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+    catch { alert('Permita o uso do microfone para gravar.'); return; }
+    chunks = []; mr = new MediaRecorder(stream);
+    mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+    mr.onstop = () => {
+      clearInterval(timer); stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' }); mr = null;
+      btn.textContent = label; $(timeId).classList.add('hidden');
+      const ext = /mp4|aac/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm';
+      onDone(new File([blob], 'gravacao-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.' + ext, { type: blob.type }));
+    };
+    mr.start(1000); t0 = Date.now(); btn.textContent = '■ Parar gravação'; $(timeId).classList.remove('hidden');
+    timer = setInterval(() => { $(timeId).textContent = fmt((Date.now() - t0) / 1000); }, 250);
+  };
+}
+
+// ---------- passo 1: amostra ----------
+let sample = null; // {file, buf, url}
+async function setSample(file) {
+  if (!file) return;
+  if (sample?.url) URL.revokeObjectURL(sample.url);
+  sample = null; uploadedDataset = null;
+  $('sampleInfo').textContent = 'Lendo áudio…';
+  try {
+    const buf = await decode(file), d = buf.duration, url = URL.createObjectURL(file);
+    sample = { file, buf, url };
+    $('samplePlayer').src = url; $('samplePlayer').classList.remove('hidden');
+    $('sampleMeter').style.width = Math.min(100, d / REC_MIN * 60) + '%';
+    let msg = file.name + ' · ' + fmt(d) + ' min. ';
+    if (d < MIN_SAMPLE) { msg += 'Curto demais: grave pelo menos 20 segundos (ideal: 2 a 10 minutos).'; sample = null; }
+    else if (d > MAX_SAMPLE) { msg += 'Longo demais: use no máximo 15 minutos.'; sample = null; }
+    else if (d < REC_MIN) msg += 'Funciona, mas a voz fica mais fiel com 2 minutos ou mais.';
+    else if (d > REC_MAX) msg += 'Ótimo. Vamos usar até 15 minutos.';
+    else msg += 'Duração ideal ✓';
+    $('sampleInfo').textContent = msg;
+  } catch (e) { $('sampleInfo').textContent = e.message; }
+}
+$('sampleFile').onchange = e => setSample(e.target.files[0]);
+recorder('recSample', 'recSampleTime', f => setSample(f));
+
+// ---------- passo 2: vozes ----------
+let voices = [], rapidoModels = [], uploadedDataset = null;
+const statusLabel = { pronta: ['Pronta', 'ok'], treinando: ['Treinando…', 'warn'], erro: ['Falhou', 'bad'] };
+function renderVoices() {
+  const ul = $('voiceList'); ul.innerHTML = '';
+  if (!voices.length) { ul.innerHTML = '<li class="note">Nenhuma voz salva ainda.</li>'; }
+  for (const v of voices) {
+    const li = document.createElement('li'), info = document.createElement('div'), st = statusLabel[v.status] || [v.status, ''];
+    const b = document.createElement('b'); b.textContent = v.name;
+    const small = document.createElement('span'); small.className = 'note';
+    small.textContent = [v.engines?.treino ? 'Motor Treino' : '', v.engines?.rapido ? 'Motor Rápido' : ''].filter(Boolean).join(' + ') || (v.status === 'treinando' ? 'Motor Treino' : '');
+    const p = document.createElement('span'); p.className = 'pill ' + st[1]; p.textContent = st[0];
+    info.append(b, small);
+    const del = document.createElement('button'); del.className = 'danger'; del.type = 'button'; del.textContent = 'Excluir'; del.style.minHeight = '40px'; del.style.padding = '8px 12px';
+    del.onclick = async () => { if (!confirm('Excluir a voz “' + v.name + '”?')) return; try { await api('/api/voices/' + v.id, { method: 'DELETE' }); loadVoices(); } catch (e) { handleErr('createStatus', e); } };
+    li.append(info, p, del); ul.append(li);
+  }
+  const sel = $('voiceSelect'), cur = sel.value; sel.innerHTML = '';
+  const ready = voices.filter(v => v.status === 'pronta');
+  sel.append(new Option(ready.length ? 'Escolha a voz' : 'Crie ou escolha uma voz pronta', ''));
+  for (const v of ready) sel.append(new Option(v.name, v.id));
+  if (ready.some(v => v.id === cur)) sel.value = cur; else if (ready.length === 1) sel.value = ready[0].id;
+  for (const v of voices) if (v.status === 'treinando' && v.jobId) watchJob(v.jobId);
+}
+function renderRapido() {
+  const s = $('rapidoModel'); s.innerHTML = '';
+  if (!rapidoModels.length) s.append(new Option(health?.engines?.rapido?.configured ? 'Nenhum modelo encontrado na sua conta do Motor Rápido' : 'Motor Rápido não configurado', ''));
+  for (const m of rapidoModels) s.append(new Option(m.title, m.id));
+}
+async function loadVoices() {
+  try { const d = await api('/api/voices'); voices = d.voices || []; rapidoModels = d.rapidoModels || []; renderVoices(); renderRapido(); }
+  catch (e) { handleErr('createStatus', e); }
+}
+$('createMode').onchange = () => $('rapidoBox').classList.toggle('hidden', $('createMode').value !== 'rapido');
+$('createBtn').onclick = async () => {
+  const name = $('voiceName').value.trim(), mode = $('createMode').value;
+  if (name.length < 2) return say('createStatus', 'Dê um nome à sua voz.', 'err');
+  if (!$('consent').checked) return say('createStatus', 'Marque a confirmação de que a voz é sua ou autorizada (passo 1).', 'err');
+  const btn = $('createBtn'); btn.disabled = true;
+  try {
+    if (mode === 'rapido') {
+      const id = $('rapidoModel').value; if (!id) throw new Error('Escolha um modelo do Motor Rápido.');
+      await api('/api/voices', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, engine: 'rapido', rapidoModelId: id, consent: true }) });
+      say('createStatus', 'Voz “' + name + '” pronta para converter.', 'ok'); await loadVoices(); return;
+    }
+    if (!sample) throw new Error('Grave ou envie sua voz no passo 1 (mínimo 20 segundos).');
+    if (!uploadedDataset) {
+      say('createStatus', 'Preparando sua amostra (limpeza de silêncio e normalização)…');
+      const ds = await buildDataset(sample.buf);
+      if (ds.zip.size > MAX_UPLOAD) throw new Error('A amostra ficou grande demais. Use até 10 minutos.');
+      say('createStatus', 'Enviando amostra (' + (ds.zip.size / 1048576).toFixed(1) + ' MB)…');
+      const up = await api('/api/uploads?kind=dataset', { method: 'POST', headers: { 'content-type': 'application/zip', 'x-aps-filename': 'amostra.zip', 'x-aps-duration': String(Math.round(ds.voiced)) }, body: ds.zip });
+      uploadedDataset = up.id;
+    }
+    if (!confirm('Iniciar o treino da voz “' + name + '”?\n\nO APS não cobra por isso, mas o Motor Treino pode consumir créditos da conta do servidor. Leva de 10 a 30 minutos.')) { say('createStatus', 'Treino não iniciado.'); return; }
+    const d = await api('/api/voices', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, engine: 'treino', datasetId: uploadedDataset, consent: true, confirmCost: true }) });
+    say('createStatus', 'Treino iniciado. Você pode sair desta página; o status aparece em “Vozes salvas”.', 'ok');
+    await loadVoices(); watchJob(d.job.id);
+  } catch (e) { handleErr('createStatus', e); }
+  finally { btn.disabled = false; }
+};
+
+// ---------- acompanhamento de tarefas ----------
+const watching = new Map();
+function watchJob(id) {
+  if (watching.has(id)) return;
+  let delay = 4000;
+  const tick = async () => {
+    try {
+      const { job } = await api('/api/jobs/' + id);
+      if (job.type === 'convert') say('convertStatus', statusText(job), job.status === 'erro' ? 'err' : job.status === 'pronto' ? 'ok' : '');
+      if (job.status === 'pronto' || job.status === 'erro' || job.status === 'cancelado') {
+        watching.delete(id);
+        if (job.type === 'train') { loadVoices(); say('createStatus', job.status === 'pronto' ? 'Voz “' + job.voiceName + '” pronta! Vá para o passo 3.' : job.error, job.status === 'pronto' ? 'ok' : 'err'); }
+        if (job.type === 'convert' && job.status === 'pronto') await showResult(job);
+        $('convertBtn').disabled = false; loadJobs(); return;
+      }
+    } catch (e) { if (e.auth) { watching.delete(id); handleErr('convertStatus', e); return; } }
+    delay = Math.min(15000, delay * 1.3); watching.set(id, setTimeout(tick, delay));
+  };
+  watching.set(id, setTimeout(tick, 1500));
+}
+function statusText(job) {
+  const s = { na_fila: 'Na fila…', processando: 'Processando…', pronto: 'Pronto!', erro: 'Falhou', cancelado: 'Cancelado' }[job.status] || job.status;
+  return (job.type === 'train' ? 'Treino' : 'Conversão') + ' (' + (job.engineLabel || '') + '): ' + s + (job.error ? ' — ' + job.error : '') + (job.fallbackFrom ? ' · usando motor alternativo' : '');
+}
+async function loadJobs() {
+  try {
+    const { jobs } = await api('/api/jobs'); const ul = $('jobList'); ul.innerHTML = '';
+    if (!jobs.length) ul.innerHTML = '<li class="note">Sem tarefas ainda.</li>';
+    for (const j of jobs) {
+      const li = document.createElement('li'); const t = document.createElement('span');
+      t.textContent = new Date(j.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) + ' · ' + statusText(j) + ' · ' + (j.voiceName || '');
+      li.append(t);
+      if (j.type === 'convert' && j.status === 'pronto') { const b = document.createElement('button'); b.type = 'button'; b.className = 'sec'; b.textContent = 'Abrir'; b.onclick = () => showResult(j); li.append(b); }
+      ul.append(li);
+    }
+  } catch {}
+}
+
+// ---------- passo 3: conversão ----------
+let guide = null; // {file, blob, url, duration}
+async function setGuide(file) {
+  if (!file) return;
+  try {
+    const buf = await decode(file);
+    if (buf.duration > MAX_GUIDE) throw new Error('Guia longa demais (' + fmt(buf.duration) + '). Use até 10 minutos.');
+    let blob = file, name = file.name;
+    if (!/\.(wav|mp3)$/i.test(file.name) || file.size > MAX_UPLOAD) {
+      const rate = buf.duration > 280 ? 32000 : 44100; // garante < 50 MB
+      blob = new Blob([wavBytes(await toMono(buf, rate), rate)], { type: 'audio/wav' }); name = name.replace(/\.[^.]+$/, '') + '.wav';
+    }
+    if (guide?.url) URL.revokeObjectURL(guide.url);
+    guide = { file, blob, name, url: URL.createObjectURL(file), duration: buf.duration };
+    say('convertStatus', 'Guia pronta: ' + file.name + ' · ' + fmt(buf.duration) + ' min.');
+  } catch (e) { guide = null; say('convertStatus', e.message, 'err'); }
+}
+$('guideFile').onchange = e => setGuide(e.target.files[0]);
+recorder('recGuide', 'recGuideTime', f => setGuide(f));
+$('pitch').oninput = () => { const v = +$('pitch').value; $('pitchOut').textContent = (v > 0 ? '+' : '') + v + ' semitons'; };
+$('fidelity').oninput = () => { $('fidOut').textContent = $('fidelity').value + '%'; };
+$('convertBtn').onclick = async () => {
+  const voiceId = $('voiceSelect').value;
+  if (!voiceId) return say('convertStatus', 'Escolha uma voz pronta (crie uma no passo 2).', 'err');
+  if (!guide) return say('convertStatus', 'Grave ou envie a guia antes de converter.', 'err');
+  const btn = $('convertBtn'); btn.disabled = true;
+  try {
+    say('convertStatus', 'Enviando guia…');
+    const up = await api('/api/uploads?kind=guide', { method: 'POST', headers: { 'content-type': guide.blob.type || 'audio/wav', 'x-aps-filename': guide.name, 'x-aps-duration': guide.duration.toFixed(2) }, body: guide.blob });
+    if (!confirm('Converter a guia para a voz escolhida?\n\nO resultado será voz gerada por IA. O motor pode consumir créditos da conta do servidor.')) { say('convertStatus', 'Conversão não iniciada.'); btn.disabled = false; return; }
+    const v = voices.find(x => x.id === voiceId);
+    const { job } = await api('/api/convert', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voiceId, guideId: up.id, pitch: +$('pitch').value, fidelity: +$('fidelity').value / 100, engine: $('engineSelect').value, confirmCost: true }) });
+    pendingOriginal[job.id] = { blob: guide.file, name: guide.file.name, voice: v ? v.name : '' };
+    say('convertStatus', statusText(job)); watchJob(job.id);
+  } catch (e) { handleErr('convertStatus', e); btn.disabled = false; }
+};
+
+// ---------- passo 4: resultado, A/B, downloads, DAW, desfazer ----------
+const pendingOriginal = {};
+const results = []; // pilha para Desfazer
+let side = 'clone';
+const A = $('origAudio'), B = $('cloneAudio');
+const active = () => (side === 'clone' ? B : A);
+async function showResult(job) {
+  try {
+    say('resultStatus', 'Baixando resultado…');
+    const clone = await apiBlob(job.resultUrl);
+    let orig = pendingOriginal[job.id]?.blob || null;
+    if (!orig && job.originalUrl) orig = await apiBlob(job.originalUrl).catch(() => null);
+    results.push({ job, clone, orig, name: (job.voiceName || 'voz') + ' — ' + new Date(job.createdAt || Date.now()).toLocaleTimeString('pt-BR', { timeZone: 'America/Recife', hour: '2-digit', minute: '2-digit' }) });
+    renderResult();
+    say('resultStatus', 'Pronto. Compare A (original) e B (voz clonada).', 'ok');
+    $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { handleErr('resultStatus', e); }
+}
+function renderResult() {
+  const cur = results[results.length - 1];
+  [A, B].forEach(a => { a.pause(); if (a.src) URL.revokeObjectURL(a.src); a.removeAttribute('src'); });
+  $('playBtn').textContent = '▶ Tocar';
+  if (!cur) { $('resultBox').classList.add('hidden'); $('resultEmpty').classList.remove('hidden'); $('resultEmpty').textContent = 'Resultado desfeito. Seu áudio original continua intacto.'; return; }
+  $('resultBox').classList.remove('hidden'); $('resultEmpty').classList.add('hidden');
+  $('resultName').textContent = cur.name;
+  B.src = URL.createObjectURL(cur.clone);
+  if (cur.orig) A.src = URL.createObjectURL(cur.orig);
+  $('abOriginal').disabled = !cur.orig;
+  setSide('clone');
+  $('undoBtn').textContent = results.length > 1 ? '↶ Desfazer (voltar ao anterior)' : '↶ Desfazer';
+  $('dlMp3').classList.toggle('hidden', !/mpeg|mp3/.test(cur.clone.type)); // MP3 quando o motor devolve MP3; WAV sempre disponível
+}
+function setSide(s) {
+  const from = active(), t = from.currentTime || 0, playing = !from.paused;
+  side = s; $('abOriginal').setAttribute('aria-pressed', String(s === 'orig')); $('abClone').setAttribute('aria-pressed', String(s === 'clone'));
+  if (from !== active()) { from.pause(); try { active().currentTime = t; } catch {} if (playing) active().play().catch(() => {}); }
+}
+$('abOriginal').onclick = () => setSide('orig');
+$('abClone').onclick = () => setSide('clone');
+$('playBtn').onclick = () => { const a = active(); if (a.paused) { a.play().catch(() => {}); } else a.pause(); };
+[A, B].forEach(a => {
+  a.onplay = () => { if (a === active()) $('playBtn').textContent = '❚❚ Pausar'; };
+  a.onpause = a.onended = () => { if (a === active()) $('playBtn').textContent = '▶ Tocar'; };
+  a.ontimeupdate = () => { if (a !== active()) return; $('abTime').textContent = fmt(a.currentTime) + ' / ' + fmt(a.duration); if (a.duration) $('seek').value = Math.round(a.currentTime / a.duration * 1000); };
+});
+$('seek').oninput = () => { const a = active(); if (a.duration) a.currentTime = $('seek').value / 1000 * a.duration; };
+function save(blob, name) {
+  const a = document.createElement('a'), u = URL.createObjectURL(blob); a.href = u; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 3000);
+}
+const baseName = () => ('APS Voz IA - ' + results[results.length - 1].name).replace(/[\\/:*?"<>|]/g, '-');
+$('dlWav').onclick = async () => {
+  const cur = results[results.length - 1]; if (!cur) return;
+  try { say('resultStatus', 'Gerando WAV…'); save(/wav/.test(cur.clone.type) ? cur.clone : wavFromBuffer(await decode(cur.clone)), baseName() + '.wav'); say('resultStatus', 'Download do WAV iniciado (voz gerada por IA).', 'ok'); }
+  catch (e) { handleErr('resultStatus', e); }
+};
+$('dlMp3').onclick = () => { const cur = results[results.length - 1]; if (!cur) return; save(cur.clone, baseName() + '.mp3'); say('resultStatus', 'Download iniciado (voz gerada por IA).', 'ok'); };
+$('undoBtn').onclick = () => { if (!results.length) return; results.pop(); renderResult(); say('resultStatus', results.length ? 'Voltamos ao resultado anterior.' : '', 'ok'); };
+$('toDaw').onclick = async () => {
+  const cur = results[results.length - 1]; if (!cur) return;
+  const btn = $('toDaw'); btn.disabled = true; let db;
+  try {
+    if (!window.indexedDB) throw new Error('Este navegador não permite a transferência automática. Baixe o WAV e importe no Estúdio.');
+    const ext = /wav/.test(cur.clone.type) ? 'wav' : 'mp3';
+    const stems = [{ id: 'vocals', name: 'Voz clonada IA - ' + (cur.job.voiceName || 'APS') + '.' + ext, type: cur.clone.type || 'audio/mpeg', blob: cur.clone }];
+    if (cur.orig) stems.push({ id: 'other', name: 'Guia original.' + (/wav/.test(cur.orig.type) ? 'wav' : 'mp3'), type: cur.orig.type || 'audio/wav', blob: cur.orig });
+    db = await new Promise((res, rej) => { const r = indexedDB.open('aps-stems-transfer-v1', 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('sessions')) r.result.createObjectStore('sessions'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    await new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put({ id: Date.now() + '-' + Math.random().toString(36).slice(2), name: 'APS Voz Studio — ' + cur.name + ' (voz gerada por IA)', stems, createdAt: Date.now() }, 'latest'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('Falha ao salvar.')); });
+    location.href = './daw.html?modulo=gravacao&importStems=1&origem=voz';
+  } catch (e) { handleErr('resultStatus', e); btn.disabled = false; }
+  finally { db?.close(); }
+};
+
+window.APSVoz = { get api() { return API; }, results, checkConnection, buildDataset, zipStore, crc32 };
+checkConnection(false);
+})();
+</script>
+</body>
+</html>
