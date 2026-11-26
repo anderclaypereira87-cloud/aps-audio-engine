@@ -6,6 +6,7 @@
   "main": "../aps-voice-vault.js",
   "compatibility_date": "2026-11-10",
   "workers_dev": true,
+  "preview_urls": false, // URLs de preview ficariam fora do Cloudflare Access
   "observability": { "enabled": true },
   // voice-singer.html é embutida no Worker como texto (estúdio na mesma origem da API).
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": false }],
