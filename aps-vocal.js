@@ -59,9 +59,23 @@ if(typeof document==='undefined')return;
 // o editor de notas com arraste (aps-elastic-tune-ui.js), que preserva vibrato e formantes.
 function loadOnce(src){return new Promise((res,rej)=>{if(document.querySelector('script[data-aps-src="'+src+'"]')){const t=setInterval(()=>{if(root.APSElasticTuneUI&&root.APSElastic&&root.APSElasticCore){clearInterval(t);res();}},30);setTimeout(()=>{clearInterval(t);res();},8000);return;}const s=document.createElement('script');s.src='./'+src;s.dataset.apsSrc=src;s.onload=res;s.onerror=()=>rej(Error('Falha ao carregar '+src));document.head.appendChild(s);});}
 async function ui(){const host=document.getElementById('apsVocalTune'),B=root.APSMixBridge;if(!host||!B)return;
- if(!root.APSElasticCore)await loadOnce('aps-elastic-core.js?v=2');if(!root.APSElastic)await loadOnce('aps-elastic.js?v=2');if(!root.APSElasticTuneUI)await loadOnce('aps-elastic-tune-ui.js?v=1');
+ if(!root.APSElasticCore)await loadOnce('aps-elastic-core.js?v=2');if(!root.APSElastic)await loadOnce('aps-elastic.js?v=2');if(!root.APSElasticTuneUI)await loadOnce('aps-elastic-tune-ui.js?v=2');
  const originals=root.__apsVtOriginals||(root.__apsVtOriginals=new Map());
+ if(!root.APSApplyPlay)await loadOnce('aps-apply-play.js?v=1').catch(()=>{});
+ const sessOff=t=>(Number(t.start)||0)-(Number(t.trimIn)||0),gainOf=t=>Math.max(0,Math.min(1.5,(Number(t.gain)||(t.gain===0?0:100))/100)),active=()=>(B.current&&B.current())||null;
  root.APSElasticTuneUI.mount(host,{idPrefix:'apsVt',
+  // barra fixa logo abaixo: "✓ Aplicar afinação na música" + ↶ Desfazer + "▶ Ouvir afinação" (Editado | Original, Solo | Música toda)
+  deck:{reusePreview:true,applyLabel:'✓ Aplicar afinação na música',appliedLabel:'✓ Afinação aplicada',playLabel:'▶ Ouvir afinação',scopes:true,
+   targetName:()=>{const t=active();return t?'“'+(t.name||'Pista')+'”':'ativa';},
+   appliedText:n=>`✓ Afinação aplicada na pista ${n} · Original guardado. Ouça no ▶ abaixo ou toque em ↶ Desfazer.`,
+   toLocal:s=>{const t=active();return t?s-sessOff(t):s;},
+   record:root.APSApplyPlay?root.APSApplyPlay.dawRecord(B,async t=>{const T=host.__apsTune;if(T&&T.deck)T.deck.msg(`● Gravação pronta na pista “${t.name||'Pista'}” (selecionada). Analisando a voz…`,'ok');if(T)await T.analyze();}):null,
+   audio:({scope,buffer,viewStart})=>{const a=active();if(!a)throw Error('Selecione a pista de voz na DAW primeiro.');
+    if(root.__apsQuantDaw&&root.__apsQuantDaw.rhythm&&root.__apsQuantDaw.rhythm.isPlaying())root.__apsQuantDaw.rhythm.stop();if(B.stop)B.stop();
+    const items=[{buffer,start:sessOff(a),gain:gainOf(a)}];
+    if(scope==='all'){const all=(B.all()||[]).filter(t=>t&&t.buf&&t.id!==a.id),anySolo=all.some(t=>t.solo)||a.solo;for(const t of all)if(!t.mute&&(!anySolo||t.solo))items.push({buffer:t.buf,start:sessOff(t),gain:gainOf(t)});}
+    const ctx=root.__apsQuantCtx||(root.__apsQuantCtx=new (root.AudioContext||root.webkitAudioContext)());
+    return {ctx,from:Math.max(0,sessOff(a)+(viewStart||0)),items,label:`voz “${a.name||'Pista'}”`+(items.length>1?` + ${items.length-1} outra(s)`:'')};}},
   getSource:()=>{const t=B.current&&B.current();return t?{id:t.id,buffer:t.buf}:null;},
   originalOf:id=>originals.get(id)||null,
   apply:(buf,info)=>{if(!originals.has(info.id))originals.set(info.id,info.original);B.setBuffer(info.id,buf);},

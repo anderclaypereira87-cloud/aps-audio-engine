@@ -102,30 +102,32 @@ small,h3{color:var(--muted)}
 <div id="quantHost"></div>
 </section>
 <section class="panel" style="margin-top:15px">
-<h2>4. Escutar e baixar</h2>
+<h2>4. Baixar ou enviar para a DAW</h2>
+<p class="hint">Dica: a barra verde <b>✓ Aplicar quantização</b> e o <b>▶ Ouvir</b> ficam logo abaixo do editor (passo 3), sempre à mão no celular.</p>
 <div class="audioRow">
 <button id="play" type="button" class="secondary" disabled>▶ Reproduzir</button>
 <button id="stop" type="button" class="ghost" disabled>■ Parar</button>
 </div>
 <p class="hint" id="compare">Use o botão A/B do editor para alternar entre o original (A) e o quantizado (B). O ▶ toca o que estiver selecionado (com o metrônomo, se ligado).</p>
-<div class="btnrow"><button id="download" type="button" disabled>↓ Baixar WAV quantizado</button></div>
+<div class="btnrow"><button id="download" type="button" disabled>↓ Baixar WAV quantizado</button><button id="qSendDaw" type="button" disabled>📤 Enviar para a DAW</button></div>
 <p class="hint">O arquivo original nunca é substituído. O download usa WAV PCM 16 bits. Para mixar, importe o resultado na DAW.</p>
 </section>
 <section class="panel" style="margin-top:15px">
 <h2>Como usar no celular</h2>
-<p>Toque em <strong>📁 Abrir meus arquivos</strong>, escolha a gravação, ajuste o BPM e a grade, toque em <strong>⌁ Analisar ataques</strong> e depois em <strong>✦ Quantizar sem cortes</strong>. Se algum ataque não ficou como você quer, use <strong>✋ Mover</strong>, <strong>＋ Adicionar</strong>, <strong>🗑 Apagar</strong> ou <strong>🔒 Travar</strong> no gráfico e aplique de novo.</p>
+<p>Toque em <strong>📁 Abrir meus arquivos</strong>, escolha a gravação, ajuste o BPM e a grade, toque em <strong>⌁ Analisar ataques</strong> e ouça no <strong>▶ Ouvir o que está sendo feito</strong> (Editado × Original) e toque em <strong>✓ Aplicar quantização</strong>. Se algum ataque não ficou como você quer, use <strong>✋ Mover</strong>, <strong>＋ Adicionar</strong>, <strong>🗑 Apagar</strong> ou <strong>🔒 Travar</strong> no gráfico e aplique de novo.</p>
 <p>Trechos em vermelho foram esticados além de 0,75×–1,5× e podem soar artificiais.</p>
 </section>
 </div>
 <script src="./aps-elastic-core.js?v=2"></script>
 <script src="./aps-elastic.js?v=2"></script>
-<script src="./aps-elastic-quant-ui.js?v=2"></script>
+<script src="./aps-apply-play.js?v=1"></script>
+<script src="./aps-elastic-quant-ui.js?v=3"></script>
 <script src="./aps-quant-rhythm.js?v=1"></script>
 <script>
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
-let ctx=null,original=null,current=null,fileId=0,node=null,result=null,bpmV=100,sigV='4/4',gridZero=0;
+let ctx=null,original=null,current=null,fileId=0,node=null,result=null,bpmV=100,sigV='4/4',gridZero=0,fileName='audio';
 try{const sv=localStorage.getItem('aps-quant-sig');if(sv&&APSElasticCore.METERS[sv])sigV=sv;}catch(e){}
 function ac(){if(!ctx){const A=window.AudioContext||window.webkitAudioContext;if(!A)throw Error('Este navegador não suporta Web Audio.');ctx=new A();}return ctx;}
 function stop(){if(rhythm&&rhythm.isPlaying())rhythm.stop();$('play').textContent='▶ Reproduzir';}
@@ -134,8 +136,18 @@ const ui=APSElasticQuantUI.mount($('quantHost'),{
  idPrefix:'q',defaultStrength:100,
  bpm:()=>bpmV, meter:()=>sigV, gridOffset:()=>gridZero,
  getSource:()=>original?{id:'file'+fileId,buffer:original}:null,
- apply:(buf)=>{stop();current=buf;result=buf;$('download').disabled=false;$('compare').textContent='Tocando agora: B (quantizado). Use A/B no editor para comparar.';},
- restore:(buf,info)=>{stop();current=buf;if(info&&info.undo){result=null;$('download').disabled=true;}$('compare').textContent='Tocando agora: A (original).';}
+ deck:{sticky:false,applyLabel:'✓ Aplicar quantização',appliedLabel:'✓ Quantização aplicada',playLabel:'▶ Ouvir o que está sendo feito',scopes:false,
+  targetName:()=>'“'+fileName+'”',
+  appliedText:()=>'✓ Quantização aplicada · original guardado. Ouça no ▶ abaixo, baixe o WAV ou envie para a DAW.',
+  metronome:{get:()=>!!(rhythm&&rhythm.metro.enabled),set:on=>rhythm&&rhythm.setMetronome(on),info:()=>({bpm:bpmV,sig:sigV,gridZero,volume:rhythm?rhythm.metro.volume:.35})},
+  record:(()=>{const m=APSApplyPlay.micRecorder(ac);return {isRecording:m.isRecording,toggle:async()=>{if(!m.isRecording()){stop();await m.start();$('fileName').textContent='● Gravando pelo microfone… toque ⏹ Parar quando terminar.';return;}
+   const b=await m.stop();if(!b)return;if(b.duration>600)throw Error('Grave até 10 minutos.');original=b;current=b;result=null;fileId++;fileName='Gravação '+new Date().toLocaleTimeString('pt-BR').slice(0,5).replace(':','h');
+   const s=Math.floor(b.duration);$('trackDuration').textContent='Duração: '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0');$('trackRate').textContent='Taxa: '+b.sampleRate+' Hz';$('fileName').textContent=fileName+' · gravada agora (fica só no aparelho)';
+   $('play').disabled=false;$('stop').disabled=false;$('download').disabled=true;$('qSendDaw').disabled=true;toDawBtn(false);await ui.analyze();}};})(),
+  extras:[{id:'qToDaw',label:'📤 Enviar para a DAW',onClick:()=>sendDaw()}],
+  audio:({buffer,viewStart})=>{stop();return {ctx:ac(),from:viewStart||0,items:[{buffer,start:0}]};}},
+ apply:(buf)=>{stop();current=buf;result=buf;$('download').disabled=false;$('qSendDaw').disabled=false;toDawBtn(true);$('compare').textContent='Tocando agora: B (quantizado). Use A/B no editor para comparar.';},
+ restore:(buf,info)=>{stop();current=buf;if(info&&info.undo){result=null;$('download').disabled=true;$('qSendDaw').disabled=true;toDawBtn(false);}$('compare').textContent='Tocando agora: A (original).';}
 });
 rhythm=APSQuantRhythm.mountBar($('rhythmHost'),{
  idPrefix:'qr',
@@ -144,7 +156,7 @@ rhythm=APSQuantRhythm.mountBar($('rhythmHost'),{
  getSig:()=>sigV, setSig:s=>{sigV=s;try{localStorage.setItem('aps-quant-sig',s);}catch(e){}ui.redraw();},
  getGridZero:()=>gridZero, setGridZero:t=>{const bar=APSElasticCore.meterInfo(sigV,bpmV).bar;gridZero=((t%bar)+bar)%bar;ui.redraw();},
  analyze:async()=>{if(!original)throw Error('Escolha um arquivo MP3 ou WAV primeiro.');return APSElastic.tempoMeter(original);},
- audio:()=>{const b=ui.audible()||current;return b?{ctx:ac(),from:ui.viewStart(),items:[{buffer:b,start:0}],label:ui.listening()==='B'?'Ouvindo B (quantizado).':'Ouvindo A (original).'}:null;}
+ audio:()=>{if(window.APSApplyPlay&&APSApplyPlay.current)APSApplyPlay.current.stop(true);const b=ui.audible()||current;return b?{ctx:ac(),from:ui.viewStart(),items:[{buffer:b,start:0}],label:ui.listening()==='B'?'Ouvindo B (quantizado).':'Ouvindo A (original).'}:null;}
 });
 $('audioFile').addEventListener('change',async e=>{
  const f=e.target.files[0];stop();if(!f)return;
@@ -154,14 +166,18 @@ $('audioFile').addEventListener('change',async e=>{
   $('fileName').textContent='Lendo '+f.name+'…';
   const buf=await ac().decodeAudioData(await f.arrayBuffer());
   if(buf.duration>600)throw Error('Importe faixas de até 10 minutos.');
-  original=buf;current=buf;result=null;fileId++;
+  original=buf;current=buf;result=null;fileId++;fileName=f.name.replace(/\.[^.]+$/,'');$('qSendDaw').disabled=true;toDawBtn(false);
   const s=Math.floor(buf.duration);$('trackDuration').textContent='Duração: '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0');$('trackRate').textContent='Taxa: '+buf.sampleRate+' Hz';
   $('fileName').textContent=f.name+' · '+(f.size/1048576).toFixed(1)+' MB';$('play').disabled=false;$('stop').disabled=false;$('download').disabled=true;
   ui.analyze();
  }catch(err){$('fileName').textContent=err.message||String(err);}
 });
 $('play').addEventListener('click',async()=>{if(!current)return;if(rhythm.isPlaying()){stop();return;}await rhythm.play();if(rhythm.isPlaying())$('play').textContent='❚❚ Parar';});
-$('stop').addEventListener('click',stop);
+$('stop').addEventListener('click',()=>{stop();if(window.APSApplyPlay&&APSApplyPlay.current)APSApplyPlay.current.stop();});
+function toDawBtn(on){const b=document.getElementById('qToDaw');if(b)b.disabled=!on;}
+async function sendDaw(){if(!result)throw Error('Toque em ✓ Aplicar quantização primeiro.');stop();await APSApplyPlay.sendToDaw(result,'Quantizado · '+fileName,'other');}
+toDawBtn(false);
+$('qSendDaw').addEventListener('click',()=>sendDaw().catch(e=>alert(e.message||e)));
 $('download').addEventListener('click',()=>{if(!result)return;const url=URL.createObjectURL(APSElastic.wav16(result));const a=document.createElement('a');a.href=url;a.download='aps-quantizado-elastico.wav';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);});
 window.__apsQuantPage={ui,rhythm,state:()=>({bpm:bpmV,sig:sigV,gridZero}),setOriginal:b=>{original=b;current=b;result=null;fileId++;$('play').disabled=false;$('stop').disabled=false;}};
 })();
