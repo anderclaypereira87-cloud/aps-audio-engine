@@ -448,3 +448,11 @@ test('requisições simples (sem preflight): upload com nome/duração na query 
   const del = await req(env, '/api/voices/' + v.id + '/delete', { method: 'POST' });
   assert.equal(del.data.deleted, v.id);
 });
+
+test("POST da mesma origem do proprio worker (workers.dev) e aceito", async () => {
+  const env = makeEnv();
+  const z = zipStore([["dataset/voz/split_0.wav", wav(1)]]);
+  const up = await req(env, "/api/uploads?kind=dataset&filename=voz.zip&duration=216", { method: "POST", body: z, origin: BASE });
+  assert.equal(up.r.status, 201);
+  assert.equal(up.r.headers.get("access-control-allow-origin"), BASE);
+});
