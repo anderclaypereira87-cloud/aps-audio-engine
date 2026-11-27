@@ -31,8 +31,9 @@ const DEFAULT_ORIGINS = [
 ];
 
 // ---------- utilidades HTTP / CORS ----------
-export function allowedOrigin(origin, env = {}) {
+export function allowedOrigin(origin, env = {}, requestOrigin = '') {
   if (!origin) return '';
+  if (requestOrigin && origin === requestOrigin) return origin;
   const extra = String(env.EXTRA_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   if (DEFAULT_ORIGINS.includes(origin) || extra.includes(origin)) return origin;
   try {
@@ -628,7 +629,7 @@ export function studioPage(html, env = {}) {
 export async function handle(request, env = {}, opts = {}) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
-  const origin = allowedOrigin(request.headers.get('Origin'), env);
+  const origin = allowedOrigin(request.headers.get('Origin'), env, url.origin);
   if (origin === null) return new Response(JSON.stringify({ ok: false, error: 'Origem não permitida.' }), { status: 403, headers: { 'content-type': 'application/json' } });
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
